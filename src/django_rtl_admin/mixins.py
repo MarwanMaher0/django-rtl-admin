@@ -9,7 +9,7 @@ from django.contrib.admin.utils import (
     lookup_field,
 )
 
-from .bidi import mark_isolated
+from .bidi import isolate, mark_isolated
 from .conf import rtl_settings
 
 #: Field types whose changelist representation is an icon or a bare number and
@@ -156,3 +156,12 @@ class BidiSafeAdminMixin:
         if field is not None:
             return field.name
         return getattr(original, "admin_order_field", None)
+
+    def response_delete(self, request, obj_display, obj_id):
+        # Isolate the object display name inside the success sentence so
+        # identifiers such as ISBNs are not reordered in an RTL admin.
+        # isolate (not mark_isolated) is used because the messages
+        # framework HTML-escapes the string afterwards.
+        if obj_display:
+            obj_display = isolate(str(obj_display), self.bidi_isolation_direction)
+        return super().response_delete(request, obj_display, obj_id)

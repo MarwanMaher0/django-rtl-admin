@@ -75,7 +75,8 @@ body.rtl-admin--rtl {
 .rtl-admin--isolate-cells div.breadcrumbs,
 .rtl-admin--isolate-cells #content h1,
 .rtl-admin--isolate-cells .object-tools a,
-.rtl-admin--isolate-cells #changelist-filter li a {
+.rtl-admin--isolate-cells #changelist-filter li a,
+.rtl-admin ul.messagelist a {
   unicode-bidi: isolate;
 }
 

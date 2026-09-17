@@ -178,3 +178,51 @@ def test_searching_still_works(admin_client, thing):
     response = admin_client.get(CHANGELIST_URL, {"q": "978-0-262"})
     assert response.status_code == 200
     assert response.context["cl"].result_count == 1
+
+
+def test_delete_confirmation_isolates_the_object_name(admin_client, thing):
+    response = admin_client.get(
+        f"/admin/testapp/thing/{thing.pk}/delete/",
+        headers={"accept-language": "ar-eg"},
+    )
+    assert response.status_code == 200
+    html = response.content.decode()
+    assert FSI + thing.name + PDI in html
+
+
+def test_delete_success_message_isolates_the_object_name(admin_client, thing):
+    delete_url = f"/admin/testapp/thing/{thing.pk}/delete/"
+    response = admin_client.post(
+        delete_url,
+        {"post": "yes"},
+        headers={"accept-language": "ar-eg"},
+        follow=True,
+    )
+    assert response.status_code == 200
+    html = response.content.decode()
+    assert FSI + thing.name + PDI in html
+    assert not Thing.objects.filter(pk=thing.pk).exists()
+
+
+def test_html_in_object_name_stays_escaped_on_delete_confirmation(admin_client):
+    thing = Thing.objects.create(name="<script>alert(1)</script>", reference="x")
+    html = admin_client.get(f"/admin/testapp/thing/{thing.pk}/delete/").content.decode()
+    assert "<script>alert(1)</script>" not in html
+    assert "<script>alert(1)</script>" in html
+
+
+def test_stylesheet_isolates_message_list_links():
+    from pathlib import Path
+
+    import django_rtl_admin
+
+    css_path = (
+        Path(django_rtl_admin.__file__).resolve().parent
+        / "static"
+        / "django_rtl_admin"
+        / "css"
+        / "rtl-admin.css"
+    )
+    css = css_path.read_text(encoding="utf-8")
+    assert "ul.messagelist a" in css
+    assert "unicode-bidi: isolate;" in css

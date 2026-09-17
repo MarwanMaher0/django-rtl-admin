@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [semantic versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Isolate object names on the delete confirmation page and in the delete
+  success message, and isolate add/change success-message links in
+  `rtl-admin.css` (`ul.messagelist a`).
+
 ## [0.1.0] - 2026-09-15
 
 First release.
