@@ -1,7 +1,8 @@
 # django-rtl-admin
 
 [![CI](https://github.com/MarwanMaher0/django-rtl-admin/actions/workflows/ci.yml/badge.svg)](https://github.com/MarwanMaher0/django-rtl-admin/actions/workflows/ci.yml)
-[![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue)](https://github.com/MarwanMaher0/django-rtl-admin)
+[![Coverage](https://coveralls.io/repos/github/MarwanMaher0/django-rtl-admin/badge.svg?branch=main)](https://coveralls.io/github/MarwanMaher0/django-rtl-admin?branch=main)
+[![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)](https://github.com/MarwanMaher0/django-rtl-admin)
 [![Django](https://img.shields.io/badge/django-4.2%20%7C%205.x%20%7C%206.x-092e20)](https://www.djangoproject.com/)
 [![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/MarwanMaher0/django-rtl-admin/blob/main/LICENSE)
 
@@ -438,9 +439,19 @@ without Babel, the mixin applied to a real changelist, the language switcher,
 the settings namespace, the system checks, and the fact that the template
 overrides resolve ahead of `django.contrib.admin`.
 
-CI runs Python 3.10 and 3.12 against Django 4.2 and 5.2, and Python 3.12 and
-3.13 against Django 6.1 — each of those twice, once with Babel installed and
-once without, so the fallback path is covered too.
+`noxfile.py` defines one test cell for every Python/Django pair that Django
+itself supports — Python 3.10 to 3.14 against Django 4.2, 5.0, 5.1, 5.2, 6.0
+and 6.1, 21 cells — plus a Python 3.12 / Django 5.2 cell with Babel
+uninstalled, so the fallback path is covered too. CI reads that list from the
+noxfile and runs every cell; each run prints its coverage table in the job
+summary, and one cell publishes to Coveralls (the badge at the top).
+
+```bash
+pip install nox        # or: uvx nox ...
+nox -l                                   # list the cells
+nox -s "tests(py3.12-django5.2)"         # one cell
+nox                                      # everything, then ruff
+```
 
 ---
 

@@ -8,6 +8,13 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Full test matrix.** `noxfile.py` defines a test cell for every
+  Python/Django pair Django supports — Python 3.10 to 3.14 against Django 4.2,
+  5.0, 5.1, 5.2, 6.0 and 6.1 — plus a no-Babel cell, each run under coverage.
+  CI reads the cells from the noxfile and runs them all, prints the coverage
+  table in each job summary, publishes one cell's report to Coveralls, and the
+  README carries the coverage badge. Python 3.14 is now declared in the
+  classifiers.
 - **Release workflow.** `.github/workflows/release.yml` builds the sdist and
   wheel once, checks them with `twine check`, and publishes that same build
   to PyPI with trusted publishing (OIDC, no API tokens) when a `v*` tag is

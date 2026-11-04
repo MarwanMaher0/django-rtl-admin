@@ -12,3 +12,6 @@ staticfiles/
 .coverage
 htmlcov/
 node_modules/
+.nox/
+coverage.xml
+coverage.lcov

@@ -44,6 +44,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Internationalization",
     "Topic :: Software Development :: Localization",
 ]
@@ -83,10 +84,22 @@ python_files = ["test_*.py"]
 testpaths = ["tests"]
 addopts = "-ra"
 
+[tool.coverage.run]
+source = ["django_rtl_admin"]
+branch = true
+relative_files = true
+
+[tool.coverage.paths]
+source = ["src/django_rtl_admin", "*/site-packages/django_rtl_admin"]
+
+[tool.coverage.report]
+show_missing = true
+precision = 1
+
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-extend-exclude = [".venv42", "example/library/migrations"]
+extend-exclude = [".venv42", ".nox", "example/library/migrations"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "C4", "DJ", "RUF"]

@@ -34,9 +34,27 @@ pip uninstall -y Babel && pytest && pip install "Babel>=2.12"
 pip install build twine && python -m build && python -m twine check dist/*
 ```
 
-CI runs Python 3.10 and 3.12 against Django 4.2 and 5.2, and Python 3.12 and 3.13 against
-Django 6.1, each with and without Babel, and checks that the wheel carries the templates,
-static files and translations.
+To test a different Python or Django than the one in your virtualenv, use nox. `noxfile.py`
+has one `tests` cell for each Python/Django pair in
+[Django's support matrix](https://docs.djangoproject.com/en/dev/faq/install/#what-python-version-can-i-use-with-django)
+(Python 3.10-3.14, Django 4.2-6.1), plus a Python 3.12 / Django 5.2 cell without Babel. Each
+cell runs pytest under coverage and prints the report. With [uv](https://docs.astral.sh/uv/) on
+your PATH, interpreters you do not have are downloaded automatically.
+
+```bash
+pip install nox                          # or run it with: uvx nox
+nox -l                                   # list the cells
+nox -s "tests(py3.12-django5.2)"         # one cell
+nox -s "tests(py3.12-django5.2)" -- -k bidi
+nox                                      # every cell, then ruff
+```
+
+CI reads the cell list from the noxfile (`nox -l --json`) and runs every cell as a separate
+job, so adding a version to `noxfile.py` is all that is needed to add it to CI. Every job
+writes its coverage table to the job summary; the Python 3.13 / Django 5.2 job also uploads
+the report as an artifact and publishes it to [Coveralls](https://coveralls.io/github/MarwanMaher0/django-rtl-admin),
+which authenticates with the workflow's own `GITHUB_TOKEN` and needs no repository secret. CI
+also runs ruff and checks that the wheel carries the templates, static files and translations.
 
 ## Style
 
