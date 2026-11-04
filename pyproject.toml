@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling>=1.24"]
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
@@ -8,7 +8,8 @@ version = "0.1.0"
 description = "A properly bilingual, right-to-left Django admin: logical-property styling, Unicode-isolated bidirectional text, locale-aware formatting and a language switcher."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{ name = "Marwan Maher", email = "marwanmaher635@gmail.com" }]
 keywords = [
     "django",
@@ -33,7 +34,6 @@ classifiers = [
     "Framework :: Django :: 6.0",
     "Framework :: Django :: 6.1",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Natural Language :: Arabic",
     "Natural Language :: English",
     "Natural Language :: Hebrew",
@@ -55,6 +55,7 @@ test = ["pytest>=8", "pytest-django>=4.8", "Babel>=2.12"]
 
 [project.urls]
 Homepage = "https://github.com/MarwanMaher0/django-rtl-admin"
+Documentation = "https://github.com/MarwanMaher0/django-rtl-admin#readme"
 Source = "https://github.com/MarwanMaher0/django-rtl-admin"
 Issues = "https://github.com/MarwanMaher0/django-rtl-admin/issues"
 Changelog = "https://github.com/MarwanMaher0/django-rtl-admin/blob/main/CHANGELOG.md"

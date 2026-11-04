@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [semantic versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- Packaging prepared for PyPI: the licence is declared as the SPDX expression
+  `MIT` (PEP 639), the project URLs include Documentation, Changelog and
+  Issues, README images use absolute URLs so they render on PyPI, and the
+  install instructions use `pip install django-rtl-admin`.
+
 ## [0.1.0] - 2026-09-15
 
 First release.

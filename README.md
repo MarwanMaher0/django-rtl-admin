@@ -3,7 +3,7 @@
 [![CI](https://github.com/MarwanMaher0/django-rtl-admin/actions/workflows/ci.yml/badge.svg)](https://github.com/MarwanMaher0/django-rtl-admin/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue)](https://github.com/MarwanMaher0/django-rtl-admin)
 [![Django](https://img.shields.io/badge/django-4.2%20%7C%205.x%20%7C%206.x-092e20)](https://www.djangoproject.com/)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/MarwanMaher0/django-rtl-admin/blob/main/LICENSE)
 
 The Django admin is *nearly* bilingual. Switch it to Arabic, Hebrew, Persian or
 Urdu and the page does flip — but a specific, repeatable set of things stays
@@ -16,7 +16,7 @@ change your `ModelAdmin` classes. Python 3.10+, Django 4.2 through 6.1.
 
 | English | Arabic (Egypt) |
 | --- | --- |
-| ![The example admin in English](docs/admin-en.png) | ![The same admin in Arabic](docs/admin-ar.png) |
+| ![The example admin in English](https://raw.githubusercontent.com/MarwanMaher0/django-rtl-admin/main/docs/admin-en.png) | ![The same admin in Arabic](https://raw.githubusercontent.com/MarwanMaher0/django-rtl-admin/main/docs/admin-ar.png) |
 
 Same project, same `ModelAdmin`, one language switch. Note the Arabic-Indic
 digits in the price column, the identifiers that stayed the right way round,
@@ -78,10 +78,16 @@ CLDR numbering systems are simply not modelled.
 ## Install
 
 ```bash
-# Not on PyPI yet: install a tagged release from GitHub
-pip install "django-rtl-admin @ git+https://github.com/MarwanMaher0/django-rtl-admin@v0.1.0"
+pip install django-rtl-admin
 
 # optional, for CLDR-accurate numbers, dates and currency:
+pip install "django-rtl-admin[babel]"
+```
+
+Alternatively, install a tagged release straight from GitHub:
+
+```bash
+pip install "django-rtl-admin @ git+https://github.com/MarwanMaher0/django-rtl-admin@v0.1.0"
 pip install "django-rtl-admin[babel] @ git+https://github.com/MarwanMaher0/django-rtl-admin@v0.1.0"
 ```
 
@@ -440,4 +446,4 @@ once without, so the fallback path is covered too.
 
 ## Licence
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](https://github.com/MarwanMaher0/django-rtl-admin/blob/main/LICENSE).
