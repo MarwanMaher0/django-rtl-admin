@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Release workflow.** `.github/workflows/release.yml` builds the sdist and
+  wheel once, checks them with `twine check`, and publishes that same build
+  to PyPI with trusted publishing (OIDC, no API tokens) when a `v*` tag is
+  pushed. Running the workflow by hand publishes to TestPyPI instead, so a
+  release can be rehearsed first. The build fails if the tag does not match
+  the version in `pyproject.toml`. The one-time setup and the release steps
+  are in `CONTRIBUTING.md`.
+
 ### Changed
 
 - Packaging prepared for PyPI: the licence is declared as the SPDX expression
