@@ -1,0 +1,77 @@
+site_name: django-rtl-admin
+site_description: A properly bilingual, right-to-left Django admin.
+site_url: https://django-rtl-admin.readthedocs.io/
+repo_url: https://github.com/MarwanMaher0/django-rtl-admin
+repo_name: MarwanMaher0/django-rtl-admin
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  language: en
+  features:
+    - navigation.sections
+    - navigation.footer
+    - content.code.copy
+    - content.action.edit
+    - search.suggest
+    - search.highlight
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Quick start: quick-start.md
+  - Reference:
+      - Configuration: configuration.md
+      - Template tags and filters: template-tags.md
+      - BidiSafeAdminMixin: admin-mixin.md
+      - System checks: system-checks.md
+      - Python API: api.md
+  - Stock admin RTL defects: rtl-defects.md
+  - Translations and contributing a locale: translations.md
+  - Changelog: changelog.md
+
+plugins:
+  - search
+  - i18n:
+      docs_structure: suffix
+      languages:
+        - locale: en
+          default: true
+          name: English
+          build: true
+        - locale: ar
+          name: العربية
+          build: true
+          nav_translations:
+            Home: الرئيسية
+            Quick start: البدء السريع
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            show_source: false
+            show_root_heading: true
+            show_signature_annotations: true
+            separate_signature: true
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.snippets:
+      base_path: [!relative $config_dir]
+      check_paths: true
+  - toc:
+      permalink: true
+
+validation:
+  nav:
+    omitted_files: warn
+    not_found: warn
+  links:
+    not_found: warn
+    anchors: warn
+    unrecognized_links: warn

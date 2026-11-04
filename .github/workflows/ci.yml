@@ -85,6 +85,17 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - run: uvx nox -s lint
 
+  docs:
+    name: build the documentation
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install ".[docs]"
+      - run: mkdocs build --strict
+
   build:
     name: build the wheel
     runs-on: ubuntu-latest
