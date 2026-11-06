@@ -1,3 +1,8 @@
+---
+title: Template tags and filters | django-rtl-admin
+description: Use django-rtl-admin template filters and tags for bidi isolation, locale-aware numbers and dates, direction classes, static assets, and language switching.
+---
+
 # Template tags and filters
 
 Load the library in each Django template that uses it:

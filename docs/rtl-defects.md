@@ -1,3 +1,8 @@
+---
+title: Stock admin RTL defects | django-rtl-admin
+description: Review source-level before-and-after fixes for Django 5.2 admin RTL spacing, mixed-direction text, CSS isolation, and the package's documented limitations.
+---
+
 # Stock admin RTL defects
 
 Django already supports right-to-left languages. Its admin sets the page direction

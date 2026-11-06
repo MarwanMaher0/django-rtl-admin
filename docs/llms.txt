@@ -1,0 +1,37 @@
+# django-rtl-admin
+
+> django-rtl-admin extends Django's stock admin with logical-property RTL styling, opt-in Unicode bidirectional-text isolation, locale-aware formatting helpers, and a language switcher. It supports Python 3.10+ and Django 4.2+ on compatible combinations, preserves the stock admin, and does not change stored values.
+
+## Start here
+
+- [Installation](https://django-rtl-admin.readthedocs.io/installation/): requirements, pip installation, app order, static files, and custom template inheritance.
+- [Quick start](https://django-rtl-admin.readthedocs.io/quick-start/): language configuration, LocaleMiddleware, the set_language endpoint, BidiSafeAdminMixin, and template filters.
+- [Arabic quick start](https://django-rtl-admin.readthedocs.io/ar/quick-start/): the complete setup guide in Arabic.
+
+## Capabilities and limits
+
+- Logical CSS properties fix physical spacing in stock-admin controls; CSS does not rewrite model values.
+- BidiSafeAdminMixin is an explicit opt-in for Unicode isolation of eligible changelist values.
+- Python helpers and template filters isolate whole values or embedded opposite-direction runs.
+- Number, currency, percentage, and date/time formatting helpers are explicit opt-ins.
+- Babel is optional. Without it, Django formatting and digit transliteration provide a fallback.
+- The language switcher POSTs with CSRF protection to Django's set_language view and preserves the current path and query string.
+- The package ships Arabic, Hebrew, Persian, and Urdu catalogs. A project's LANGUAGES setting controls its own switcher.
+- Third-party admin theme compatibility is not guaranteed.
+
+## Reference
+
+- [Configuration](https://django-rtl-admin.readthedocs.io/configuration/): all RTL_ADMIN settings and defaults.
+- [Template tags and filters](https://django-rtl-admin.readthedocs.io/template-tags/): bidi, formatting, direction, assets, and language helpers.
+- [BidiSafeAdminMixin](https://django-rtl-admin.readthedocs.io/admin-mixin/): changelist isolation, sorting, exclusions, and security behavior.
+- [Python API](https://django-rtl-admin.readthedocs.io/api/): bidi and locale-formatting functions.
+- [Stock admin RTL defects](https://django-rtl-admin.readthedocs.io/rtl-defects/): source-level before/after details and limitations.
+- [System checks](https://django-rtl-admin.readthedocs.io/system-checks/): rtl_admin.W001 through W004.
+- [Translations](https://django-rtl-admin.readthedocs.io/translations/): shipped locales and contribution workflow.
+- [Changelog](https://django-rtl-admin.readthedocs.io/changelog/): release history.
+- [Full documentation for language models](https://django-rtl-admin.readthedocs.io/llms-full.txt)
+
+## Source
+
+- [GitHub repository](https://github.com/MarwanMaher0/django-rtl-admin)
+- License: MIT

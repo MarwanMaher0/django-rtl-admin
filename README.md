@@ -418,9 +418,10 @@ python manage.py runserver
 Then open <http://127.0.0.1:8000/admin/> and log in as `demo` / `demo12345`.
 The library app has a model with parallel English and Arabic fields, an inline,
 an autocomplete, a date hierarchy, filters and the sorts of values that break
-under bidi. Use the switcher in the header to flip between English, Arabic,
-Arabic (Egypt) and Hebrew; `ar` and `ar-eg` differ only in their numbering
-system, which is the point.
+under bidi. Use the switcher in the header to flip between English, Arabic and
+Arabic (Egypt); `ar` and `ar-eg` differ only in their numbering system, which
+is the point. The Hebrew, Persian and Urdu catalogs ship with the package; add
+their codes to `LANGUAGES` to try them in the demo.
 
 ---
 

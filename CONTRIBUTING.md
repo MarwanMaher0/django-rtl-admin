@@ -14,12 +14,14 @@ python -m venv .venv && . .venv/bin/activate
 pip install -e ".[test]"
 ```
 
-To see the admin in both directions, use the example project and log in as `demo` / `demo12345`:
+To see the admin in both directions, use the example project and log in as `demo` / `demo12345`
+(`DEBUG` is off by default, and local `runserver` serves the admin static files automatically
+without needing `collectstatic` or extra environment variables):
 
 ```bash
 cd example
 python manage.py migrate
-python manage.py demodata
+python manage.py demodata        # or: python manage.py reset_demo (read-only demo user)
 python manage.py runserver
 ```
 
@@ -55,6 +57,23 @@ writes its coverage table to the job summary; the Python 3.13 / Django 5.2 job a
 the report as an artifact and publishes it to [Coveralls](https://coveralls.io/github/MarwanMaher0/django-rtl-admin),
 which authenticates with the workflow's own `GITHUB_TOKEN` and needs no repository secret. CI
 also runs ruff and checks that the wheel carries the templates, static files and translations.
+
+### Browser tests
+
+`tests/e2e/` opens the admin in a real Chromium, in Arabic and English, light and dark, at
+360px and 1280px, and checks overflow, icon direction and mirrored layout. Each page's
+screenshot is written to `test-artifacts/e2e/` (git-ignored) so you can look at what the
+assertions saw. Without Playwright installed the directory is skipped.
+
+```bash
+nox -s e2e                               # newest Python/Django, installs Chromium itself
+# or in your own virtualenv:
+pip install -e ".[e2e]" && python -m playwright install chromium
+RTL_ADMIN_E2E=1 pytest tests/e2e
+```
+
+CI runs them once, on the newest Python/Django pair, and uploads the screenshots as the
+`e2e-screenshots` artifact even when a test fails.
 
 ## Style
 

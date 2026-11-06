@@ -1,3 +1,8 @@
+---
+title: Configuration reference | django-rtl-admin
+description: Configure all 13 RTL_ADMIN settings for logical styling, Unicode isolation, numeral systems, Babel formatting, and admin language-switcher behavior.
+---
+
 # Configuration
 
 Configure the package through the `RTL_ADMIN` dictionary in Django settings.

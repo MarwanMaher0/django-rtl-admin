@@ -1,9 +1,45 @@
+from django.conf import settings
 from django.contrib import admin
+from django.core.exceptions import PermissionDenied
 from django.utils.translation import gettext_lazy as _
 
 from django_rtl_admin import BidiSafeAdminMixin, format_currency, format_number
 
 from .models import Book, Chapter, Publisher
+
+_default_admin_password_change = admin.site.password_change
+_default_admin_password_change_done = admin.site.password_change_done
+_default_admin_each_context = admin.site.each_context
+
+
+def is_demo_user(user) -> bool:
+    if not getattr(user, "is_authenticated", False):
+        return False
+    demo_username = getattr(settings, "DEMO_USERNAME", "demo")
+    return getattr(user, "username", None) == demo_username
+
+
+def _guarded_password_change(request, extra_context=None):
+    if is_demo_user(request.user):
+        raise PermissionDenied("Password change is disabled for the shared demo account.")
+    return _default_admin_password_change(request, extra_context=extra_context)
+
+
+def _guarded_password_change_done(request, extra_context=None):
+    if is_demo_user(request.user):
+        raise PermissionDenied("Password change is disabled for the shared demo account.")
+    return _default_admin_password_change_done(request, extra_context=extra_context)
+
+
+def _each_context(request):
+    context = _default_admin_each_context(request)
+    context["is_demo_user"] = is_demo_user(request.user)
+    return context
+
+
+admin.site.password_change = _guarded_password_change
+admin.site.password_change_done = _guarded_password_change_done
+admin.site.each_context = _each_context
 
 
 class ChapterInline(admin.TabularInline):

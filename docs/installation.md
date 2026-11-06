@@ -1,3 +1,8 @@
+---
+title: Installation | django-rtl-admin
+description: Install django-rtl-admin on Python 3.10+ and Django 4.2+, register the app before contrib admin, deploy static files, and preserve custom template blocks.
+---
+
 # Installation
 
 ## Requirements

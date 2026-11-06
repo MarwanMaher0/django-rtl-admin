@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block site_meta %}
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="{{ page.meta.description if page else config.site_description }}">
+{% if page and page.previous_page %}<link rel="prev" href="{{ page.previous_page.url | url }}">{% endif %}
+{% if page and page.next_page %}<link rel="next" href="{{ page.next_page.url | url }}">{% endif %}
+<link rel="icon" href="{{ config.theme.favicon | url }}">
+<meta name="generator" content="mkdocs-{{ mkdocs_version }}, mkdocs-material">
+{% endblock %}
+{% block htmltitle %}<title>{{ page.meta.seo_title if page else 'Page not found | django-rtl-admin' }}</title>{% endblock %}
+{% block extrahead %}{% if page %}{% include "partials/seo.html" %}{% else %}<meta name="robots" content="noindex,follow">{% endif %}{% endblock %}
+{% block content %}
+{% if page and page.meta.seo_fallback %}
+<div class="fallback-notice" dir="ltr" lang="en">
+  <strong>English page.</strong> This topic has not been translated into Arabic yet.
+  <a href="{{ page.meta.seo_en_url }}">Read it on the English site</a>.
+</div>
+<div class="fallback-content" dir="ltr" lang="en">
+{{ super() }}
+</div>
+{% else %}{{ super() }}{% endif %}
+{% endblock %}

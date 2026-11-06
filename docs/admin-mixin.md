@@ -1,3 +1,8 @@
+---
+title: BidiSafeAdminMixin | django-rtl-admin
+description: Add opt-in Unicode isolation to Django changelist values with field allowlists, exclusions, direction controls, sorting guidance, and safe rendering behavior.
+---
+
 # BidiSafeAdminMixin
 
 `BidiSafeAdminMixin` adds Unicode isolates around eligible changelist values.

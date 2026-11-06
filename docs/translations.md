@@ -1,3 +1,8 @@
+---
+title: Translations and locales | django-rtl-admin
+description: Explore shipped Arabic, Hebrew, Persian, and Urdu catalogs, RTL language recognition, demo language choices, and the locale contribution workflow.
+---
+
 # Translations and contributing a locale
 
 Package translations, RTL recognition, and the languages offered by a project are
@@ -36,8 +41,8 @@ use Django's language metadata, regional base-language fallback, and
 and adding an RTL code does not install translations or add a menu entry. See
 [Configuration](configuration.md).
 
-The example project's `LANGUAGES` contains `en`, `ar`, `ar-eg`, and `he`. Persian
-and Urdu catalogs ship but are not enabled in that demo menu. Numbering-system
+The example project's `LANGUAGES` contains `en`, `ar`, and `ar-eg`. Hebrew,
+Persian, and Urdu catalogs ship but are not enabled in that demo menu. Numbering-system
 support is separate again: plain `ar` normally uses Latin digits, `ar-eg` uses
 Arabic-Indic digits, and `fa` uses extended Arabic-Indic digits in the explicit
 formatting helpers.

@@ -95,12 +95,31 @@ body.rtl-admin--rtl {
 .rtl-admin .help > *,
 .rtl-admin p.help,
 .rtl-admin div.help,
+.rtl-admin .form-row legend,
+.rtl-admin .aligned legend,
 .rtl-admin div.readonly,
 .rtl-admin div.readonly > *,
 .rtl-admin .form-row .readonly,
 .rtl-admin .inline-related h3 .inline_label {
   unicode-bidi: plaintext;
   text-align: start;
+}
+
+/* ...but a label still belongs to the form, not to its own text.  Aligning it
+   by content direction put an untranslated English label on the left of an
+   Arabic phone layout and on the right of the same form on a desktop. */
+.rtl-admin--rtl .form-row label,
+.rtl-admin--rtl .aligned label,
+.rtl-admin--rtl .form-row legend,
+.rtl-admin--rtl .aligned legend {
+  text-align: right;
+}
+
+.rtl-admin--ltr .form-row label,
+.rtl-admin--ltr .aligned label,
+.rtl-admin--ltr .form-row legend,
+.rtl-admin--ltr .aligned legend {
+  text-align: left;
 }
 
 /* A bilingual admin gets both scripts typed into the same form.  `plaintext`
@@ -337,6 +356,18 @@ body.rtl-admin--rtl {
   background-position: calc(100% - 5px) 12px;
 }
 
+/* Django < 6.0 does not mirror the message list: the icon of "saved",
+   "deleted" and action messages stays on the left of RTL text.  Only the
+   horizontal position is restated, so each level keeps its own icon offset. */
+.rtl-admin--rtl ul.messagelist li,
+.rtl-admin--rtl ul.messagelist li.success,
+.rtl-admin--rtl ul.messagelist li.warning,
+.rtl-admin--rtl ul.messagelist li.error {
+  padding-left: 10px;
+  padding-right: 65px;
+  background-position-x: calc(100% - 40px);
+}
+
 /* ==========================================================================
    7. Page columns
    ========================================================================== */
@@ -429,15 +460,9 @@ body.rtl-admin--rtl {
   padding-inline-start: 16px;
 }
 
-/* The collapse chevron is a literal character, so contrib leaves it pointing
-   the wrong way in RTL. */
-.rtl-admin--rtl .toggle-nav-sidebar::before {
-  content: "\00AB";
-}
-
-.rtl-admin--rtl .main.shifted .toggle-nav-sidebar::before {
-  content: "\00BB";
-}
+/* The collapse chevrons (\00BB / \00AB) are bidi-mirrored characters, so the
+   browser already flips them in an RTL admin.  Swapping them here as well would
+   flip them back and leave the toggle pointing the wrong way. */
 
 /* ==========================================================================
    9. Changelist: table, sorting, filters, search, actions, pagination
@@ -517,6 +542,16 @@ body.rtl-admin--rtl {
   text-align: start;
 }
 
+/* A collapsed filter is marked with a literal "\2192", which bidi mirroring
+   does not touch, so in RTL it points away from the filter's own content. */
+.rtl-admin--rtl #changelist-filter details > summary::before {
+  content: "\2190";
+}
+
+.rtl-admin--rtl #changelist-filter details[open] > summary::before {
+  content: "\2193";
+}
+
 /* -- search -- */
 
 .rtl-admin #changelist-search img,
@@ -576,7 +611,6 @@ body.rtl-admin--rtl {
 .rtl-admin .aligned label {
   padding: 0 0 3px 0;
   padding-inline-end: 1em;
-  text-align: start;
 }
 
 .rtl-admin form .aligned ul {
@@ -612,6 +646,16 @@ body.rtl-admin--rtl {
   padding-right: 0;
   margin-inline-start: 160px;
   padding-inline-start: 10px;
+}
+
+/* Django 6.1 stacks label, help text and widget inside .flex-container, so
+   the 160px label-column indent above would push help text and error lists
+   away from the field they describe -- in both directions. */
+.rtl-admin form .aligned .flex-container > div.help,
+.rtl-admin form .aligned .flex-container > p.help,
+.rtl-admin form .aligned .flex-container > ul {
+  margin-inline-start: 0;
+  padding-inline-start: 0;
 }
 
 .rtl-admin .aligned label + p,
@@ -721,15 +765,9 @@ body.rtl-admin--rtl {
   inset-inline-end: 10px;
 }
 
-/* The nav arrows are sprite slices, so "previous" has to pick the other
-   slice once it moves to the other edge. */
-.rtl-admin--rtl .calendarnav-previous {
-  background: url(../../admin/img/calendar-icons.svg) 0 -15px no-repeat;
-}
-
-.rtl-admin--rtl .calendarnav-next {
-  background: url(../../admin/img/calendar-icons.svg) 0 0 no-repeat;
-}
+/* The nav arrows are sprite slices whose layout differs between Django
+   releases; admin/css/rtl.css already swaps them correctly for each release,
+   so they are deliberately not restated here. */
 
 .rtl-admin .calendar caption,
 .rtl-admin .calendarbox h2 {
@@ -786,19 +824,23 @@ body.rtl-admin--rtl {
   inset-inline-start: 0;
 }
 
-.rtl-admin .inline-group .tabular tr.has_original td {
-  padding-top: 2em;
-}
-
+/* contrib's own selectors for the "Add another" link are long enough to beat
+   short overrides (Django 4.2/5.0 still set the icon there), so they are
+   restated in full. */
 .rtl-admin .add-row a,
-.rtl-admin .empty-form + .add-row a {
+.rtl-admin .empty-form + .add-row a,
+.rtl-admin .inline-group div.add-row a,
+.rtl-admin .inline-group .tabular tr.add-row td a {
   background-position: 0 50%;
   padding-left: 0;
   padding-right: 0;
   padding-inline-start: 16px;
 }
 
-.rtl-admin--rtl .add-row a {
+.rtl-admin--rtl .add-row a,
+.rtl-admin--rtl .empty-form + .add-row a,
+.rtl-admin--rtl .inline-group div.add-row a,
+.rtl-admin--rtl .inline-group .tabular tr.add-row td a {
   background-position: 100% 50%;
 }
 
@@ -871,10 +913,6 @@ body.rtl-admin--rtl {
   text-align: start;
 }
 
-.rtl-admin.login .form-row label {
-  text-align: start;
-}
-
 .rtl-admin.login .submit-row {
   padding: 1em 0 0 0;
   text-align: end;
@@ -912,6 +950,25 @@ body.rtl-admin--rtl {
     margin-inline-start: 0;
   }
 
+  /* contrib narrows the sidebar columns to 260px here; the full-width
+     margins above would otherwise outrank its reset and overflow the page. */
+  .rtl-admin #content-related {
+    margin-inline-end: -290px;
+  }
+
+  .rtl-admin .colSM #content-related {
+    margin-inline-end: 0;
+    margin-inline-start: -290px;
+  }
+
+  .rtl-admin .colMS {
+    margin-inline-end: 290px;
+  }
+
+  .rtl-admin .colSM {
+    margin-inline-start: 290px;
+  }
+
   .rtl-admin form .aligned ul,
   .rtl-admin form .aligned p.help,
   .rtl-admin form .aligned div.help,
@@ -928,10 +985,89 @@ body.rtl-admin--rtl {
   .rtl-admin-language-switcher {
     margin-inline-start: 0;
   }
+
+  .rtl-admin--rtl ul.messagelist li,
+  .rtl-admin--rtl ul.messagelist li.success,
+  .rtl-admin--rtl ul.messagelist li.warning,
+  .rtl-admin--rtl ul.messagelist li.error {
+    padding-left: 10px;
+    padding-right: 55px;
+    background-position-x: calc(100% - 30px);
+  }
 }
 
 @media (max-width: 767px) {
   .rtl-admin-language-switcher__label {
     display: none;
+  }
+
+  .rtl-admin--rtl ul.messagelist li,
+  .rtl-admin--rtl ul.messagelist li.success,
+  .rtl-admin--rtl ul.messagelist li.warning,
+  .rtl-admin--rtl ul.messagelist li.error {
+    padding-left: 10px;
+    padding-right: 40px;
+    background-position-x: calc(100% - 15px);
+  }
+
+  .rtl-admin .colMS,
+  .rtl-admin .colSM {
+    margin-inline-start: 0;
+    margin-inline-end: 0;
+  }
+
+  .rtl-admin #content-related,
+  .rtl-admin .colSM #content-related {
+    margin-inline-start: 0;
+    margin-inline-end: 0;
+    width: 100%;
+  }
+
+  .rtl-admin .empty-form + .add-row a,
+  .rtl-admin .inline-group div.add-row a,
+  .rtl-admin .inline-group .tabular tr.add-row td a {
+    padding: 8px 10px;
+    padding-inline-start: 26px;
+    background-position: 8px 50%;
+  }
+
+  .rtl-admin--rtl .empty-form + .add-row a,
+  .rtl-admin--rtl .inline-group div.add-row a,
+  .rtl-admin--rtl .inline-group .tabular tr.add-row td a {
+    background-position: calc(100% - 8px) 50%;
+  }
+
+  /* contrib sizes a stacked inline's rows to the viewport (100vw - 30px) and
+     its labels to 100% plus padding, both wider than the inline's padded box.
+     The inline clips its overflow, so nothing scrolls: the end of every label
+     and long input is cut off in LTR, the start in RTL. */
+  .rtl-admin .inline-group[data-inline-type="stacked"] .aligned .form-row > *,
+  .rtl-admin .inline-group[data-inline-type="stacked"] .aligned label {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  /* Django 6.0 floats a full-width legend over split date/time fields on
+     phones; beside it the clipped p.datetime above shrank to nothing. */
+  .rtl-admin form .aligned .form-row p.datetime {
+    clear: both;
+  }
+
+  /* A tabular inline's 20em text inputs push the table past a phone screen;
+     let them share the row instead. */
+  .rtl-admin .inline-related.tabular td .vTextField,
+  .rtl-admin .inline-related.tabular td textarea,
+  .rtl-admin .inline-related.tabular td select {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  /* DateTimeShortcuts pins RTL popups with an inline `right`, which beats
+     contrib's centred `left: 50%` on phones and pushes them off-screen. */
+  .rtl-admin--rtl .calendarbox,
+  .rtl-admin--rtl .clockbox {
+    right: auto !important;
   }
 }

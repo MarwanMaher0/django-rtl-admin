@@ -22,6 +22,58 @@ All notable changes to this project are documented here. The format follows
   release can be rehearsed first. The build fails if the tag does not match
   the version in `pyproject.toml`. The one-time setup and the release steps
   are in `CONTRIBUTING.md`.
+- **Browser tests.** `tests/e2e/` drives a real Chromium through Playwright
+  against the admin in Arabic (RTL) and English (LTR), in the light and dark
+  schemes, at 360px and 1280px: login, the changelist (search, filters,
+  actions, pagination), the change form (fieldsets, collapse, help text,
+  validation errors), tabular and stacked inlines, the calendar and clock
+  popups and the autocomplete. Every page is checked for horizontal overflow,
+  for icons and arrows pointing the right way and for mirrored layout, and a
+  screenshot is saved to `test-artifacts/e2e/`. Run them with `nox -s e2e`;
+  CI runs them on the newest Python/Django pair only and uploads the
+  screenshots as a build artifact.
+
+### Fixed
+
+RTL defects found by the browser tests:
+
+- The navigation sidebar's collapse toggle pointed the wrong way in RTL: the
+  stylesheet swapped the `«`/`»` characters the browser already mirrors.
+- A collapsed changelist filter showed `→`, pointing away from its content,
+  in RTL; it now shows `←` (and `↓` when open).
+- On Django 6.1 help text and error lists in aligned forms were indented by
+  the old label column, leaving them detached from their field in both
+  directions.
+- The calendar's previous/next arrows were restated with Django 6.1's sprite
+  offsets, which showed the wrong slices on Django 4.2; contrib's own RTL
+  swap is now left in charge.
+- Tabular inline rows with an existing object were padded so their object
+  label overlapped the inputs below it.
+- The "Add another" inline link kept its icon on the left in RTL on Django
+  4.2/5.0, and on phones the icon overlapped the link text in both
+  directions.
+- Between 768px and 1024px the side column (`#content-related`, e.g. the
+  dashboard's "Recent actions") kept its full-width margins and overflowed
+  the page; on phones it now stacks at full width.
+- On phones the RTL calendar and clock popups were pinned off-screen instead
+  of being centred.
+- On phones a stacked inline's labels and long text inputs were wider than the
+  inline and were clipped: the end of each label in English, the start of
+  each label and input in Arabic, where the first characters typed were
+  hidden. Rows, labels and controls now size to the inline (`width: 100%`,
+  `min-width: 0`, `box-sizing: border-box`). The page never scrolled, so the
+  overflow check missed it; the browser tests now check every inline label
+  and control against the viewport.
+- On phones a tabular inline's text inputs kept their 20em width and pushed
+  the table, and the delete checkbox, off-screen; they now share the row.
+- On Django 6.0 phones the split date/time fields of a form or stacked inline
+  collapsed to nothing beside their floated legend.
+- On Django 4.2–5.2 the icon of a success, warning or error message (after a
+  save, a delete or an admin action) stayed on the left of RTL text; the
+  message list is now mirrored at every width.
+- Form labels and fieldset legends followed the direction of their own text,
+  so an untranslated English label sat on the wrong side of an Arabic form;
+  they now align with the form, while legends still isolate their text.
 
 ### Changed
 

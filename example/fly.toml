@@ -1,0 +1,42 @@
+app = "django-rtl-admin-demo"
+primary_region = "fra"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8000"
+  DEBUG = "false"
+  ALLOWED_HOSTS = "django-rtl-admin-demo.fly.dev,.fly.dev,localhost,127.0.0.1"
+  CSRF_TRUSTED_ORIGINS = "https://django-rtl-admin-demo.fly.dev,https://*.fly.dev"
+  DATABASE_URL = "sqlite:////data/db.sqlite3"
+  # When auto_stop_machines = "stop", the in-container hourly timer is lost while
+  # the machine is stopped; RESET_DEMO_ON_STARTUP = "1" ensures a fresh reset
+  # whenever the machine auto-starts again.
+  RESET_DEMO_ON_STARTUP = "1"
+  RESET_DEMO_INTERVAL_SECONDS = "3600"
+  WEB_CONCURRENCY = "2"
+
+[[mounts]]
+  source = "demo_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/healthz/"
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1

@@ -1,3 +1,8 @@
+---
+title: Python API | django-rtl-admin
+description: Use Python helpers for whole-value and run-level bidi isolation, digit transliteration, and locale-aware numbers, currencies, percentages, dates, and times.
+---
+
 # Python API
 
 Use these helpers in display methods, custom templates, or other presentation

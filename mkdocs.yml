@@ -7,7 +7,24 @@ edit_uri: edit/main/docs/
 
 theme:
   name: material
+  custom_dir: docs/overrides
   language: en
+  logo: assets/mark.svg
+  favicon: assets/mark.svg
+  font: false
+  palette:
+    - scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
   features:
     - navigation.sections
     - navigation.footer
@@ -20,6 +37,7 @@ nav:
   - Home: index.md
   - Installation: installation.md
   - Quick start: quick-start.md
+  - Live demo and deployment: deployment.md
   - Reference:
       - Configuration: configuration.md
       - Template tags and filters: template-tags.md
@@ -29,6 +47,16 @@ nav:
   - Stock admin RTL defects: rtl-defects.md
   - Translations and contributing a locale: translations.md
   - Changelog: changelog.md
+
+hooks:
+  - docs/hooks/seo.py
+
+exclude_docs: |
+  hooks/
+  overrides/
+
+extra_css:
+  - assets/docs.css
 
 plugins:
   - search

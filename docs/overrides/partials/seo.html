@@ -1,0 +1,23 @@
+<link rel="canonical" href="{{ page.meta.seo_canonical }}">
+<link rel="alternate" hreflang="en" href="{{ page.meta.seo_en_url }}">
+{% if page.meta.seo_has_ar %}<link rel="alternate" hreflang="ar" href="{{ page.meta.seo_ar_url }}">{% endif %}
+<link rel="alternate" hreflang="x-default" href="{{ page.meta.seo_en_url }}">
+<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="django-rtl-admin">
+<meta property="og:title" content="{{ page.meta.seo_title }}">
+<meta property="og:description" content="{{ page.meta.description }}">
+<meta property="og:url" content="{{ page.meta.seo_canonical }}">
+<meta property="og:locale" content="{{ 'ar_AR' if page.meta.seo_language == 'ar' else 'en_US' }}">
+{% if page.meta.seo_has_ar %}<meta property="og:locale:alternate" content="{{ 'en_US' if page.meta.seo_language == 'ar' else 'ar_AR' }}">{% endif %}
+<meta property="og:image" content="{{ page.meta.seo_og_image }}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:alt" content="django-rtl-admin — Django admin, fluent in both directions">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ page.meta.seo_title }}">
+<meta name="twitter:description" content="{{ page.meta.description }}">
+<meta name="twitter:image" content="{{ page.meta.seo_og_image }}">
+<meta name="twitter:image:alt" content="django-rtl-admin — Django admin, fluent in both directions">
+<script type="application/ld+json">{{ page.meta.seo_json_ld | safe }}</script>

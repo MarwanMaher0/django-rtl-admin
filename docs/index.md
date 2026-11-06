@@ -1,3 +1,8 @@
+---
+template: home.html
+title: Django admin, fluent in both directions | django-rtl-admin
+description: Make Django's stock admin properly bilingual with logical RTL styling, Unicode bidi isolation, locale-aware formatting, and a language switcher.
+---
 # django-rtl-admin
 
 **A properly bilingual Django admin, without replacing Django's admin.**
@@ -11,7 +16,7 @@ locale-specific digits need their own handling.
 locale-aware formatting, and a language switcher to the stock admin. It supports
 Python 3.10+ and Django 4.2+ on compatible Python/Django combinations.
 
-[Install the package](installation.md) · [Quick start](quick-start.md)
+[Install the package](installation.md) · [Quick start](quick-start.md) · [Live demo and deployment](deployment.md)
 
 Use the language selector to read Home and Quick start in Arabic.
 

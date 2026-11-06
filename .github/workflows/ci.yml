@@ -77,6 +77,25 @@ jobs:
           file: coverage.lcov
           format: lcov
 
+  e2e:
+    name: browser tests (newest Python/Django)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Run Playwright against the admin in Arabic and English
+        run: uvx nox -s e2e
+      - name: Upload the screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screenshots
+          path: test-artifacts/e2e/
+          if-no-files-found: ignore
+
   lint:
     name: ruff
     runs-on: ubuntu-latest

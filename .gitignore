@@ -16,3 +16,4 @@ node_modules/
 .nox/
 coverage.xml
 coverage.lcov
+test-artifacts/

@@ -4,6 +4,7 @@
     nox                             run them all, then ruff
     nox -s "tests(py3.12-django5.2)"
     nox -s "tests(py3.12-django5.2)" -- -k bidi
+    nox -s e2e                      Playwright browser tests, newest pair only
 
 Each test cell installs the package, pytest and one Django series, runs the
 suite under coverage and prints the report. With uv on PATH, missing Python
@@ -89,6 +90,36 @@ def tests(session: nox.Session, django: str, babel: bool) -> None:
         table = session.run("coverage", "report", "--format=markdown", silent=True)
         with open(summary, "a", encoding="utf-8") as fh:
             fh.write(f"### Coverage: `{session.name}`\n\n{table}\n")
+
+
+@nox.session(python=PYTHONS[-1])
+def e2e(session: nox.Session) -> None:
+    """Playwright browser tests, Arabic and English, on the newest Python/Django.
+
+    Screenshots land in test-artifacts/e2e/. In CI the browser's system
+    libraries are installed too (``playwright install --with-deps``).
+    """
+    session.install(
+        "-e",
+        ".",
+        f"Django~={DJANGOS[-1]}.0",
+        "pytest>=8",
+        "pytest-django>=4.8",
+        "Babel>=2.12",
+        "playwright>=1.45",
+    )
+    install = ["python", "-m", "playwright", "install"]
+    if os.environ.get("CI"):
+        install.append("--with-deps")
+    session.run(*install, "chromium")
+    session.run(
+        "python",
+        "-m",
+        "pytest",
+        "tests/e2e",
+        *session.posargs,
+        env={"RTL_ADMIN_E2E": "1"},
+    )
 
 
 @nox.session

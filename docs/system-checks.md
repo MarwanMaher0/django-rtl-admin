@@ -1,3 +1,8 @@
+---
+title: System checks | django-rtl-admin
+description: Diagnose rtl_admin.W001 through W004 for app ordering, unknown configuration keys, the missing set_language endpoint, and LocaleMiddleware setup.
+---
+
 # System checks
 
 The app registers three Django check functions that can emit four warning IDs.

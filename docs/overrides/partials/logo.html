@@ -1,0 +1,10 @@
+{#-
+  Based on Material for MkDocs' partials/logo.html.
+  Declares intrinsic dimensions so the image does not shift layout.
+-#}
+{% if config.theme.logo %}
+  <img src="{{ config.theme.logo | url }}" alt="django-rtl-admin" width="48" height="48">
+{% else %}
+  {% set icon = config.theme.icon.logo or "material/library" %}
+  {% include ".icons/" ~ icon ~ ".svg" %}
+{% endif %}

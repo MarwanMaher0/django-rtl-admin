@@ -1,3 +1,8 @@
+---
+title: Quick start | django-rtl-admin
+description: Configure a bilingual Django admin with app ordering, LocaleMiddleware, Django's language endpoint, opt-in bidi isolation, and explicit locale formatting.
+---
+
 # Quick start
 
 Start with an existing Django project whose stock admin works, then follow
@@ -16,7 +21,6 @@ LANGUAGES = [
     ("en", "English"),
     ("ar", "Arabic"),
     ("ar-eg", "Arabic (Egypt)"),
-    ("he", "Hebrew"),
 ]
 
 MIDDLEWARE = [
@@ -36,7 +40,7 @@ Retain the standard request, auth, and messages template context processors from
 Django's project template. The switcher uses the request to preserve your current
 admin path and query string.
 
-## 2. Add Django's language endpoint
+## 2. Add Django's language endpoint { #language-endpoint }
 
 In your root `urls.py`:
 

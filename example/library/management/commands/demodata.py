@@ -152,25 +152,47 @@ class Command(BaseCommand):
         parser.add_argument("--username", default="demo")
         parser.add_argument("--password", default="demo12345")
         parser.add_argument("--email", default="demo@example.com")
+        parser.add_argument(
+            "--read-only",
+            "--readonly",
+            dest="read_only",
+            action="store_true",
+            help="Create the demo user as a read-only staff account in a view-only group.",
+        )
 
     @transaction.atomic
     def handle(self, *args, **options):
         User = get_user_model()
         username = options["username"]
-        user, created = User.objects.get_or_create(
-            username=username,
-            defaults={"email": options["email"], "is_staff": True, "is_superuser": True},
-        )
-        user.is_staff = True
-        user.is_superuser = True
-        user.set_password(options["password"])
-        user.save()
-        self.stdout.write(
-            self.style.SUCCESS(
-                f"{'Created' if created else 'Updated'} superuser {username!r} "
-                f"(password: {options['password']})"
+        if options.get("read_only"):
+            from .reset_demo import configure_readonly_demo_user
+
+            user, group = configure_readonly_demo_user(
+                username=username,
+                password=options["password"],
+                email=options["email"],
             )
-        )
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"Configured read-only staff user {user.username!r} "
+                    f"(password: {options['password']}, group: {group.name!r})"
+                )
+            )
+        else:
+            user, created = User.objects.get_or_create(
+                username=username,
+                defaults={"email": options["email"], "is_staff": True, "is_superuser": True},
+            )
+            user.is_staff = True
+            user.is_superuser = True
+            user.set_password(options["password"])
+            user.save()
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"{'Created' if created else 'Updated'} superuser {username!r} "
+                    f"(password: {options['password']})"
+                )
+            )
 
         publishers = []
         for data in PUBLISHERS:
@@ -179,9 +201,10 @@ class Command(BaseCommand):
             )
             publishers.append(publisher)
 
-        for index, data in enumerate(BOOKS):
-            chapters = data.pop("chapters", [])
-            data = dict(data, price=decimal.Decimal(data["price"]))
+        for index, raw_data in enumerate(BOOKS):
+            data = dict(raw_data)
+            chapters = list(data.pop("chapters", []))
+            data["price"] = decimal.Decimal(data["price"])
             book, _created = Book.objects.update_or_create(
                 isbn=data["isbn"],
                 defaults=dict(data, publisher=publishers[index % len(publishers)]),

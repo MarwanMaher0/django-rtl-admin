@@ -1,0 +1,51 @@
+databases:
+  - name: django-rtl-admin-demo-db
+    plan: free
+
+services:
+  - type: web
+    name: django-rtl-admin-demo
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz/
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DJANGO_ENV
+        value: "production"
+      - key: DEBUG
+        value: "false"
+      - key: ALLOWED_HOSTS
+        value: ".onrender.com,localhost,127.0.0.1"
+      - key: CSRF_TRUSTED_ORIGINS
+        value: "https://*.onrender.com"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: django-rtl-admin-demo-db
+          property: connectionString
+      - key: WEB_CONCURRENCY
+        value: "2"
+
+  - type: cron
+    name: django-rtl-admin-demo-reset
+    runtime: docker
+    # Render Cron Jobs do not have a "free" plan; "starter" is Render's minimum valid cron plan.
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    schedule: "0 * * * *"
+    dockerCommand: python manage.py reset_demo
+    envVars:
+      - key: SECRET_KEY
+        fromService:
+          type: web
+          name: django-rtl-admin-demo
+          envVarKey: SECRET_KEY
+      - key: DJANGO_ENV
+        value: "production"
+      - key: DEBUG
+        value: "false"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: django-rtl-admin-demo-db
+          property: connectionString
