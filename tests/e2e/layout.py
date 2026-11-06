@@ -414,7 +414,10 @@ def assert_mirrored(ltr: Ink, rtl: Ink, what: str) -> None:
         self_mirror, _ = mirror_scores(ltr, ltr, holes=True)
     assert self_mirror < 0.85, f"{what}: the LTR glyph is symmetric, nothing to compare"
     as_mirror, as_is = mirror_scores(ltr, rtl, holes=holes)
-    assert as_mirror > 0.6 and as_mirror > as_is + 0.1, (
+    # A 9-10 px glyph loses a pixel or two to anti-aliasing between font
+    # renderers (CI scored a correctly mirrored chevron 0.58), so the
+    # absolute floor stays loose and the margin over "as is" decides.
+    assert as_mirror > 0.5 and as_mirror > as_is + 0.2, (
         f"{what}: the RTL glyph does not point the other way "
         f"(overlap with the mirrored LTR glyph {as_mirror:.2f}, unmirrored {as_is:.2f})\n"
         + "\n".join(ltr.cropped())
