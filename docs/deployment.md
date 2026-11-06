@@ -1,3 +1,8 @@
+---
+title: Live demo and deployment | django-rtl-admin
+description: Run the bilingual Arabic/English demo project locally or in Docker, deploy it to Fly.io or Render with environment-based settings, and reset the read-only demo data on a schedule.
+---
+
 # Live demo and deployment
 
 The repository ships a complete bilingual demo project under `example/` with
