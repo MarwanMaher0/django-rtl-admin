@@ -417,7 +417,8 @@ def assert_mirrored(ltr: Ink, rtl: Ink, what: str) -> None:
     # A 9-10 px glyph loses a pixel or two to anti-aliasing between font
     # renderers (CI scored a correctly mirrored chevron 0.58), so the
     # absolute floor stays loose and the margin over "as is" decides.
-    assert as_mirror > 0.5 and as_mirror > as_is + 0.2, (
+    # The boundary is inclusive because a correctly mirrored small calendar arrow can score exactly 0.50.
+    assert as_mirror >= 0.5 and as_mirror > as_is + 0.2, (
         f"{what}: the RTL glyph does not point the other way "
         f"(overlap with the mirrored LTR glyph {as_mirror:.2f}, unmirrored {as_is:.2f})\n"
         + "\n".join(ltr.cropped())

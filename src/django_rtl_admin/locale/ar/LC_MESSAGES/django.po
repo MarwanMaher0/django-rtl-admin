@@ -17,3 +17,11 @@ msgstr "اللغة"
 #: apps.py
 msgid "Bilingual / RTL admin"
 msgstr "إدارة ثنائية اللغة / من اليمين إلى اليسار"
+
+#: templates/admin/change_list_results.html
+msgid "Select all objects on this page for an action"
+msgstr "تحديد جميع العناصر في هذه الصفحة لتنفيذ إجراء"
+
+#: templatetags/rtl_admin.py
+msgid "Select this object for an action - {}"
+msgstr "تحديد هذا العنصر لتنفيذ إجراء - {}"

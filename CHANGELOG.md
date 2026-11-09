@@ -32,10 +32,22 @@ All notable changes to this project are documented here. The format follows
   screenshot is saved to `test-artifacts/e2e/`. Run them with `nox -s e2e`;
   CI runs them on the newest Python/Django pair only and uploads the
   screenshots as a build artifact.
+- **Automated accessibility checks.** The browser suite also runs axe-core
+  against the changelist, change form and delete confirmation in Arabic and
+  English, in light and dark schemes and at both viewport widths. It checks
+  WCAG 2 A/AA, 2.1 AA and 2.2 AA rules and saves a JSON report for each
+  failing scan.
 
 ### Fixed
 
-RTL defects found by the browser tests:
+Defects found by the browser tests:
+
+- Accessibility checks now cover and fix missing names and labels on the
+  language switcher, action checkboxes, tabular-inline controls and split
+  date/time inputs; disabled mobile zoom; insufficient color contrast; links
+  distinguished only by color; and undersized filter, pagination and related
+  object link targets. These fixes include older Django releases whose stock
+  admin predates the equivalent upstream accessibility improvements.
 
 - The navigation sidebar's collapse toggle pointed the wrong way in RTL: the
   stylesheet swapped the `«`/`»` characters the browser already mirrors.

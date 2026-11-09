@@ -201,6 +201,13 @@ The stylesheet is linked from the `responsive` block of `admin/base.html`, which
 is the last stylesheet hook there is, so it wins over both
 `admin/css/rtl.css` and `admin/css/responsive_rtl.css`.
 
+The package also overrides `admin/change_list_results.html`,
+`admin/edit_inline/tabular.html`, and `admin/widgets/split_datetime.html` to
+label action checkboxes, inline fields and deletion controls, and date/time
+inputs accessibly. A project's own override of any of these templates takes
+precedence and loses the corresponding accessible labels unless it merges the
+package's markup; the stylesheet and other template overrides remain active.
+
 Two CSS-level safety nets come with it, both opt-out:
 
 - `unicode-bidi: isolate` on changelist cells, so one mixed-direction value
@@ -326,6 +333,9 @@ and an invalid choice raises `ImproperlyConfigured` at the point of use.
 | `l10n_datetime` | `{{ dt\|l10n_datetime }}` | |
 | `l10n_time` | `{{ t\|l10n_time }}` | |
 | `local_digits` | `{{ "REF-2024"\|local_digits }}` | Rewrite digits in a ready-made string. |
+| `rtl_admin_accessible_viewport` | `{{ block.super\|rtl_admin_accessible_viewport }}` | Remove the stock viewport's pinch-zoom restrictions while preserving the rest of the responsive block. |
+| `rtl_admin_result_object` | `{{ cl.result_list\|rtl_admin_result_object:forloop.counter0 }}` | Return the changelist object at the supplied zero-based index. |
+| `rtl_admin_action_label` | `{{ item\|rtl_admin_action_label:object }}` | Add an escaped, translated accessible name to a stock changelist action checkbox. |
 
 ### Template tags
 

@@ -88,5 +88,14 @@ and retain parent blocks:
 The package adds body classes in `bodyclass`, loads assets in `responsive`, and
 places switchers in `userlinks` and anonymous `branding`. Preserve
 `{{ block.super }}` when overriding these blocks to retain those features.
+
+It also overrides `admin/change_list_results.html`,
+`admin/edit_inline/tabular.html`, and `admin/widgets/split_datetime.html` to
+provide accessible names for action checkboxes, inline fields and deletion
+controls, and date/time inputs. A project-level override of one of these
+templates wins and loses that template's accessible labels unless the package's
+markup is merged into the project version. Other package overrides and styling
+are unaffected.
+
 Third-party admin themes may use different markup or template inheritance;
 compatibility with them is not guaranteed by the stock-admin stylesheet.

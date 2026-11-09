@@ -11,7 +11,7 @@ Load the library in each Django template that uses it:
 {% load rtl_admin %}
 ```
 
-The library contains 11 filters and 8 tags. Examples below assume it is loaded
+The library contains 14 filters and 8 tags. Examples below assume it is loaded
 and that variables come from the template context. Number examples use numeric
 values; date/time examples use Python date, datetime, or time objects.
 See [Configuration](configuration.md) for shared defaults and the

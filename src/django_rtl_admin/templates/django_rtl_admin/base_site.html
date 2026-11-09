@@ -24,4 +24,4 @@ the last stylesheet hook in admin/base.html: the direction-aware rules have to
 win over admin/css/rtl.css and admin/css/responsive_rtl.css, both of which are
 linked after `extrastyle`.
 {% endcomment %}
-{% block responsive %}{{ block.super }}{% rtl_admin_styles %}{% rtl_admin_scripts %}{% endblock %}
+{% block responsive %}{{ block.super|rtl_admin_accessible_viewport }}{% rtl_admin_styles %}{% rtl_admin_scripts %}{% endblock %}

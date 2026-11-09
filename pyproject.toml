@@ -70,7 +70,13 @@ docs = [
     "pymdown-extensions>=10.14,<11",
 ]
 test = ["pytest>=8", "pytest-django>=4.8", "Babel>=2.12"]
-e2e = ["pytest>=8", "pytest-django>=4.8", "Babel>=2.12", "playwright>=1.45"]
+e2e = [
+    "pytest>=8",
+    "pytest-django>=4.8",
+    "Babel>=2.12",
+    "playwright>=1.45",
+    "axe-playwright-python==0.1.8",
+]
 
 [project.urls]
 Homepage = "https://github.com/MarwanMaher0/django-rtl-admin"

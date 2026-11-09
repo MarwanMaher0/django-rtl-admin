@@ -107,6 +107,7 @@ def e2e(session: nox.Session) -> None:
         "pytest-django>=4.8",
         "Babel>=2.12",
         "playwright>=1.45",
+        "axe-playwright-python==0.1.8",
     )
     install = ["python", "-m", "playwright", "install"]
     if os.environ.get("CI"):

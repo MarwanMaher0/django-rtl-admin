@@ -134,6 +134,9 @@ jobs:
           names = set(zipfile.ZipFile(wheel).namelist())
           required = {
               "django_rtl_admin/templates/admin/base_site.html",
+              "django_rtl_admin/templates/admin/change_list_results.html",
+              "django_rtl_admin/templates/admin/edit_inline/tabular.html",
+              "django_rtl_admin/templates/admin/widgets/split_datetime.html",
               "django_rtl_admin/templates/django_rtl_admin/base_site.html",
               "django_rtl_admin/templates/django_rtl_admin/language_switcher.html",
               "django_rtl_admin/static/django_rtl_admin/css/rtl-admin.css",

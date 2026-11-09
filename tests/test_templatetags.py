@@ -6,6 +6,7 @@ import pytest
 from django.template import Context, Template, engines
 from django.template.library import InvalidTemplateLibrary
 from django.test import override_settings
+from django.utils.safestring import mark_safe
 from django.utils.translation import override as override_language
 
 from django_rtl_admin.bidi import FSI, LRI, PDI, RLI
@@ -26,6 +27,9 @@ EXPECTED_FILTERS = {
     "l10n_datetime",
     "l10n_time",
     "local_digits",
+    "rtl_admin_accessible_viewport",
+    "rtl_admin_result_object",
+    "rtl_admin_action_label",
 }
 
 EXPECTED_TAGS = {
@@ -152,6 +156,29 @@ def test_local_digits_filter():
     with override_language("ar-eg"):
         assert render("{{ v|local_digits }}", v="REF-2024") == "REF-٢٠٢٤"
     assert render("{{ v|local_digits }}", v=None) == ""
+
+
+def test_accessible_viewport_filter_allows_zoom_without_changing_other_markup():
+    html = '<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1.0, maximum-scale=1.0"><link rel="stylesheet" href="responsive.css">'
+    output = tags.rtl_admin_accessible_viewport(html)
+    assert 'content="width=device-width, initial-scale=1.0"' in output
+    assert "user-scalable" not in output
+    assert '<link rel="stylesheet" href="responsive.css">' in output
+    assert tags.rtl_admin_accessible_viewport(output) == output
+
+
+def test_result_object_filter_selects_the_current_changelist_object():
+    objects = ["first", "second"]
+    assert tags.rtl_admin_result_object(objects, 1) == "second"
+
+
+def test_action_label_filter_names_stock_checkboxes_and_escapes_object_text():
+    cell = '<td class="action-checkbox"><input type="checkbox" name="_selected_action" value="1" class="action-select"></td>'
+    with override_language("en"):
+        output = tags.rtl_admin_action_label(mark_safe(cell), "<script>")
+    assert 'aria-label="Select this object for an action - &lt;script&gt;"' in output
+    assert tags.rtl_admin_action_label(output, "unused") == output
+    assert tags.rtl_admin_action_label("<td>Title</td>", "unused") == "<td>Title</td>"
 
 
 # -- tags ------------------------------------------------------------------

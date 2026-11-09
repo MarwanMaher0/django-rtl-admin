@@ -50,6 +50,29 @@ body.rtl-admin--ltr {
   direction: ltr;
 }
 
+body.rtl-admin {
+  --breadcrumbs-bg: #264b5d;
+  --button-bg: var(--secondary);
+  --link-selected-fg: var(--secondary);
+}
+
+@media (prefers-color-scheme: dark) {
+  body.rtl-admin {
+    --breadcrumbs-bg: var(--primary);
+    --link-selected-fg: #6f94c6;
+  }
+}
+
+html[data-theme="dark"] body.rtl-admin {
+  --breadcrumbs-bg: var(--primary);
+  --link-selected-fg: #6f94c6;
+}
+
+html[data-theme="light"] body.rtl-admin {
+  --breadcrumbs-bg: #264b5d;
+  --link-selected-fg: var(--secondary);
+}
+
 body.rtl-admin--rtl,
 body.rtl-admin--rtl input,
 body.rtl-admin--rtl textarea,
@@ -166,6 +189,18 @@ body.rtl-admin--rtl {
   text-align: start;
 }
 
+.rtl-admin .module caption,
+.rtl-admin .module.aligned:not(.collapse):not(.collapsed) > h2,
+.rtl-admin .inline-group h2,
+.rtl-admin .inline-related h2 {
+  background: var(--header-bg, #417690);
+}
+
+.rtl-admin #changelist-filter h2,
+.rtl-admin #nav-sidebar a.section {
+  background: var(--header-bg, #417690);
+}
+
 .rtl-admin .module ul,
 .rtl-admin .module ol {
   margin-left: 0;
@@ -204,10 +239,28 @@ body.rtl-admin--rtl {
   text-align: start;
 }
 
+.rtl-admin div.breadcrumbs a,
+.rtl-admin ol.breadcrumbs a,
+.rtl-admin fieldset .collapse-toggle {
+  text-decoration: underline;
+}
+
 .rtl-admin .skip-to-content-link:focus {
   left: auto;
   right: auto;
   inset-inline-start: 0;
+}
+
+.rtl-admin .inline-related .visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* ==========================================================================
@@ -239,7 +292,6 @@ body.rtl-admin--rtl {
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  opacity: 0.85;
 }
 
 .rtl-admin-language-switcher__select {
@@ -542,6 +594,11 @@ body.rtl-admin--rtl {
   text-align: start;
 }
 
+.rtl-admin #changelist-filter a {
+  min-height: 24px;
+  align-content: center;
+}
+
 /* A collapsed filter is marked with a literal "\2192", which bidi mirroring
    does not touch, so in RTL it points away from the filter's own content. */
 .rtl-admin--rtl #changelist-filter details > summary::before {
@@ -602,6 +659,13 @@ body.rtl-admin--rtl {
   margin-left: 0;
   margin-right: 0;
   margin-inline-start: auto;
+}
+
+.rtl-admin .paginator a {
+  box-sizing: border-box;
+  min-width: 24px;
+  min-height: 24px;
+  text-align: center;
 }
 
 /* ==========================================================================
@@ -718,6 +782,14 @@ body.rtl-admin--rtl {
 
 .rtl-admin .related-widget-wrapper {
   float: inline-start;
+}
+
+.rtl-admin .related-widget-wrapper-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  min-height: 24px;
 }
 
 /* ==========================================================================

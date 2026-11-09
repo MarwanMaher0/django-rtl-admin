@@ -25,6 +25,27 @@ def test_base_site_resolves_to_this_app_and_not_to_contrib_admin():
     assert os.path.join("contrib", "admin", "templates") not in origin
 
 
+def test_tabular_inline_resolves_to_this_app_and_not_to_contrib_admin():
+    template = get_template("admin/edit_inline/tabular.html")
+    origin = template.origin.name
+    assert os.path.join("django_rtl_admin", "templates", "admin", "edit_inline") in origin
+    assert os.path.join("contrib", "admin", "templates") not in origin
+
+
+def test_changelist_results_resolve_to_this_app_and_not_to_contrib_admin():
+    template = get_template("admin/change_list_results.html")
+    origin = template.origin.name
+    assert os.path.join("django_rtl_admin", "templates", "admin") in origin
+    assert os.path.join("contrib", "admin", "templates") not in origin
+
+
+def test_split_datetime_resolves_to_this_app_and_not_to_contrib_admin():
+    template = get_template("admin/widgets/split_datetime.html")
+    origin = template.origin.name
+    assert os.path.join("django_rtl_admin", "templates", "admin", "widgets") in origin
+    assert os.path.join("contrib", "admin", "templates") not in origin
+
+
 def test_contrib_base_html_is_not_shadowed():
     origin = get_template("admin/base.html").origin.name
     assert os.path.join("contrib", "admin", "templates") in origin
@@ -51,6 +72,14 @@ def test_admin_page_links_the_stylesheet(admin_client):
 def test_the_stylesheet_is_linked_after_the_contrib_rtl_stylesheet(admin_client):
     html = admin_client.get(INDEX_URL, headers={"accept-language": "ar"}).content.decode()
     assert html.index("django_rtl_admin/css/rtl-admin.css") > html.index("admin/css/responsive.css")
+
+
+def test_the_viewport_allows_pinch_zoom(admin_client):
+    html = admin_client.get(INDEX_URL).content.decode()
+    assert html.count('name="viewport"') == 1
+    assert '<meta name="viewport" content="width=device-width, initial-scale=1.0">' in html
+    assert "user-scalable=no" not in html
+    assert "maximum-scale" not in html
 
 
 @override_settings(RTL_ADMIN={"ENABLE_CSS": False})
@@ -89,12 +118,31 @@ def test_the_admin_still_renders_its_own_content(admin_client):
     assert "Site administration" in html
 
 
+def test_changelist_action_checkboxes_have_accessible_names(admin_client):
+    from tests.testapp.models import Thing
+
+    Thing.objects.create(name="Alpha")
+    html = admin_client.get("/admin/testapp/thing/").content.decode()
+    assert 'aria-label="Select all objects on this page for an action"' in html
+    assert 'aria-label="Select this object for an action - Alpha"' in html
+
+
+def test_changelist_action_checkbox_names_are_translated_into_arabic(admin_client):
+    from tests.testapp.models import Thing
+
+    Thing.objects.create(name="ألفا")
+    html = admin_client.get("/admin/testapp/thing/", headers={"accept-language": "ar"}).content.decode()
+    assert 'aria-label="تحديد جميع العناصر في هذه الصفحة لتنفيذ إجراء"' in html
+    assert 'aria-label="تحديد هذا العنصر لتنفيذ إجراء - ألفا"' in html
+
+
 # -- language switcher -----------------------------------------------------
 
 
 def test_the_switcher_lists_every_configured_language(admin_client):
     html = admin_client.get(INDEX_URL).content.decode()
     assert 'class="rtl-admin-language-switcher"' in html
+    assert 'aria-label="Language"' in html
     for code in ("en", "ar", "ar-eg", "he"):
         assert f'value="{code}"' in html
 

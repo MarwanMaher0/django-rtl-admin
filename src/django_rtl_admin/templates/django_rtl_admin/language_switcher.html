@@ -3,7 +3,7 @@
   <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
   <input type="hidden" name="next" value="{{ redirect_to }}">
   <label class="rtl-admin-language-switcher__label" for="rtl-admin-language-select">{% translate "Language" %}</label>
-  <select id="rtl-admin-language-select" class="rtl-admin-language-switcher__select" name="language">
+  <select id="rtl-admin-language-select" class="rtl-admin-language-switcher__select" name="language" aria-label="{% translate 'Language' %}">
     {% for language in languages %}
       <option value="{{ language.code }}" lang="{{ language.code }}" dir="{% if language.bidi %}rtl{% else %}ltr{% endif %}"{% if language.is_active %} selected{% endif %}>{{ language.label }}</option>
     {% endfor %}

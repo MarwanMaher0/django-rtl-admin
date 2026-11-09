@@ -7,9 +7,10 @@ from django import template
 from django.conf import settings
 from django.templatetags.static import static
 from django.urls import NoReverseMatch, reverse
-from django.utils.html import format_html, format_html_join
+from django.utils.html import conditional_escape, format_html, format_html_join
 from django.utils.safestring import mark_safe
 from django.utils.translation import get_language, get_language_info
+from django.utils.translation import gettext as _
 
 from .. import bidi as bidi_module
 from .. import formatting
@@ -151,6 +152,29 @@ def _nonce_attr(context):
     if nonce is None:
         return ""
     return format_html(' nonce="{}"', nonce)
+
+
+@register.filter(name="rtl_admin_accessible_viewport", is_safe=True)
+def rtl_admin_accessible_viewport(value):
+    return str(value).replace(
+        'content="user-scalable=no, width=device-width, initial-scale=1.0, maximum-scale=1.0"',
+        'content="width=device-width, initial-scale=1.0"',
+    )
+
+
+@register.filter(name="rtl_admin_result_object")
+def rtl_admin_result_object(results, index):
+    return results[index]
+
+
+@register.filter(name="rtl_admin_action_label")
+def rtl_admin_action_label(value, obj):
+    html = str(conditional_escape(value))
+    if 'class="action-select"' not in html or "aria-label=" in html:
+        return value
+    label = format_html(_("Select this object for an action - {}"), obj)
+    attributes = format_html('class="action-select" aria-label="{}"', label)
+    return mark_safe(html.replace('class="action-select"', str(attributes), 1))
 
 
 @register.simple_tag(takes_context=True, name="rtl_admin_styles")
