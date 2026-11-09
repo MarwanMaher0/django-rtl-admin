@@ -8,6 +8,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- System checks now report `rtl_admin.E001` for invalid setting choices and
+  `rtl_admin.W005` for invalid configuration types, reading raw settings without
+  triggering runtime `ImproperlyConfigured`; runtime validation remains in place.
 - **Full test matrix.** `noxfile.py` defines a test cell for every
   Python/Django pair Django supports — Python 3.10 to 3.14 against Django 4.2,
   5.0, 5.1, 5.2, 6.0 and 6.1 — plus a no-Babel cell, each run under coverage.
@@ -40,6 +43,8 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- `rtl_admin.W001` now uses ordered app-registry names to recognize custom
+  AppConfig subclasses, including project-defined admin configurations.
 - `format_datetime()`, `format_time()`, `l10n_datetime` and `l10n_time` now
   convert aware `datetime` values to Django's active time zone (`TIME_ZONE` or
   `timezone.override()`) with `django.utils.timezone.localtime()` on both the

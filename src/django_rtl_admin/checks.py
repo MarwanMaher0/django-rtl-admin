@@ -1,21 +1,32 @@
-"""System checks: catch the three ways this app is usually mis-installed."""
+"""System checks for installation and configuration mistakes."""
 
 from __future__ import annotations
 
-from django.conf import settings
-from django.core.checks import Warning, register
+from collections.abc import Mapping, Sequence
 
-from .conf import SETTINGS_KEY, rtl_settings
+from django.apps import apps
+from django.conf import settings
+from django.core.checks import Error, Warning, register
+
+from .conf import CHOICES, SETTINGS_KEY, rtl_settings
 
 APP_NAME = "django_rtl_admin"
 ADMIN_APP = "django.contrib.admin"
 
 
+def _configured_settings():
+    configured = getattr(settings, SETTINGS_KEY, None)
+    if configured is None:
+        return {}
+    if isinstance(configured, Mapping):
+        return configured
+    return None
+
+
 @register()
 def check_app_order(app_configs, **kwargs):
     """``django_rtl_admin`` must shadow the contrib admin templates."""
-    installed = list(getattr(settings, "INSTALLED_APPS", []))
-    names = [entry.split(".apps.")[0] for entry in installed]
+    names = [config.name for config in apps.get_app_configs()]
     if APP_NAME not in names or ADMIN_APP not in names:
         return []
     if names.index(APP_NAME) < names.index(ADMIN_APP):
@@ -36,7 +47,10 @@ def check_app_order(app_configs, **kwargs):
 @register()
 def check_settings_keys(app_configs, **kwargs):
     """Typos in ``RTL_ADMIN`` fail silently otherwise."""
-    unknown = rtl_settings.unknown_keys()
+    configured = _configured_settings()
+    if configured is None:
+        return []
+    unknown = sorted(set(configured) - set(rtl_settings.defaults))
     if not unknown:
         return []
     return [
@@ -53,9 +67,73 @@ def check_settings_keys(app_configs, **kwargs):
 
 
 @register()
+def check_settings_values(app_configs, **kwargs):
+    """Report invalid choices before settings are accessed while rendering."""
+    configured = _configured_settings()
+    if configured is None:
+        return []
+    issues = []
+    for name, choices in CHOICES.items():
+        if name in configured and configured[name] not in choices:
+            issues.append(
+                Error(
+                    f"{SETTINGS_KEY}[{name!r}] must be one of "
+                    f"{', '.join(repr(choice) for choice in choices)}, got {configured[name]!r}.",
+                    id="rtl_admin.E001",
+                )
+            )
+    return issues
+
+
+@register()
+def check_settings_types(app_configs, **kwargs):
+    """Warn about values that would otherwise be coerced or misinterpreted."""
+    configured = _configured_settings()
+    if configured is None:
+        return [
+            Warning(
+                f"{SETTINGS_KEY} must be a mapping or None.",
+                hint=(
+                    f"Set {SETTINGS_KEY} to a mapping of supported setting names and values, "
+                    "or None to use the defaults."
+                ),
+                id="rtl_admin.W005",
+            )
+        ]
+    issues = []
+    for name, value in configured.items():
+        expected = None
+        if name == "EXTRA_RTL_LANGUAGES" and isinstance(value, str):
+            expected = "a sequence of language codes, not a bare string"
+        elif name == "FONT_STACK" and not (
+            value is None
+            or isinstance(value, str)
+            or (
+                isinstance(value, Sequence)
+                and not isinstance(value, (bytes, bytearray))
+                and all(isinstance(font, str) for font in value)
+            )
+        ):
+            expected = "None, a string, or a sequence of strings"
+        elif isinstance(rtl_settings.defaults.get(name), bool) and not isinstance(value, bool):
+            expected = "a bool"
+        if expected is not None:
+            issues.append(
+                Warning(
+                    f"{SETTINGS_KEY}[{name!r}] must be {expected}.",
+                    id="rtl_admin.W005",
+                )
+            )
+    return issues
+
+
+@register()
 def check_language_switcher(app_configs, **kwargs):
     """The switcher needs ``set_language`` routed and ``LocaleMiddleware`` on."""
-    if not rtl_settings.LANGUAGE_SWITCHER:
+    configured = _configured_settings()
+    if configured is None:
+        return []
+    if not configured.get("LANGUAGE_SWITCHER", rtl_settings.defaults["LANGUAGE_SWITCHER"]):
         return []
     issues = []
 
