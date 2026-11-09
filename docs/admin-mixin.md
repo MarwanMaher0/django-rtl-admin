@@ -70,10 +70,11 @@ independent CSS protection are described in [Configuration](configuration.md).
 
 ## Named fields and display methods
 
-Only string entries in `list_display` are candidates. Direct model field names and
-named model/admin display methods are supported. Related lookups have a
-[sorting limitation](#related-lookups-and-sorting). Callable objects placed directly
-in `list_display` pass through unchanged; use the method's name to opt in:
+Only string entries in `list_display` are candidates. Direct model field names,
+named model/admin display methods and, on Django 5.1+,
+[related lookups](#related-lookups-and-sorting) are supported. Callable objects
+placed directly in `list_display` pass through unchanged; use the method's name
+to opt in:
 
 ```python
 @admin.register(Book)
@@ -88,16 +89,16 @@ class BookAdmin(BidiSafeAdminMixin, admin.ModelAdmin):
 This is another alternative admin definition for a `Book` with a `title` field.
 Django still resolves each named entry and produces its normal display value.
 The wrapper retains the column name and label. Sorting is preserved for direct
-model fields and named display methods with explicit ordering metadata, but not
-for raw related lookups. Changelist links and `sortable_by` entries are mapped to
+model fields, named display methods with explicit ordering metadata and, on
+Django 5.1+, related lookups. Changelist links and `sortable_by` entries are mapped to
 the same cached wrapper objects; this mapping does not itself make a column sortable.
 
 The following entries are left alone:
 
 - Names in `bidi_isolate_exclude` or outside a non-`None` allowlist.
 - Names in `list_editable`, even when explicitly allowlisted.
-- `BooleanField`/`NullBooleanField` columns and named attributes marked
-  `boolean=True`, preserving boolean icons.
+- `BooleanField`/`NullBooleanField` columns, including related lookups that end
+  in one, and named attributes marked `boolean=True`, preserving boolean icons.
 - Non-string callable entries.
 
 Numeric fields are not generally skipped. Empty display values, including the
@@ -107,24 +108,26 @@ the mixin does not make otherwise-invalid admin configuration valid.
 
 ### Related lookups and sorting
 
-A related lookup such as `publisher__name_en` in `list_display` **loses sorting
-when wrapped**. `_bidi_model_field()` only resolves direct model fields and
-returns `None` for this lookup. With no named method supplying ordering metadata,
-`_bidi_order_field()` sets the wrapper's `admin_order_field` to `None`, so Django
-cannot offer a sort link for that column.
-
-Either leave the lookup out of the mixin's isolation allowlist or explicitly
-exclude it, keeping Django's normal handling on versions that support related
-lookups in `list_display`:
+Django 5.1 accepts related lookups such as `publisher__name_en` in
+`list_display`. On Django 5.1 and later the mixin resolves the lookup with
+Django's `get_fields_from_path()`, sets the wrapper's `admin_order_field` to the
+lookup itself so the column keeps its sort link and `?o=` ordering, and isolates
+the final field's display value:
 
 ```python
 class BookAdmin(BidiSafeAdminMixin, admin.ModelAdmin):
     list_display = ("title", "publisher__name_en")
-    bidi_isolate_exclude = ("publisher__name_en",)
 ```
 
-Alternatively, replace the lookup with a named display method and declare its
-ordering explicitly. This keeps both isolation and sorting:
+A missing related object renders the empty-value placeholder without isolates.
+A lookup that ends in a `BooleanField` or `NullBooleanField`, such as
+`publisher__is_active`, is left to Django unchanged. Exclude a lookup with
+`bidi_isolate_exclude` to opt it out like any other column.
+
+Django 4.2 and 5.0 do not support related lookups in `list_display` (the admin
+rejects them), and the mixin does not resolve them there either. On those
+versions use a named display method with explicit ordering, which keeps both
+isolation and sorting on every supported Django:
 
 ```python
 class BookAdmin(BidiSafeAdminMixin, admin.ModelAdmin):
@@ -136,8 +139,9 @@ class BookAdmin(BidiSafeAdminMixin, admin.ModelAdmin):
 ```
 
 These are alternative definitions for a `Book` with a `publisher` foreign key
-whose related model has a `name_en` field. Register only the chosen definition.
-If you use an isolation allowlist, include `publisher_name` to wrap the method.
+whose related model has `name_en` and `is_active` fields. Register only the
+chosen definition. If you use an isolation allowlist, include the lookup or
+`publisher_name` to wrap it.
 
 ## Escaping and formatting
 

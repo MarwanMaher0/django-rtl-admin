@@ -1,5 +1,6 @@
 """``BidiSafeAdminMixin`` applied to a real changelist."""
 
+import django
 import pytest
 from django.contrib import admin
 from django.contrib.admin.sites import AdminSite
@@ -8,12 +9,13 @@ from django.test import RequestFactory, override_settings
 from django_rtl_admin import BidiSafeAdminMixin
 from django_rtl_admin.bidi import FSI, PDI
 
-from .testapp.models import Thing
+from .testapp.models import Book, Category, Thing
 
 pytestmark = pytest.mark.django_db
 
 ARABIC = "التعلم"
 CHANGELIST_URL = "/admin/testapp/thing/"
+BOOK_CHANGELIST_URL = "/admin/testapp/book/"
 
 
 def make_admin(**attrs):
@@ -178,3 +180,93 @@ def test_searching_still_works(admin_client, thing):
     response = admin_client.get(CHANGELIST_URL, {"q": "978-0-262"})
     assert response.status_code == 200
     assert response.context["cl"].result_count == 1
+
+
+# -- related lookups ---------------------------------------------------------
+
+related_lookups = pytest.mark.skipif(
+    django.VERSION < (5, 1), reason="list_display accepts related lookups on Django 5.1+"
+)
+
+
+def make_book_admin(**attrs):
+    attrs.setdefault("actions", None)
+    cls = type("TempBookAdmin", (BidiSafeAdminMixin, admin.ModelAdmin), attrs)
+    return cls(Book, admin.site)
+
+
+def render_book_changelist(model_admin, user, **params):
+    request = RequestFactory().get(BOOK_CHANGELIST_URL, params)
+    request.user = user
+    response = model_admin.changelist_view(request)
+    response.render()
+    return response
+
+
+@pytest.fixture
+def books(db):
+    zeta = Category.objects.create(name="Zeta", is_featured=True)
+    alpha = Category.objects.create(name="Alpha")
+    middle = Category.objects.create(name=ARABIC)
+    Book.objects.create(title="A first", isbn="1", category=zeta)
+    Book.objects.create(title="B second", isbn="2", category=alpha)
+    Book.objects.create(title="C third", isbn="3", category=middle)
+    Book.objects.create(title="D fourth", isbn="4", category=None)
+
+
+@related_lookups
+def test_a_related_lookup_keeps_its_sort_field(admin_user):
+    model_admin = make_book_admin(list_display=("title", "category__name"))
+    display = model_admin.get_list_display(request_for(admin_user))
+    assert display[1].__name__ == "category__name"
+    assert display[1].admin_order_field == "category__name"
+
+
+@related_lookups
+def test_a_related_lookup_column_has_a_sort_link(admin_user, books):
+    model_admin = make_book_admin(list_display=("title", "category__name"))
+    html = render_book_changelist(model_admin, admin_user).content.decode()
+    assert "sortable column-category__name" in html
+    assert 'class="field-category__name"' in html
+
+
+@related_lookups
+@pytest.mark.parametrize(("order", "reverse"), [("1", False), ("-1", True)])
+def test_sorting_by_a_related_lookup_orders_the_rows(admin_user, books, order, reverse):
+    model_admin = make_book_admin(list_display=("title", "category__name"))
+    response = render_book_changelist(model_admin, admin_user, o=order)
+    assert response.status_code == 200
+    names = [
+        book.category.name
+        for book in response.context_data["cl"].result_list
+        if book.category is not None
+    ]
+    assert names == sorted(names, reverse=reverse)
+    assert len(names) == 3
+
+
+@related_lookups
+def test_a_related_lookup_value_is_isolated(admin_user, books):
+    model_admin = make_book_admin(list_display=("title", "category__name"))
+    html = render_book_changelist(model_admin, admin_user).content.decode()
+    assert FSI + "Alpha" + PDI in html
+    assert FSI + ARABIC + PDI in html
+    assert FSI + PDI not in html
+
+
+@related_lookups
+def test_a_boolean_field_at_the_end_of_a_lookup_is_left_alone(admin_user, books):
+    model_admin = make_book_admin(list_display=("title", "category__is_featured"))
+    display = model_admin.get_list_display(request_for(admin_user))
+    assert display[1] == "category__is_featured"
+    response = render_book_changelist(model_admin, admin_user)
+    assert response.status_code == 200
+
+
+@pytest.mark.skipif(django.VERSION >= (5, 1), reason="behaviour before Django 5.1")
+def test_a_related_lookup_is_not_resolved_before_django_5_1(admin_user):
+    model_admin = make_book_admin(list_display=("title", "category__name"))
+    assert model_admin._bidi_model_field("category__name") is None
+    assert model_admin._bidi_order_field("category__name", None, None) is None
+    with pytest.raises(AttributeError, match="Unable to lookup 'category__name'"):
+        model_admin.get_list_display(request_for(admin_user))

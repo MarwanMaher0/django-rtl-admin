@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import django
 from django.contrib.admin.utils import (
     display_for_field,
     display_for_value,
+    get_fields_from_path,
     label_for_field,
     lookup_field,
 )
+from django.db.models.constants import LOOKUP_SEP
 
 from .bidi import mark_isolated
 from .conf import rtl_settings
@@ -15,6 +18,14 @@ from .conf import rtl_settings
 #: Field types whose changelist representation is an icon or a bare number and
 #: therefore has nothing to isolate.
 _SKIPPED_FIELD_TYPES = ("BooleanField", "NullBooleanField")
+
+#: Django 5.1 added related lookups such as ``publisher__name`` to
+#: ``list_display``.
+_SUPPORTS_RELATED_LOOKUPS = django.VERSION >= (5, 1)
+
+
+def _is_related_lookup(name: str) -> bool:
+    return _SUPPORTS_RELATED_LOOKUPS and LOOKUP_SEP in name
 
 
 class BidiSafeAdminMixin:
@@ -114,6 +125,12 @@ class BidiSafeAdminMixin:
         try:
             return self.model._meta.get_field(name)
         except Exception:
+            pass
+        if not _is_related_lookup(name):
+            return None
+        try:
+            return get_fields_from_path(self.model, name)[-1]
+        except Exception:
             return None
 
     def _make_bidi_wrapper(self, name: str):
@@ -127,9 +144,12 @@ class BidiSafeAdminMixin:
 
         model_admin = self
         direction = self.bidi_isolation_direction
+        lookup_target = field if _is_related_lookup(name) else None
 
         def wrapper(obj):
             resolved_field, attr, value = lookup_field(name, obj, model_admin)
+            if resolved_field is None and lookup_target is not None:
+                resolved_field = lookup_target
             empty = getattr(
                 attr, "empty_value_display", model_admin.get_empty_value_display()
             )
@@ -154,5 +174,5 @@ class BidiSafeAdminMixin:
 
     def _bidi_order_field(self, name, field, original):
         if field is not None:
-            return field.name
+            return name if _is_related_lookup(name) else field.name
         return getattr(original, "admin_order_field", None)

@@ -33,6 +33,7 @@ class Thing(models.Model):
 
 class Category(models.Model):
     name = models.CharField(max_length=100)
+    is_featured = models.BooleanField(default=False)
 
     class Meta:
         app_label = "testapp"

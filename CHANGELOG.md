@@ -46,6 +46,11 @@ All notable changes to this project are documented here. The format follows
   Babel and Django fallback paths, and register `l10n_datetime` and `l10n_time`
   with `expects_localtime=True`; naive `datetime`/`time` values and plain
   `date` values are left untouched.
+- On Django 5.1+ `BidiSafeAdminMixin` no longer drops sorting for related
+  lookups such as `publisher__name` in `list_display`: the lookup is resolved
+  with `get_fields_from_path()`, used as the column's `admin_order_field`, and
+  the final field's display value is isolated (a lookup ending in a
+  `BooleanField` is left alone). Django 4.2/5.0 behaviour is unchanged.
 
 Defects found by the browser tests:
 
