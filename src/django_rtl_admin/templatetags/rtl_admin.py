@@ -93,16 +93,16 @@ def l10n_date(value, fmt="medium"):
     return formatting.format_date(value, fmt)
 
 
-@register.filter(name="l10n_datetime")
+@register.filter(name="l10n_datetime", expects_localtime=True)
 def l10n_datetime(value, fmt="medium"):
     """Locale-aware date and time."""
-    return formatting.format_datetime(value, fmt)
+    return formatting._format_datetime(value, fmt)
 
 
-@register.filter(name="l10n_time")
+@register.filter(name="l10n_time", expects_localtime=True)
 def l10n_time(value, fmt="medium"):
     """Locale-aware time of day."""
-    return formatting.format_time(value, fmt)
+    return formatting._format_time(value, fmt)
 
 
 @register.filter(name="local_digits")

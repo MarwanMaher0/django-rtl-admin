@@ -5,6 +5,7 @@ import decimal
 
 import pytest
 from django.test import override_settings
+from django.utils import timezone
 
 from django_rtl_admin import formatting
 from django_rtl_admin.formatting import (
@@ -14,6 +15,7 @@ from django_rtl_admin.formatting import (
     format_datetime,
     format_number,
     format_percent,
+    format_time,
     numbering_system,
     transliterate_digits,
 )
@@ -136,8 +138,109 @@ def test_format_datetime_localises_digits():
 
 def test_format_time_localises_digits():
     value = datetime.time(14, 30)
-    assert any(char in formatting.format_time(value, language="fa") for char in EXTENDED)
-    assert formatting.format_time(None) == ""
+    assert any(char in format_time(value, language="fa") for char in EXTENDED)
+    assert format_time(None) == ""
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+@pytest.mark.parametrize(
+    ("language", "expected_day", "expected_time", "utc_time"),
+    [
+        ("en", "6", "12:30", "10:30"),
+        ("ar-eg", "٦", "١٢:٣٠", "١٠:٣٠"),
+    ],
+)
+def test_format_datetime_and_time_convert_aware_datetimes_for_time_zone_setting(
+    monkeypatch, use_babel, language, expected_day, expected_time, utc_time
+):
+    if not use_babel:
+        monkeypatch.setattr(formatting, "HAS_BABEL", False)
+    value = datetime.datetime(2024, 3, 5, 22, 30, tzinfo=datetime.timezone.utc)
+    with override_settings(USE_TZ=True, TIME_ZONE="Africa/Cairo"):
+        dt_output = format_datetime(value, language=language)
+        time_output = format_time(value, language=language)
+    assert expected_day in dt_output
+    assert expected_time in dt_output
+    assert utc_time not in dt_output
+    assert expected_time in time_output
+    assert utc_time not in time_output
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+@pytest.mark.parametrize(
+    ("language", "expected_day", "expected_time", "utc_time"),
+    [
+        ("en", "6", "12:30", "10:30"),
+        ("ar-eg", "٦", "١٢:٣٠", "١٠:٣٠"),
+    ],
+)
+def test_format_datetime_and_time_convert_aware_datetimes_for_timezone_override(
+    monkeypatch, use_babel, language, expected_day, expected_time, utc_time
+):
+    if not use_babel:
+        monkeypatch.setattr(formatting, "HAS_BABEL", False)
+    value = datetime.datetime(2024, 3, 5, 22, 30, tzinfo=datetime.timezone.utc)
+    with timezone.override("Africa/Cairo"):
+        dt_output = format_datetime(value, language=language)
+        time_output = format_time(value, language=language)
+    assert expected_day in dt_output
+    assert expected_time in dt_output
+    assert utc_time not in dt_output
+    assert expected_time in time_output
+    assert utc_time not in time_output
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+@pytest.mark.parametrize(
+    ("language", "expected_day", "expected_time"),
+    [
+        ("en", "5", "10:30"),
+        ("ar-eg", "٥", "١٠:٣٠"),
+    ],
+)
+def test_format_helpers_leave_naive_values_and_plain_dates_untouched(
+    monkeypatch, use_babel, language, expected_day, expected_time
+):
+    if not use_babel:
+        monkeypatch.setattr(formatting, "HAS_BABEL", False)
+    naive_dt = datetime.datetime(2024, 3, 5, 22, 30)
+    naive_time = datetime.time(22, 30)
+    plain_date = datetime.date(2024, 3, 5)
+    with (
+        override_settings(USE_TZ=True, TIME_ZONE="Africa/Cairo"),
+        timezone.override("Africa/Cairo"),
+    ):
+        dt_output = format_datetime(naive_dt, language=language)
+        time_output = format_time(naive_time, language=language)
+        date_output = format_date(plain_date, language=language)
+    assert expected_day in dt_output
+    assert expected_time in dt_output
+    assert expected_time in time_output
+    assert expected_day in date_output
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+@pytest.mark.parametrize(
+    ("language", "expected_day", "expected_time", "cairo_time"),
+    [
+        ("en", "5", "10:30", "12:30"),
+        ("ar-eg", "٥", "١٠:٣٠", "١٢:٣٠"),
+    ],
+)
+def test_format_datetime_and_time_leave_aware_datetimes_untouched_when_use_tz_is_false(
+    monkeypatch, use_babel, language, expected_day, expected_time, cairo_time
+):
+    if not use_babel:
+        monkeypatch.setattr(formatting, "HAS_BABEL", False)
+    value = datetime.datetime(2024, 3, 5, 22, 30, tzinfo=datetime.timezone.utc)
+    with override_settings(USE_TZ=False, TIME_ZONE="Africa/Cairo"):
+        dt_output = format_datetime(value, language=language)
+        time_output = format_time(value, language=language)
+    assert expected_day in dt_output
+    assert expected_time in dt_output
+    assert cairo_time not in dt_output
+    assert expected_time in time_output
+    assert cairo_time not in time_output
 
 
 def test_unknown_locale_does_not_blow_up():

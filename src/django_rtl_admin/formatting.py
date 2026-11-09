@@ -20,7 +20,8 @@ import datetime
 import decimal
 from typing import Any
 
-from django.utils import formats, translation
+from django.conf import settings
+from django.utils import formats, timezone, translation
 from django.utils.translation import get_language, to_locale
 
 from .conf import rtl_settings
@@ -163,6 +164,16 @@ def _localize_digits(text: str, language: str | None) -> str:
     return transliterate_digits(text, numbering_system(language))
 
 
+def _localtime(value: Any) -> Any:
+    if (
+        settings.USE_TZ
+        and isinstance(value, datetime.datetime)
+        and timezone.is_aware(value)
+    ):
+        return timezone.localtime(value)
+    return value
+
+
 def format_number(
     value: Any,
     *,
@@ -270,13 +281,12 @@ def format_date(
     return _localize_digits(text, language)
 
 
-def format_datetime(
+def _format_datetime(
     value: datetime.datetime | None,
     fmt: str = "medium",
     *,
     language: str | None = None,
 ) -> str:
-    """Locale-aware date and time, with the locale's own digits."""
     if value is None:
         return ""
     locale = _babel_locale(language)
@@ -294,13 +304,27 @@ def format_datetime(
     return _localize_digits(text, language)
 
 
-def format_time(
+def format_datetime(
+    value: datetime.datetime | None,
+    fmt: str = "medium",
+    *,
+    language: str | None = None,
+) -> str:
+    """Locale-aware date and time, with the locale's own digits.
+
+    When ``USE_TZ`` is enabled, aware datetimes are converted to the current
+    time zone with ``django.utils.timezone.localtime()``; naive values are left
+    untouched.
+    """
+    return _format_datetime(_localtime(value), fmt, language=language)
+
+
+def _format_time(
     value: datetime.time | datetime.datetime | None,
     fmt: str = "medium",
     *,
     language: str | None = None,
 ) -> str:
-    """Locale-aware time of day, with the locale's own digits."""
     if value is None:
         return ""
     locale = _babel_locale(language)
@@ -314,3 +338,18 @@ def format_time(
     with _active(language):
         text = formats.time_format(value, use_l10n=True)
     return _localize_digits(text, language)
+
+
+def format_time(
+    value: datetime.time | datetime.datetime | None,
+    fmt: str = "medium",
+    *,
+    language: str | None = None,
+) -> str:
+    """Locale-aware time of day, with the locale's own digits.
+
+    When ``USE_TZ`` is enabled, aware datetimes are converted to the current
+    time zone with ``django.utils.timezone.localtime()``; naive values are left
+    untouched.
+    """
+    return _format_time(_localtime(value), fmt, language=language)

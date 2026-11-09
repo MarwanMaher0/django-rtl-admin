@@ -62,7 +62,13 @@ Use `short`, `medium`, `long`, or `full` for portable date/datetime requests.
 Without Babel, `short` uses Django's short date/datetime format and the other
 three use its regular format. Custom patterns are backend-specific: Babel uses
 CLDR patterns and Django uses Django format strings. The time fallback always
-uses Django's locale time format, regardless of `fmt`.
+uses Django's locale time format, regardless of `fmt`. When `USE_TZ=True`, aware
+`datetime` values passed to `format_datetime()` and `format_time()` are
+converted to Django's active time zone with `django.utils.timezone.localtime()`
+on both the Babel and Django fallback paths (and the `l10n_datetime` and
+`l10n_time` template filters declare `expects_localtime=True`, respecting
+`{% localtime off %}`); naive `datetime`/`time` values and plain `date` values
+are left untouched.
 
 `NUMERALS` controls digit shapes, not every separator. `transliterate_digits()`
 converts digits among `latn`, `arab`, and `arabext` without changing punctuation.

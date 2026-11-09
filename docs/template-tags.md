@@ -135,8 +135,10 @@ Format a datetime. The optional style defaults to `"medium"`:
 ```
 
 Styles and custom-pattern behavior match `l10n_date`. `None` renders empty.
-These filters do not register Django's automatic local-time conversion hook;
-prepare the desired timezone before formatting.
+Both `l10n_datetime` and `l10n_time` register `expects_localtime=True`, so
+Django converts aware `datetime` values to the active time zone when `USE_TZ`
+is enabled and leaves them as given inside `{% localtime off %}` (or when
+`USE_TZ=False`).
 
 ### `l10n_time`
 

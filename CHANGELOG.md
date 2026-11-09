@@ -40,6 +40,13 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- `format_datetime()`, `format_time()`, `l10n_datetime` and `l10n_time` now
+  convert aware `datetime` values to Django's active time zone (`TIME_ZONE` or
+  `timezone.override()`) with `django.utils.timezone.localtime()` on both the
+  Babel and Django fallback paths, and register `l10n_datetime` and `l10n_time`
+  with `expects_localtime=True`; naive `datetime`/`time` values and plain
+  `date` values are left untouched.
+
 Defects found by the browser tests:
 
 - Accessibility checks now cover and fix missing names and labels on the

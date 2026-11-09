@@ -6,9 +6,11 @@ import pytest
 from django.template import Context, Template, engines
 from django.template.library import InvalidTemplateLibrary
 from django.test import override_settings
+from django.utils import timezone
 from django.utils.safestring import mark_safe
 from django.utils.translation import override as override_language
 
+from django_rtl_admin import formatting
 from django_rtl_admin.bidi import FSI, LRI, PDI, RLI
 from django_rtl_admin.formatting import DIGITS
 from django_rtl_admin.templatetags import rtl_admin as tags
@@ -150,6 +152,100 @@ def test_l10n_datetime_and_time_filters():
     with override_language("en"):
         assert "2024" in render("{{ v|l10n_datetime }}", v=value)
         assert render("{{ v|l10n_time }}", v=value.time()) != ""
+
+
+def test_l10n_datetime_and_time_filters_declare_expects_localtime():
+    assert getattr(tags.register.filters["l10n_datetime"], "expects_localtime", False) is True
+    assert getattr(tags.register.filters["l10n_time"], "expects_localtime", False) is True
+    assert getattr(tags.register.filters["l10n_date"], "expects_localtime", False) is False
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+@pytest.mark.parametrize(
+    ("language", "expected_day", "expected_time", "utc_time"),
+    [
+        ("en", "6", "12:30", "10:30"),
+        ("ar-eg", "٦", "١٢:٣٠", "١٠:٣٠"),
+    ],
+)
+def test_l10n_datetime_and_time_filters_respect_time_zone_and_timezone_override(
+    monkeypatch, use_babel, language, expected_day, expected_time, utc_time
+):
+    if not use_babel:
+        monkeypatch.setattr(formatting, "HAS_BABEL", False)
+    value = datetime.datetime(2024, 3, 5, 22, 30, tzinfo=datetime.timezone.utc)
+    with override_settings(USE_TZ=True, TIME_ZONE="Africa/Cairo"), override_language(language):
+        dt_from_setting = render("{{ v|l10n_datetime }}", v=value)
+        time_from_setting = render("{{ v|l10n_time }}", v=value)
+    with timezone.override("Africa/Cairo"), override_language(language):
+        dt_from_override = render("{{ v|l10n_datetime }}", v=value)
+        time_from_override = render("{{ v|l10n_time }}", v=value)
+    for dt_output in (dt_from_setting, dt_from_override):
+        assert expected_day in dt_output
+        assert expected_time in dt_output
+        assert utc_time not in dt_output
+    for time_output in (time_from_setting, time_from_override):
+        assert expected_time in time_output
+        assert utc_time not in time_output
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+@pytest.mark.parametrize(
+    ("language", "expected_day", "expected_time", "cairo_time"),
+    [
+        ("en", "5", "10:30", "12:30"),
+        ("ar-eg", "٥", "١٠:٣٠", "١٢:٣٠"),
+    ],
+)
+def test_l10n_datetime_and_time_filters_respect_localtime_off_and_use_tz_false(
+    monkeypatch, use_babel, language, expected_day, expected_time, cairo_time
+):
+    if not use_babel:
+        monkeypatch.setattr(formatting, "HAS_BABEL", False)
+    value = datetime.datetime(2024, 3, 5, 22, 30, tzinfo=datetime.timezone.utc)
+    with (
+        override_settings(USE_TZ=True, TIME_ZONE="Africa/Cairo"),
+        override_language(language),
+    ):
+        dt_localtime_off = render(
+            "{% load tz %}{% localtime off %}{{ v|l10n_datetime }}{% endlocaltime %}",
+            v=value,
+        )
+        time_localtime_off = render(
+            "{% load tz %}{% localtime off %}{{ v|l10n_time }}{% endlocaltime %}",
+            v=value,
+        )
+    with (
+        override_settings(USE_TZ=False, TIME_ZONE="Africa/Cairo"),
+        override_language(language),
+    ):
+        dt_use_tz_false = render("{{ v|l10n_datetime }}", v=value)
+        time_use_tz_false = render("{{ v|l10n_time }}", v=value)
+    for dt_output in (dt_localtime_off, dt_use_tz_false):
+        assert expected_day in dt_output
+        assert expected_time in dt_output
+        assert cairo_time not in dt_output
+    for time_output in (time_localtime_off, time_use_tz_false):
+        assert expected_time in time_output
+        assert cairo_time not in time_output
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+def test_l10n_filters_leave_naive_values_and_plain_dates_untouched(monkeypatch, use_babel):
+    if not use_babel:
+        monkeypatch.setattr(formatting, "HAS_BABEL", False)
+    naive_dt = datetime.datetime(2024, 3, 5, 22, 30)
+    naive_time = datetime.time(22, 30)
+    plain_date = datetime.date(2024, 3, 5)
+    with (
+        override_settings(USE_TZ=True, TIME_ZONE="Africa/Cairo"),
+        timezone.override("Africa/Cairo"),
+        override_language("en"),
+    ):
+        assert "5" in render("{{ v|l10n_datetime }}", v=naive_dt)
+        assert "10:30" in render("{{ v|l10n_datetime }}", v=naive_dt)
+        assert "10:30" in render("{{ v|l10n_time }}", v=naive_time)
+        assert "5" in render("{{ v|l10n_date }}", v=plain_date)
 
 
 def test_local_digits_filter():
