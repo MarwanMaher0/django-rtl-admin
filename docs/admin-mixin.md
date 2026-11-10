@@ -178,13 +178,16 @@ Override `bidi_isolation_enabled(request=None)` for request-dependent enablement
 its default implementation ignores the request. Preserve cooperative `super()`
 calls when overriding initialization or the standard changelist hooks below.
 The generated reference lists their signatures without repeating the class
-usage prose.
+usage prose. In them, `_ListDisplay` is a list or tuple of `list_display`
+entries (field names or callables), the same shape django-stubs gives Django's
+own hooks.
 
 ::: django_rtl_admin.mixins.BidiSafeAdminMixin
     options:
       heading_level: 3
       show_root_heading: true
       show_root_full_path: false
+      show_bases: false
       show_source: false
       show_if_no_docstring: true
       show_docstring_description: false

@@ -8,6 +8,14 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Type information.** The package now ships a `py.typed` marker
+  ([PEP 561](https://peps.python.org/pep-0561/)), so type checkers read its
+  annotations in your project. Every public function in `bidi`, `formatting`,
+  `conf`, `mixins` and the `rtl_admin` template tags is fully annotated, the
+  `RTL_ADMIN` keys read through `rtl_settings` have declared types, and
+  `BidiSafeAdminMixin` type-checks when mixed into `admin.ModelAdmin`. The
+  source passes `mypy --strict` with django-stubs: `nox -s typecheck` runs it,
+  and CI runs that session on every push. No runtime behaviour changes.
 - System checks now report `rtl_admin.E001` for invalid setting choices and
   `rtl_admin.W005` for invalid configuration types, reading raw settings without
   triggering runtime `ImproperlyConfigured`; runtime validation remains in place.

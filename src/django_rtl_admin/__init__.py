@@ -17,6 +17,8 @@ Public API::
 ``django.contrib.admin`` that early would trip ``AppRegistryNotReady``.
 """
 
+from typing import TYPE_CHECKING
+
 from .bidi import (
     FSI,
     LRI,
@@ -45,12 +47,17 @@ from .formatting import (
     transliterate_digits,
 )
 
+if TYPE_CHECKING:
+    # Resolved lazily at runtime (see ``__getattr__``); imported here so type
+    # checkers see the real class rather than whatever ``__getattr__`` returns.
+    from .mixins import BidiSafeAdminMixin
+
 __version__ = "0.1.0"
 
 _LAZY = {"BidiSafeAdminMixin": ".mixins"}
 
 
-def __getattr__(name):
+def __getattr__(name: str) -> object:
     if name in _LAZY:
         from importlib import import_module
 
@@ -61,7 +68,7 @@ def __getattr__(name):
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-def __dir__():
+def __dir__() -> list[str]:
     return sorted(set(globals()) | set(_LAZY))
 
 

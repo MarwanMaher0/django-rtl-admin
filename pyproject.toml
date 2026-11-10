@@ -47,6 +47,7 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Internationalization",
     "Topic :: Software Development :: Localization",
+    "Typing :: Typed",
 ]
 dependencies = ["Django>=4.2"]
 
@@ -77,6 +78,8 @@ e2e = [
     "playwright>=1.45",
     "axe-playwright-python==0.1.8",
 ]
+
+typecheck = ["django-stubs[compatible-mypy]>=5.2", "Babel>=2.12"]
 
 [project.urls]
 Homepage = "https://github.com/MarwanMaher0/django-rtl-admin"
@@ -112,6 +115,22 @@ addopts = "-ra"
 markers = [
     "e2e: Playwright browser tests in tests/e2e (need `playwright install chromium`; run with `nox -s e2e`)",
 ]
+
+[tool.mypy]
+# Checked against the oldest supported Python; run with `nox -s typecheck`.
+python_version = "3.10"
+strict = true
+plugins = ["mypy_django_plugin.main"]
+
+[tool.django-stubs]
+django_settings_module = "tests.settings"
+
+[[tool.mypy.overrides]]
+# The Django plugin imports every model in the settings module's
+# INSTALLED_APPS, which pulls in the test project. Its models are read for
+# what they declare, but only src/ is held to the strict rules.
+module = "tests.*"
+follow_imports = "silent"
 
 [tool.coverage.run]
 source = ["django_rtl_admin"]

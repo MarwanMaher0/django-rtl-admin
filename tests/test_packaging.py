@@ -26,6 +26,11 @@ def test_compiled_translations_are_part_of_the_package():
         assert (ROOT / "locale" / code / "LC_MESSAGES" / "django.mo").is_file()
 
 
+def test_the_type_marker_is_part_of_the_package():
+    # PEP 561: without it type checkers ignore the package's annotations.
+    assert (ROOT / "py.typed").is_file()
+
+
 def test_the_public_api_is_importable():
     for name in django_rtl_admin.__all__:
         assert getattr(django_rtl_admin, name) is not None

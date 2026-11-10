@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any, TypedDict
+
 import django
 from django import template
 from django.conf import settings
@@ -16,6 +18,14 @@ from .. import bidi as bidi_module
 from .. import formatting
 from ..conf import rtl_settings
 
+if TYPE_CHECKING:
+    import datetime
+    from collections.abc import Iterable, Sequence
+
+    from django.template.context import Context
+    from django.utils.functional import Promise
+    from django.utils.safestring import SafeString
+
 register = template.Library()
 
 
@@ -25,7 +35,9 @@ register = template.Library()
 
 
 @register.filter(name="bidi_isolate", is_safe=True, needs_autoescape=True)
-def bidi_isolate(value, direction=None, autoescape=True):
+def bidi_isolate(
+    value: Any, direction: str | None = None, autoescape: bool = True
+) -> SafeString:
     """Wrap the whole value in a Unicode isolate.
 
     ``{{ book.isbn|bidi_isolate }}`` renders ``978-0-13-468599-1`` the right
@@ -36,7 +48,7 @@ def bidi_isolate(value, direction=None, autoescape=True):
 
 
 @register.filter(name="bidi_runs", is_safe=True, needs_autoescape=True)
-def bidi_runs(value, base=None, autoescape=True):
+def bidi_runs(value: Any, base: str | None = None, autoescape: bool = True) -> SafeString:
     """Isolate only the embedded opposite-direction runs inside the value.
 
     Use it on prose that mixes scripts, where wrapping the whole string would
@@ -46,13 +58,13 @@ def bidi_runs(value, base=None, autoescape=True):
 
 
 @register.filter(name="bidi_strip", is_safe=True)
-def bidi_strip(value):
+def bidi_strip(value: Any) -> str:
     """Remove every isolate and directional mark from the value."""
     return bidi_module.strip_isolates("" if value is None else str(value))
 
 
 @register.filter(name="bidi_dir")
-def bidi_dir(value, default="ltr"):
+def bidi_dir(value: Any, default: str = "ltr") -> str:
     """First-strong direction of the value: ``"rtl"`` or ``"ltr"``.
 
     Handy for ``dir`` attributes: ``<td dir="{{ value|bidi_dir }}">``.
@@ -66,47 +78,46 @@ def bidi_dir(value, default="ltr"):
 
 
 @register.filter(name="l10n_number")
-def l10n_number(value, decimal_pos=None):
+def l10n_number(value: Any, decimal_pos: int | str | None = None) -> str:
     """Locale-aware number, in the locale's own numbering system."""
-    if decimal_pos not in (None, ""):
-        decimal_pos = int(decimal_pos)
-    else:
-        decimal_pos = None
-    return formatting.format_number(value, decimal_pos=decimal_pos)
+    places = None if decimal_pos is None or decimal_pos == "" else int(decimal_pos)
+    return formatting.format_number(value, decimal_pos=places)
 
 
 @register.filter(name="l10n_currency")
-def l10n_currency(value, currency=None):
+def l10n_currency(value: Any, currency: str | None = None) -> str:
     """Locale-aware money: ``{{ book.price|l10n_currency:"EGP" }}``."""
     return formatting.format_currency(value, currency)
 
 
 @register.filter(name="l10n_percent")
-def l10n_percent(value):
+def l10n_percent(value: Any) -> str:
     """Locale-aware percentage from a 0..1 ratio."""
     return formatting.format_percent(value)
 
 
 @register.filter(name="l10n_date")
-def l10n_date(value, fmt="medium"):
+def l10n_date(value: datetime.date | None, fmt: str = "medium") -> str:
     """Locale-aware date: ``{{ book.published_on|l10n_date:"long" }}``."""
     return formatting.format_date(value, fmt)
 
 
 @register.filter(name="l10n_datetime", expects_localtime=True)
-def l10n_datetime(value, fmt="medium"):
+def l10n_datetime(value: datetime.datetime | None, fmt: str = "medium") -> str:
     """Locale-aware date and time."""
     return formatting._format_datetime(value, fmt)
 
 
 @register.filter(name="l10n_time", expects_localtime=True)
-def l10n_time(value, fmt="medium"):
+def l10n_time(
+    value: datetime.time | datetime.datetime | None, fmt: str = "medium"
+) -> str:
     """Locale-aware time of day."""
     return formatting._format_time(value, fmt)
 
 
 @register.filter(name="local_digits")
-def local_digits(value):
+def local_digits(value: Any) -> str:
     """Rewrite the digits in a ready-made string using the active locale's set."""
     if value is None:
         return ""
@@ -119,13 +130,13 @@ def local_digits(value):
 
 
 @register.simple_tag(name="rtl_admin_direction")
-def rtl_admin_direction():
+def rtl_admin_direction() -> str:
     """``"rtl"`` or ``"ltr"`` for the active language."""
     return bidi_module.current_direction()
 
 
 @register.simple_tag(name="rtl_admin_body_class")
-def rtl_admin_body_class():
+def rtl_admin_body_class() -> str:
     """Body classes that switch the stylesheet's behaviour on and off."""
     classes = ["rtl-admin", f"rtl-admin--{bidi_module.current_direction()}"]
     if rtl_settings.ISOLATE_TABLE_CELLS:
@@ -136,12 +147,12 @@ def rtl_admin_body_class():
 
 
 @register.simple_tag(name="rtl_admin_site_name_tag")
-def rtl_admin_site_name_tag():
+def rtl_admin_site_name_tag() -> str:
     """``h1`` or ``div`` -- whichever the running Django's admin CSS expects."""
     return "h1" if django.VERSION < (5, 0) else "div"
 
 
-def _nonce_attr(context):
+def _nonce_attr(context: Context | None) -> str:
     """``nonce="..."`` when the project is using Django's CSP support.
 
     Django 6.0 puts a ``csp_nonce`` in the template context when the CSP
@@ -155,7 +166,7 @@ def _nonce_attr(context):
 
 
 @register.filter(name="rtl_admin_accessible_viewport", is_safe=True)
-def rtl_admin_accessible_viewport(value):
+def rtl_admin_accessible_viewport(value: Any) -> str:
     return str(value).replace(
         'content="user-scalable=no, width=device-width, initial-scale=1.0, maximum-scale=1.0"',
         'content="width=device-width, initial-scale=1.0"',
@@ -163,12 +174,12 @@ def rtl_admin_accessible_viewport(value):
 
 
 @register.filter(name="rtl_admin_result_object")
-def rtl_admin_result_object(results, index):
+def rtl_admin_result_object(results: Sequence[Any], index: int) -> Any:
     return results[index]
 
 
 @register.filter(name="rtl_admin_action_label")
-def rtl_admin_action_label(value, obj):
+def rtl_admin_action_label(value: str, obj: Any) -> str:
     html = str(conditional_escape(value))
     if 'class="action-select"' not in html or "aria-label=" in html:
         return value
@@ -178,7 +189,7 @@ def rtl_admin_action_label(value, obj):
 
 
 @register.simple_tag(takes_context=True, name="rtl_admin_styles")
-def rtl_admin_styles(context=None):
+def rtl_admin_styles(context: Context | None = None) -> str:
     """The ``<link>`` (and optional font override) for the admin stylesheet."""
     if not rtl_settings.ENABLE_CSS:
         return ""
@@ -201,7 +212,7 @@ def rtl_admin_styles(context=None):
 
 
 @register.simple_tag(takes_context=True, name="rtl_admin_scripts")
-def rtl_admin_scripts(context=None):
+def rtl_admin_scripts(context: Context | None = None) -> str:
     """Progressive-enhancement script for the language switcher."""
     if not rtl_settings.LANGUAGE_SWITCHER:
         return ""
@@ -217,7 +228,16 @@ def rtl_admin_scripts(context=None):
 # ---------------------------------------------------------------------------
 
 
-def _label_for(code, configured_label):
+class SwitcherLanguage(TypedDict):
+    """One language offered by the switcher."""
+
+    code: str
+    label: str | Promise
+    bidi: bool
+    is_active: bool
+
+
+def _label_for(code: str, configured_label: str | Promise | None) -> str | Promise:
     try:
         info = get_language_info(code)
     except KeyError:
@@ -236,13 +256,14 @@ def _label_for(code, configured_label):
     return f"{native} {bidi_module.isolate(f'({translated})')}"
 
 
-def switcher_languages():
+def switcher_languages() -> list[SwitcherLanguage]:
     """The ``(code, label, bidi, is_active)`` rows shown by the switcher."""
     configured = rtl_settings.LANGUAGE_SWITCHER_LANGUAGES
     if configured is None:
         configured = getattr(settings, "LANGUAGES", ())
-    rows = []
+    rows: list[SwitcherLanguage] = []
     active = (get_language() or "").lower()
+    label: str | Promise | None
     for entry in configured:
         if isinstance(entry, str):
             code, label = entry, None
@@ -264,7 +285,7 @@ def switcher_languages():
     takes_context=True,
     name="rtl_admin_language_switcher",
 )
-def rtl_admin_language_switcher(context):
+def rtl_admin_language_switcher(context: Context) -> dict[str, Any]:
     """Render the admin language switcher.
 
     Silently renders nothing when the switcher is turned off, when fewer than
@@ -291,13 +312,13 @@ def rtl_admin_language_switcher(context):
 
 
 @register.simple_tag(name="rtl_admin_language_links")
-def rtl_admin_language_links():
+def rtl_admin_language_links() -> list[SwitcherLanguage]:
     """The switcher's languages as plain data, for custom templates."""
     return switcher_languages()
 
 
 @register.simple_tag(name="rtl_admin_isolated_join")
-def rtl_admin_isolated_join(values, separator=", "):
+def rtl_admin_isolated_join(values: Iterable[Any] | None, separator: str = ", ") -> str:
     """Join values, isolating each one -- for list columns in a mixed admin."""
     values = list(values or [])
     if not values:

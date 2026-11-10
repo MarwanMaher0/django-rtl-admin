@@ -30,6 +30,8 @@ python manage.py runserver
 ```bash
 pytest
 ruff check .
+# type checking (mypy --strict with django-stubs, configured in pyproject.toml):
+pip install -e ".[typecheck]" && mypy src
 # the fallback path, without Babel:
 pip uninstall -y Babel && pytest && pip install "Babel>=2.12"
 # packaging:
@@ -48,7 +50,8 @@ pip install nox                          # or run it with: uvx nox
 nox -l                                   # list the cells
 nox -s "tests(py3.12-django5.2)"         # one cell
 nox -s "tests(py3.12-django5.2)" -- -k bidi
-nox                                      # every cell, then ruff
+nox -s typecheck                         # mypy over src/
+nox                                      # every cell, then ruff and mypy
 ```
 
 CI reads the cell list from the noxfile (`nox -l --json`) and runs every cell as a separate
@@ -56,7 +59,8 @@ job, so adding a version to `noxfile.py` is all that is needed to add it to CI. 
 writes its coverage table to the job summary; the Python 3.13 / Django 5.2 job also uploads
 the report as an artifact and publishes it to [Coveralls](https://coveralls.io/github/MarwanMaher0/django-rtl-admin),
 which authenticates with the workflow's own `GITHUB_TOKEN` and needs no repository secret. CI
-also runs ruff and checks that the wheel carries the templates, static files and translations.
+also runs ruff, runs mypy (`nox -s typecheck`) and checks that the wheel carries the templates,
+static files, translations and `py.typed`.
 
 ### Browser tests
 
@@ -78,6 +82,9 @@ CI runs them once, on the newest Python/Django pair, and uploads the screenshots
 ## Style
 
 - ruff, with the rules and line length in `pyproject.toml`.
+- The package ships `py.typed`, so its annotations are part of the public API. Annotate every
+  new function and keep `nox -s typecheck` clean by fixing what mypy reports; a `# type: ignore`
+  needs an error code and a comment saying why it cannot be avoided.
 - HTML output escapes before it isolates. Follow `mark_isolated` and `mark_isolated_runs`, and
   give any new filter or display helper an autoescape test.
 - `rtl-admin.css` uses logical properties. Physical rules are only for things that really are

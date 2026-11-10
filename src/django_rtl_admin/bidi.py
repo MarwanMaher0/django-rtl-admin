@@ -19,6 +19,7 @@ paste, ``json.dumps`` and database round-trips.
 from __future__ import annotations
 
 import unicodedata
+from typing import Any
 
 from django.conf import locale as django_locale
 from django.utils.html import conditional_escape, escape
@@ -146,7 +147,9 @@ def is_isolated(value: str) -> bool:
     return bool(value) and value[0] in ISOLATE_OPENERS and value[-1] == PDI
 
 
-def mark_isolated(value, direction: str | None = None, autoescape: bool = True):
+def mark_isolated(
+    value: Any, direction: str | None = None, autoescape: bool = True
+) -> SafeString:
     """Escape ``value`` if needed, wrap it in an isolate, return a ``SafeString``.
 
     This is the helper to reach for in ``ModelAdmin`` display methods and
@@ -169,11 +172,12 @@ def mark_isolated(value, direction: str | None = None, autoescape: bool = True):
     return mark_safe(isolate(escaped, direction))
 
 
-def _as_text(value) -> str:
+def _as_text(value: Any) -> str:
     if isinstance(value, SafeString):
         return value
     if hasattr(value, "__html__"):
-        return value.__html__()
+        html: str = value.__html__()
+        return html
     return str(value)
 
 
@@ -222,7 +226,9 @@ def isolate_runs(value: str, base: str | None = None) -> str:
     return "".join(out)
 
 
-def mark_isolated_runs(value, base: str | None = None, autoescape: bool = True):
+def mark_isolated_runs(
+    value: Any, base: str | None = None, autoescape: bool = True
+) -> SafeString:
     """HTML-safe :func:`isolate_runs`.
 
     Isolation happens on the *raw* text and escaping afterwards, so an isolate

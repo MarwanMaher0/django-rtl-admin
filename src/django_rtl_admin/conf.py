@@ -10,12 +10,17 @@ project settings.  Every key is optional and every feature can be turned off::
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.core.signals import setting_changed
 from django.dispatch import receiver
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
+
+    from django.utils.functional import Promise
 
 SETTINGS_KEY = "RTL_ADMIN"
 
@@ -77,6 +82,25 @@ CHOICES: dict[str, tuple[str, ...]] = {
 
 class RTLAdminSettings:
     """Lazy, ``override_settings``-aware accessor for ``settings.RTL_ADMIN``."""
+
+    if TYPE_CHECKING:
+        # What each key in DEFAULTS holds, for type checkers only.  Nothing is
+        # assigned here: at runtime every key still goes through __getattr__.
+        ENABLE_CSS: bool
+        FONT_STACK: str | Sequence[str] | None
+        EXTRA_RTL_LANGUAGES: Iterable[str]
+        ISOLATION_DIRECTION: str
+        ISOLATE_CHANGELIST: bool
+        ISOLATE_TABLE_CELLS: bool
+        PLAINTEXT_FORM_FIELDS: bool
+        NUMERALS: str
+        USE_BABEL: bool
+        CURRENCY: str
+        LANGUAGE_SWITCHER: bool
+        LANGUAGE_SWITCHER_LANGUAGES: (
+            Iterable[str | tuple[str, str | Promise]] | None
+        )
+        LANGUAGE_SWITCHER_LABELS: str
 
     def __init__(self, defaults: dict[str, Any] | None = None) -> None:
         self.defaults = DEFAULTS if defaults is None else defaults

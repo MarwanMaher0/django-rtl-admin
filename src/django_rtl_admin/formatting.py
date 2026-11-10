@@ -33,9 +33,13 @@ try:  # pragma: no cover - exercised by both branches in CI
 
     HAS_BABEL = True
 except ImportError:  # pragma: no cover
-    Locale = None
-    UnknownLocaleError = Exception
-    babel_dates = babel_numbers = None
+    # Babel is optional.  The names stay importable so the rest of the module
+    # can refer to them; `_use_babel()` keeps them from being used.  A type
+    # checker sees the real Babel types above, hence the ignores on the
+    # stand-ins.
+    Locale = None  # type: ignore[assignment,misc]
+    UnknownLocaleError = Exception  # type: ignore[assignment,misc]
+    babel_dates = babel_numbers = None  # type: ignore[assignment]
     HAS_BABEL = False
 
 
@@ -93,7 +97,7 @@ _DJANGO_DATETIME_FORMATS = {
 }
 
 
-def _active(language: str | None):
+def _active(language: str | None) -> contextlib.AbstractContextManager[None]:
     """Make Django's own l10n honour an explicit ``language`` argument.
 
     ``django.utils.formats`` always reads the *active* language, so without
@@ -109,7 +113,7 @@ def _use_babel() -> bool:
     return HAS_BABEL and bool(rtl_settings.USE_BABEL)
 
 
-def _babel_locale(language: str | None):
+def _babel_locale(language: str | None) -> Locale | None:
     if not _use_babel():
         return None
     code = to_locale(language or get_language() or "en")
@@ -133,7 +137,7 @@ def numbering_system(language: str | None = None) -> str:
         return configured
     locale = _babel_locale(language)
     if locale is not None:
-        system = getattr(locale, "default_numbering_system", None)
+        system: str | None = getattr(locale, "default_numbering_system", None)
         if system in DIGITS:
             return system
         if system:

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any, Protocol, cast
+
 import django
 from django.contrib.admin.utils import (
     display_for_field,
@@ -14,6 +16,29 @@ from django.db.models.constants import LOOKUP_SEP
 
 from .bidi import mark_isolated
 from .conf import rtl_settings
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from django.contrib.admin import ModelAdmin
+    from django.db.models import Field, Model
+    from django.db.models.fields.reverse_related import ForeignObjectRel
+    from django.http import HttpRequest
+    from django.utils.functional import Promise
+
+    #: One ``list_display`` entry, and the list or tuple of them the admin
+    #: passes around.
+    _Display = str | Callable[[Any], str | bool]
+    _ListDisplay = list[_Display] | tuple[_Display, ...]
+    _ModelField = Field[Any, Any] | ForeignObjectRel
+
+    # The mixin calls ``super()`` hooks and reads attributes that only exist
+    # once it is combined with a ``ModelAdmin``.  Type checkers are told so;
+    # at runtime it stays a plain class, importable before the app registry
+    # is ready and with nothing added to the MRO.
+    _Base = ModelAdmin[Any]
+else:
+    _Base = object
 
 #: Field types whose changelist representation is an icon or a bare number and
 #: therefore has nothing to isolate.
@@ -28,7 +53,18 @@ def _is_related_lookup(name: str) -> bool:
     return _SUPPORTS_RELATED_LOOKUPS and LOOKUP_SEP in name
 
 
-class BidiSafeAdminMixin:
+class _DisplayWrapper(Protocol):
+    """A changelist display callable, with the attributes the admin reads."""
+
+    __name__: str
+    short_description: str | Promise
+    admin_order_field: object
+    boolean: bool
+
+    def __call__(self, obj: Model) -> str: ...
+
+
+class BidiSafeAdminMixin(_Base):
     """Wrap every changelist cell in a Unicode isolate.
 
     Mix it into a ``ModelAdmin`` and mixed-direction values -- reference
@@ -63,13 +99,13 @@ class BidiSafeAdminMixin:
     bidi_isolate_exclude: tuple[str, ...] = ()
     bidi_isolation_direction: str | None = None
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self._bidi_wrappers: dict[str, object] = {}
+        self._bidi_wrappers: dict[str, _DisplayWrapper] = {}
 
     # -- configuration -----------------------------------------------------
 
-    def bidi_isolation_enabled(self, request=None) -> bool:
+    def bidi_isolation_enabled(self, request: HttpRequest | None = None) -> bool:
         if self.bidi_isolate_changelist is None:
             return bool(rtl_settings.ISOLATE_CHANGELIST)
         return bool(self.bidi_isolate_changelist)
@@ -85,19 +121,21 @@ class BidiSafeAdminMixin:
 
     # -- ModelAdmin hooks --------------------------------------------------
 
-    def get_list_display(self, request):
+    def get_list_display(self, request: HttpRequest) -> _ListDisplay:
         display = super().get_list_display(request)
         if not self.bidi_isolation_enabled(request):
             return display
         return tuple(self._bidi_entry(entry) for entry in display)
 
-    def get_list_display_links(self, request, list_display):
+    def get_list_display_links(
+        self, request: HttpRequest, list_display: _ListDisplay
+    ) -> _ListDisplay:
         links = super().get_list_display_links(request, list_display)
         if links is None or not self.bidi_isolation_enabled(request):
             return links
         return tuple(self._bidi_entry(entry) for entry in links)
 
-    def get_sortable_by(self, request):
+    def get_sortable_by(self, request: HttpRequest) -> _ListDisplay:
         sortable = super().get_sortable_by(request)
         if sortable is None or not self.bidi_isolation_enabled(request):
             return sortable
@@ -105,7 +143,7 @@ class BidiSafeAdminMixin:
 
     # -- internals ---------------------------------------------------------
 
-    def _bidi_entry(self, entry):
+    def _bidi_entry(self, entry: _Display) -> _Display:
         """Map one ``list_display`` entry to its isolating wrapper."""
         if not isinstance(entry, str):
             return entry
@@ -121,9 +159,10 @@ class BidiSafeAdminMixin:
         self._bidi_wrappers[entry] = wrapper
         return wrapper
 
-    def _bidi_model_field(self, name: str):
+    def _bidi_model_field(self, name: str) -> _ModelField | None:
         try:
-            return self.model._meta.get_field(name)
+            field: _ModelField = self.model._meta.get_field(name)
+            return field
         except Exception:
             pass
         if not _is_related_lookup(name):
@@ -133,7 +172,7 @@ class BidiSafeAdminMixin:
         except Exception:
             return None
 
-    def _make_bidi_wrapper(self, name: str):
+    def _make_bidi_wrapper(self, name: str) -> _DisplayWrapper | None:
         field = self._bidi_model_field(name)
         if field is not None and field.get_internal_type() in _SKIPPED_FIELD_TYPES:
             return None
@@ -144,9 +183,14 @@ class BidiSafeAdminMixin:
 
         model_admin = self
         direction = self.bidi_isolation_direction
-        lookup_target = field if _is_related_lookup(name) else None
+        # The stubs type this slot as a concrete ``Field``.  A related lookup
+        # may also end on a reverse relation, which ``display_for_field`` only
+        # ever inspects with ``isinstance``/``getattr``.
+        lookup_target = (
+            cast("Field[Any, Any] | None", field) if _is_related_lookup(name) else None
+        )
 
-        def wrapper(obj):
+        def wrapper(obj: Model) -> str:
             resolved_field, attr, value = lookup_field(name, obj, model_admin)
             if resolved_field is None and lookup_target is not None:
                 resolved_field = lookup_target
@@ -165,14 +209,21 @@ class BidiSafeAdminMixin:
         # the ``column-<name>``/``field-<name>`` CSS classes, and
         # ``short_description`` drives the column header.
         wrapper.__name__ = name
-        wrapper.short_description = label_for_field(name, self.model, self)
-        wrapper.admin_order_field = self._bidi_order_field(name, field, original)
+        display = cast("_DisplayWrapper", wrapper)
+        # ``return_attr=False`` is Django's default; spelling it out selects
+        # the overload that returns the label alone.
+        display.short_description = label_for_field(
+            name, self.model, self, return_attr=False
+        )
+        display.admin_order_field = self._bidi_order_field(name, field, original)
         boolean = getattr(original, "boolean", False)
         if boolean:
-            wrapper.boolean = boolean
-        return wrapper
+            display.boolean = boolean
+        return display
 
-    def _bidi_order_field(self, name, field, original):
+    def _bidi_order_field(
+        self, name: str, field: _ModelField | None, original: object
+    ) -> object:
         if field is not None:
             return name if _is_related_lookup(name) else field.name
         return getattr(original, "admin_order_field", None)

@@ -8,5 +8,5 @@ class RTLAdminConfig(AppConfig):
     verbose_name = _("Bilingual / RTL admin")
     default_auto_field = "django.db.models.BigAutoField"
 
-    def ready(self):
+    def ready(self) -> None:
         from . import checks  # noqa: F401  (registers the system checks)

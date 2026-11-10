@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING, Any
 
 from django.apps import apps
 from django.conf import settings
@@ -10,11 +11,15 @@ from django.core.checks import Error, Warning, register
 
 from .conf import CHOICES, SETTINGS_KEY, rtl_settings
 
+if TYPE_CHECKING:
+    from django.apps import AppConfig
+    from django.core.checks import CheckMessage
+
 APP_NAME = "django_rtl_admin"
 ADMIN_APP = "django.contrib.admin"
 
 
-def _configured_settings():
+def _configured_settings() -> Mapping[str, Any] | None:
     configured = getattr(settings, SETTINGS_KEY, None)
     if configured is None:
         return {}
@@ -24,7 +29,9 @@ def _configured_settings():
 
 
 @register()
-def check_app_order(app_configs, **kwargs):
+def check_app_order(
+    app_configs: Sequence[AppConfig] | None, **kwargs: Any
+) -> list[CheckMessage]:
     """``django_rtl_admin`` must shadow the contrib admin templates."""
     names = [config.name for config in apps.get_app_configs()]
     if APP_NAME not in names or ADMIN_APP not in names:
@@ -45,7 +52,9 @@ def check_app_order(app_configs, **kwargs):
 
 
 @register()
-def check_settings_keys(app_configs, **kwargs):
+def check_settings_keys(
+    app_configs: Sequence[AppConfig] | None, **kwargs: Any
+) -> list[CheckMessage]:
     """Typos in ``RTL_ADMIN`` fail silently otherwise."""
     configured = _configured_settings()
     if configured is None:
@@ -67,12 +76,14 @@ def check_settings_keys(app_configs, **kwargs):
 
 
 @register()
-def check_settings_values(app_configs, **kwargs):
+def check_settings_values(
+    app_configs: Sequence[AppConfig] | None, **kwargs: Any
+) -> list[CheckMessage]:
     """Report invalid choices before settings are accessed while rendering."""
     configured = _configured_settings()
     if configured is None:
         return []
-    issues = []
+    issues: list[CheckMessage] = []
     for name, choices in CHOICES.items():
         if name in configured and configured[name] not in choices:
             issues.append(
@@ -86,7 +97,9 @@ def check_settings_values(app_configs, **kwargs):
 
 
 @register()
-def check_settings_types(app_configs, **kwargs):
+def check_settings_types(
+    app_configs: Sequence[AppConfig] | None, **kwargs: Any
+) -> list[CheckMessage]:
     """Warn about values that would otherwise be coerced or misinterpreted."""
     configured = _configured_settings()
     if configured is None:
@@ -100,7 +113,7 @@ def check_settings_types(app_configs, **kwargs):
                 id="rtl_admin.W005",
             )
         ]
-    issues = []
+    issues: list[CheckMessage] = []
     for name, value in configured.items():
         expected = None
         if name == "EXTRA_RTL_LANGUAGES" and isinstance(value, str):
@@ -128,14 +141,16 @@ def check_settings_types(app_configs, **kwargs):
 
 
 @register()
-def check_language_switcher(app_configs, **kwargs):
+def check_language_switcher(
+    app_configs: Sequence[AppConfig] | None, **kwargs: Any
+) -> list[CheckMessage]:
     """The switcher needs ``set_language`` routed and ``LocaleMiddleware`` on."""
     configured = _configured_settings()
     if configured is None:
         return []
     if not configured.get("LANGUAGE_SWITCHER", rtl_settings.defaults["LANGUAGE_SWITCHER"]):
         return []
-    issues = []
+    issues: list[CheckMessage] = []
 
     from django.urls import NoReverseMatch, reverse
 
