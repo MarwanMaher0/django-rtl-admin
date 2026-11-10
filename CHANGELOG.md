@@ -56,6 +56,17 @@ All notable changes to this project are documented here. The format follows
   with `get_fields_from_path()`, used as the column's `admin_order_field`, and
   the final field's display value is isolated (a lookup ending in a
   `BooleanField` is left alone). Django 4.2/5.0 behaviour is unchanged.
+- Three stylesheet rules scoped `dashboard` and `change-list` as descendants of
+  `.rtl-admin`, but stock templates put those classes on the same `<body>`, so
+  the rules never matched. They are compound selectors now. Dashboard action
+  links restate the stock spacing logically (16px of icon room at inline-start,
+  the stock 0.6em gap at inline-end, dropped below 1024px like the stock
+  responsive sheets); filtered changelists restate the stock border resets and
+  mirror `changelists.css`'s unmirrored `padding-right: 1em` header-cell
+  widening to the logical end while keeping the stock padding at the start —
+  8px, or the 10px `responsive.css` applies at or below 1024px.
+  The browser suite verifies the rendered geometry in both languages, both
+  colour schemes and at both viewport widths.
 
 Defects found by the browser tests:
 

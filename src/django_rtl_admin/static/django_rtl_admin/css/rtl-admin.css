@@ -469,11 +469,22 @@ body.rtl-admin--rtl {
   padding-inline-start: 18px;
 }
 
-.rtl-admin .dashboard .module table td a {
+/* Stock puts `dashboard` on <body> next to `rtl-admin`, so the two classes
+   have to be compounded; as a descendant selector this rule matches nothing. */
+.rtl-admin.dashboard .module table td a {
   padding-left: 0;
   padding-right: 0;
   padding-inline-start: 16px;
   padding-inline-end: 0.6em;
+}
+
+/* Below 1024px stock drops the end gap entirely (responsive.css sets
+   padding-right: 0, responsive_rtl.css sets padding-left: 0), but both
+   resets lose to the compound rule above, so re-apply the drop logically. */
+@media (max-width: 1024px) {
+  .rtl-admin.dashboard .module table td a {
+    padding-inline-end: 0;
+  }
 }
 
 /* ==========================================================================
@@ -520,16 +531,36 @@ body.rtl-admin--rtl {
    9. Changelist: table, sorting, filters, search, actions, pagination
    ========================================================================== */
 
-.rtl-admin .change-list .filtered table {
+/* `change-list` sits on <body> next to `rtl-admin`, so compound the classes;
+   a descendant selector matches nothing.  Mirrors the stock border resets
+   for filtered tables (changelists.css `border-right: none`, rtl.css
+   `border-left: none`); the results table carries no border of its own, so
+   this is parity rather than a visible change. */
+.rtl-admin.change-list .filtered table {
   border-left: none;
   border-right: none;
   border-inline-end: none;
 }
 
-.rtl-admin .change-list .filtered table tbody th {
-  padding-left: 0;
-  padding-right: 0;
+/* changelists.css widens filtered header cells with an unmirrored
+   padding-right: 1em while base.css pads every cell 8px, so in RTL the
+   stock rule puts the wide side on the start edge.  Restate the base
+   padding on both physical sides and move the 1em to the logical end. */
+.rtl-admin.change-list .filtered table tbody th {
+  padding-left: 8px;
+  padding-right: 8px;
   padding-inline-end: 1em;
+}
+
+/* responsive.css pads every td/th 10px at or below 1024px; the physical
+   restatement above would pin the start side to the desktop 8px there —
+   a regression on touch layouts this sheet is meant to fix, not
+   introduce.  Mirror the stock media query on the start side only, so
+   the logical end keeps the 1em it gets from the base rule. */
+@media (max-width: 1024px) {
+  .rtl-admin.change-list .filtered table tbody th {
+    padding-inline-start: 10px;
+  }
 }
 
 .rtl-admin #changelist table tbody td:first-child,

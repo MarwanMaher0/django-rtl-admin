@@ -35,6 +35,7 @@ from .layout import (
     luminance,
     side_of,
     start_side,
+    text_and_box,
     text_box,
 )
 
@@ -292,6 +293,52 @@ def test_changelist_filters(open_admin, snapshot, lang, scheme):
             )
 
 
+@parametrize_all
+def test_filtered_changelist_table_geometry(open_admin, lang, scheme):
+    """No border bleeds out of a filtered table, and its title cells keep the
+    stock padding at the start - 8px, widened to 10px at or below 1024px by
+    responsive.css - while the stock 1em moves to the end."""
+    for page in visit(open_admin, CHANGELIST, lang, scheme):
+        check_page(page, lang, scheme, "changelist")
+        assert "filtered" in (page.locator("#changelist").get_attribute("class") or "").split()
+
+        table = page.locator("#result_list")
+        bleed = table.evaluate("el => el.getBoundingClientRect().width - el.clientWidth")
+        assert bleed <= 1, f"table borders bleed {bleed}px"
+
+        # Rendered geometry, not computed styles: a zero-height block probe
+        # inside the cell spans exactly its content box, so the gaps between
+        # probe and cell - minus the borders - are the paddings as painted.
+        cell = table.evaluate(
+            """el => {
+              const th = el.querySelector("tbody th");
+              const probe = document.createElement("span");
+              probe.style.cssText =
+                "display:block;width:100%;height:0;margin:0;padding:0;border:0";
+              th.appendChild(probe);
+              try {
+                const cs = getComputedStyle(th);
+                const t = th.getBoundingClientRect();
+                const p = probe.getBoundingClientRect();
+                return {
+                  padLeft: p.left - t.left - parseFloat(cs.borderLeftWidth),
+                  padRight: t.right - p.right - parseFloat(cs.borderRightWidth),
+                  font: parseFloat(cs.fontSize),
+                };
+              } finally {
+                probe.remove();
+              }
+            }"""
+        )
+        start_pad = cell["padRight"] if lang == "ar" else cell["padLeft"]
+        end_pad = cell["padLeft"] if lang == "ar" else cell["padRight"]
+        base = 10 if page.viewport_size["width"] <= 1024 else 8
+        assert abs(start_pad - base) <= 1, f"title cell start padding {start_pad}, want {base}"
+        assert abs(end_pad - cell["font"]) <= 1, (
+            f"title cell end padding {end_pad} is not 1em ({cell['font']})"
+        )
+
+
 # -- change form ------------------------------------------------------------------
 
 
@@ -493,7 +540,7 @@ def test_autocomplete(open_admin, e2e_data, snapshot, lang, scheme):
         page.locator(".select2-search__field").fill("تا")
         option = page.locator(".select2-results__option", has_text="تاريخ")
         option.wait_for()
-        assert_start_aligned(text_box(option), box(option), lang, "autocomplete option")
+        assert_start_aligned(*text_and_box(option), lang=lang, what="autocomplete option")
         check_page(page, lang, scheme, "autocomplete dropdown")
         snapshot(page, "autocomplete")
 
@@ -518,6 +565,33 @@ def test_language_switcher_in_header(open_admin, lang, scheme):
             "el => [getComputedStyle(el).color, getComputedStyle(el).backgroundColor]"
         )
         assert dropdown_colours[0] != dropdown_colours[1]
+
+
+@parametrize_all
+def test_dashboard_action_link_padding(open_admin, lang, scheme):
+    """Action links reserve 16px of icon room at the start and keep the stock
+    0.6em gap at the end - dropped below 1024px, like the stock sheets do.
+
+    Measured on the rendered boxes: the inline link's border rect includes
+    its padding, the text rect inside it does not, so the gap between the
+    two is exactly the room the link reserves - and paints - on each side.
+    """
+    for page in visit(open_admin, "/admin/", lang, scheme):
+        check_page(page, lang, scheme, "index")
+        assert "dashboard" in (page.locator("body").get_attribute("class") or "").split()
+
+        link = page.locator("#content-main .module table td a").first
+        label, frame = text_and_box(link)
+        font = link.evaluate("el => parseFloat(getComputedStyle(el).fontSize)")
+        if lang == "ar":
+            start_gap, end_gap = frame.right - label.right, label.left - frame.left
+        else:
+            start_gap, end_gap = label.left - frame.left, frame.right - label.right
+        assert abs(start_gap - 16) <= 1, f"action link reserves {start_gap}px at the start"
+        expected_end = 0.6 * font if is_wide(page) else 0
+        assert abs(end_gap - expected_end) <= 1, (
+            f"action link end gap {end_gap:.1f} is not {expected_end:.1f}"
+        )
 
 
 # -- mirrored icons -----------------------------------------------------------------

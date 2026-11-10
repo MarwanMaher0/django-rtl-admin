@@ -160,6 +160,24 @@ def text_box(locator) -> Box:
     return Box(**rect)
 
 
+def text_and_box(locator) -> tuple[Box, Box]:
+    """``(text_box(locator), box(locator))``, measured in a single evaluation.
+
+    Widgets that re-render their nodes - select2 replaces result options while
+    the dropdown settles - can detach the element between two separate calls,
+    and the later measurement then sees a zero rect.
+    """
+    rects = locator.evaluate(
+        """el => {
+          const range = document.createRange();
+          range.selectNodeContents(el);
+          const pick = r => ({left: r.left, top: r.top, width: r.width, height: r.height});
+          return [pick(range.getBoundingClientRect()), pick(el.getBoundingClientRect())];
+        }"""
+    )
+    return Box(**rects[0]), Box(**rects[1])
+
+
 def precedes(first: Box, second: Box, lang: str, *, tolerance: float = 1) -> bool:
     """True when ``first`` comes before ``second`` in the reading direction."""
     if lang == "ar":

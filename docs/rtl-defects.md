@@ -55,10 +55,21 @@ markup is present. Source locations refer to `rtl-admin.css`.
 | Search icon | Image retains a physical right margin. | The 4px gap moves to inline-end. The package also makes the search form flex-based with a 6px gap. | 522–537 |
 | Focused skip link | Focus position is physically left-anchored. | It is anchored at inline-start. | 188–192 |
 | Tabular inline original label | Stock adds `right: 0` without removing `left: 0`. | Dual physical anchoring is replaced by a single inline-start anchor. | 783–787 |
+| Dashboard action links | Stock desktop RTL mirrors the link spacing; the stock responsive sheets drop the end gap below 1024px. | A compound rule restates the spacing logically: 16px of icon room at inline-start, 0.6em at inline-end, with a matching media query dropping the end gap below 1024px. | 472–488 |
+| Filtered changelist header cells | `changelists.css` widens `tbody th` with an unmirrored `padding-right: 1em`, which lands on the start edge in RTL. | Cells keep the stock base padding on both physical sides — 8px, widened to the responsive 10px at or below 1024px by a matching media query — and move the 1em to inline-end. | 549–564 |
 
 The M2M choose-all/clear-all rules also change `text-align: left` to `start`
 (lines 822–825). That is a verified declaration change, not proof of a noticeable
 visual difference for every button width.
+
+The dashboard and changelist rules above must compound `rtl-admin` with the stock
+body classes: Django puts `dashboard` or `change-list` on the same `<body>` that
+receives `rtl-admin`, so a descendant selector such as `.rtl-admin .dashboard …`
+matches nothing. The browser suite asserts the rendered geometry of both rules —
+the gaps their boxes actually paint, measured with probe and text-range
+rectangles rather than computed styles — in Arabic and English, in both colour
+schemes, at 360px and 1280px
+(`test_dashboard_action_link_padding`, `test_filtered_changelist_table_geometry`).
 
 ### Punctuation and mixed-direction form content
 
@@ -106,20 +117,6 @@ The package swaps the literal `«` and `»` pseudo-content at stylesheet lines
 appearance also depends on bidi resolution. The Arabic screenshot below shows
 `«` beside the expanded right-hand sidebar. This page does **not** count the
 content swap as a verified correction of the rendered arrow direction.
-
-### Selectors that do not match stock page classes
-
-Django's standard templates put `dashboard` or `change-list` on the same `<body>`
-that receives `rtl-admin`. These package selectors instead require a descendant:
-
-- `.rtl-admin .dashboard .module table td a` at lines 389–394.
-- `.rtl-admin .change-list .filtered table` and its `tbody th` rule at lines
-  446–456.
-
-They do not match the standard body-class structure. In particular, the intended
-filtered-table header-padding change is not an effective stock-admin fix through
-that rule. These are limitations of the current selectors, not changes made by
-this documentation.
 
 ### LTR, fonts, and theme compatibility
 
