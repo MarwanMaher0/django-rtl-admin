@@ -1,6 +1,7 @@
 """Template filter and tag registration and rendering."""
 
 import datetime
+import decimal
 
 import pytest
 from django.template import Context, Template, engines
@@ -152,6 +153,141 @@ def test_l10n_datetime_and_time_filters():
     with override_language("en"):
         assert "2024" in render("{{ v|l10n_datetime }}", v=value)
         assert render("{{ v|l10n_time }}", v=value.time()) != ""
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+@pytest.mark.parametrize("language", ["en", "ar-eg"])
+@pytest.mark.parametrize(
+    ("filter_name", "value"),
+    [
+        ("l10n_number", "1234.5"),
+        ("l10n_currency", "349.90"),
+        ("l10n_percent", "0.256"),
+    ],
+)
+def test_numeric_filters_accept_numeric_strings(
+    monkeypatch, use_babel, language, filter_name, value
+):
+    if not use_babel:
+        monkeypatch.setattr(formatting, "HAS_BABEL", False)
+    with override_language(language):
+        output = render("{{ v|" + filter_name + " }}", v=value)
+    assert output
+    assert output != value
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+@pytest.mark.parametrize("language", ["en", "ar-eg"])
+@pytest.mark.parametrize(
+    ("filter_name", "value", "normalized"),
+    [
+        ("l10n_number", "1e3", decimal.Decimal("1e3")),
+        ("l10n_number", " 1234.5 ", decimal.Decimal("1234.5")),
+        ("l10n_number", "-2.5E-2", decimal.Decimal("-2.5E-2")),
+        ("l10n_currency", "1e3", decimal.Decimal("1e3")),
+        ("l10n_currency", " 1234.5 ", decimal.Decimal("1234.5")),
+        ("l10n_currency", "-2.5E-2", decimal.Decimal("-2.5E-2")),
+    ],
+)
+def test_numeric_filters_normalize_numeric_strings(
+    monkeypatch, use_babel, language, filter_name, value, normalized
+):
+    if not use_babel:
+        monkeypatch.setattr(formatting, "HAS_BABEL", False)
+    with override_language(language):
+        output = render("{{ v|" + filter_name + " }}", v=value)
+        expected = render("{{ v|" + filter_name + " }}", v=normalized)
+    assert output == expected
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+@pytest.mark.parametrize("language", ["en", "ar-eg"])
+@pytest.mark.parametrize("value", ["REF-2024", "1,234", "12abc"])
+def test_l10n_number_returns_non_numeric_strings_unchanged(
+    monkeypatch, use_babel, language, value
+):
+    if not use_babel:
+        monkeypatch.setattr(formatting, "HAS_BABEL", False)
+    with override_language(language):
+        assert render("{{ v|l10n_number }}", v=value) == value
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+@pytest.mark.parametrize("language", ["en", "ar-eg"])
+@pytest.mark.parametrize("filter_name", ["l10n_number", "l10n_currency", "l10n_percent"])
+@pytest.mark.parametrize(
+    "value",
+    [
+        float("nan"),
+        float("inf"),
+        float("-inf"),
+        decimal.Decimal("NaN"),
+        decimal.Decimal("Infinity"),
+        "NaN",
+        "Infinity",
+        "-Infinity",
+    ],
+)
+def test_numeric_filters_stringify_non_finite_values(
+    monkeypatch, use_babel, language, filter_name, value
+):
+    if not use_babel:
+        monkeypatch.setattr(formatting, "HAS_BABEL", False)
+    with override_language(language):
+        assert render("{{ v|" + filter_name + " }}", v=value) == str(value)
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+@pytest.mark.parametrize("language", ["en", "ar-eg"])
+@pytest.mark.parametrize(
+    "filter_name", ["l10n_number", "l10n_currency", "l10n_percent", "local_digits"]
+)
+def test_filters_return_non_numeric_values_unchanged(
+    monkeypatch, use_babel, language, filter_name
+):
+    if not use_babel:
+        monkeypatch.setattr(formatting, "HAS_BABEL", False)
+    with override_language(language):
+        assert render("{{ v|" + filter_name + " }}", v="abc") == "abc"
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+@pytest.mark.parametrize("language", ["en", "ar-eg"])
+def test_l10n_number_ignores_an_invalid_decimal_position_argument(
+    monkeypatch, use_babel, language
+):
+    if not use_babel:
+        monkeypatch.setattr(formatting, "HAS_BABEL", False)
+    with override_language(language):
+        default = render("{{ v|l10n_number }}", v=1234.5)
+        invalid_argument = render('{{ v|l10n_number:"x" }}', v=1234.5)
+    assert invalid_argument == default
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+@pytest.mark.parametrize("language", ["en", "ar-eg"])
+@pytest.mark.parametrize("filter_name", ["l10n_date", "l10n_datetime", "l10n_time"])
+@pytest.mark.parametrize("value", ["abc", 1234567])
+def test_date_and_time_filters_return_empty_for_invalid_values(
+    monkeypatch, use_babel, language, filter_name, value
+):
+    if not use_babel:
+        monkeypatch.setattr(formatting, "HAS_BABEL", False)
+    with override_language(language):
+        assert render("{{ v|" + filter_name + " }}", v=value) == ""
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+@pytest.mark.parametrize(
+    ("language", "expected"), [("en", "REF-2024"), ("ar-eg", "REF-٢٠٢٤")]
+)
+def test_local_digits_accepts_strings_on_both_backends(
+    monkeypatch, use_babel, language, expected
+):
+    if not use_babel:
+        monkeypatch.setattr(formatting, "HAS_BABEL", False)
+    with override_language(language):
+        assert render("{{ v|local_digits }}", v="REF-2024") == expected
 
 
 def test_l10n_datetime_and_time_filters_declare_expects_localtime():

@@ -178,6 +178,18 @@ def _localtime(value: Any) -> Any:
     return value
 
 
+def _as_decimal(value: Any) -> decimal.Decimal:
+    try:
+        number = (
+            value if isinstance(value, decimal.Decimal) else decimal.Decimal(str(value))
+        )
+    except (decimal.InvalidOperation, TypeError, ValueError):
+        raise ValueError(f"Value must be numeric, got {value!r}") from None
+    if not number.is_finite():
+        raise ValueError(f"Value must be finite, got {value!r}")
+    return number
+
+
 def format_number(
     value: Any,
     *,
@@ -226,19 +238,23 @@ def format_currency(
     """Format ``value`` as money, using the locale's currency pattern."""
     if value is None or value == "":
         return ""
+    try:
+        number = _as_decimal(value)
+    except ValueError:
+        raise ValueError(f"Currency value must be numeric, got {value!r}") from None
     currency = currency or rtl_settings.CURRENCY
     locale = _babel_locale(language)
     if locale is not None:
         try:
             text = babel_numbers.format_currency(
-                value, currency, locale=locale, numbering_system="default"
+                number, currency, locale=locale, numbering_system="default"
             )
         except Exception:  # pragma: no cover - defensive
             text = None
         if text is not None:
             return _localize_digits(text, language)
-    number = format_number(value, language=language, decimal_pos=2)
-    return f"{number} {currency}"
+    formatted = format_number(number, language=language, decimal_pos=2)
+    return f"{formatted} {currency}"
 
 
 def format_percent(value: Any, *, language: str | None = None) -> str:

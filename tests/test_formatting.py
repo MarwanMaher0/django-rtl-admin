@@ -116,6 +116,43 @@ def test_format_currency_falls_back_without_babel(monkeypatch):
     assert "USD" in format_currency(10, "USD", language="en")
 
 
+@pytest.mark.parametrize("use_babel", [True, False])
+@pytest.mark.parametrize("language", ["en", "ar-eg"])
+def test_format_currency_accepts_numeric_strings(monkeypatch, use_babel, language):
+    if not use_babel:
+        monkeypatch.setattr(formatting, "HAS_BABEL", False)
+    output = format_currency("349.90", "USD", language=language)
+    assert output
+    assert output != "349.90"
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+@pytest.mark.parametrize("language", ["en", "ar-eg"])
+@pytest.mark.parametrize(
+    "value",
+    [
+        "abc",
+        [],
+        {},
+        float("nan"),
+        float("inf"),
+        float("-inf"),
+        decimal.Decimal("NaN"),
+        decimal.Decimal("Infinity"),
+        "NaN",
+        "Infinity",
+        "-Infinity",
+    ],
+)
+def test_format_currency_rejects_non_numeric_input(
+    monkeypatch, use_babel, language, value
+):
+    if not use_babel:
+        monkeypatch.setattr(formatting, "HAS_BABEL", False)
+    with pytest.raises(ValueError, match="Currency value must be numeric"):
+        format_currency(value, language=language)
+
+
 def test_format_percent():
     assert format_percent(0.256, language="en").startswith("26")
 

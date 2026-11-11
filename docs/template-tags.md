@@ -13,8 +13,8 @@ Load the library in each Django template that uses it:
 
 The library contains 14 filters and 8 tags. Examples below assume it is loaded
 and that variables come from the template context. Number examples use numeric
-values; date/time examples use Python date, datetime, or time objects.
-See [Configuration](configuration.md) for shared defaults and the
+values or numeric strings; date/time examples use Python date, datetime, or time
+objects. See [Configuration](configuration.md) for shared defaults and the
 [Python API](api.md) for use outside templates.
 
 ## Bidirectional text filters
@@ -77,6 +77,12 @@ not the active language's direction.
 These filters use the active language, `NUMERALS`, and `USE_BABEL`. To select a
 language for a block, also load `i18n` and use Django's `{% language %}` tag.
 Formatting does not itself add Unicode isolates; chain `bidi_isolate` if needed.
+Like Django's built-in filters, they fail silently: numeric filters return
+nonnumeric or non-finite input as text, invalid dates and times render empty,
+and a malformed decimal-position argument is ignored. Numeric strings, including
+exponent notation and surrounding whitespace, are normalized before formatting.
+The Python `format_currency()` helper is strict instead, raising `ValueError` for
+nonempty, nonnumeric, or non-finite input.
 
 ### `l10n_number`
 
@@ -87,9 +93,10 @@ decimal positions; omitting it leaves precision to the backend:
 {{ amount|l10n_number:"2" }}
 ```
 
-For `amount = 2.5` in English, this renders `2.50`. Nonempty precision arguments
-are converted with `int()`; invalid integer text raises an error. `None` or
-empty input renders empty. This filter does not expose a grouping argument.
+For `amount = 2.5` in English, this renders `2.50`. A nonempty precision argument
+that is not an integer is ignored. `None` or empty input renders empty.
+Nonnumeric text passes through unchanged. This filter does not expose a grouping
+argument.
 
 ### `l10n_currency`
 
@@ -102,6 +109,7 @@ Format money using an optional currency code; the default is `CURRENCY` (`"USD"`
 Babel supplies locale-specific patterns. Fallback output is a localized number
 with two decimal places, a nonbreaking space, and the currency code. `None` or
 empty input renders empty; an empty currency argument uses the configured default.
+Nonnumeric input renders unchanged rather than producing a malformed amount.
 
 ### `l10n_percent`
 
@@ -113,7 +121,8 @@ Format a ratio as a percentage, with no filter argument:
 
 For `ratio = 0.256`, English output begins with `26`. Input is normally a `0..1`
 ratio, but that range is not enforced. The Django fallback multiplies by 100,
-rounds half up to a whole number, and appends `%`. Empty input renders empty.
+rounds half up to a whole number, and appends `%`. Empty input renders empty;
+nonnumeric input renders unchanged.
 
 ### `l10n_date`
 
@@ -124,7 +133,8 @@ Format a date. The optional style defaults to `"medium"`:
 ```
 
 Use `"short"`, `"medium"`, `"long"`, or `"full"`. Custom patterns depend on the
-backend. `None` renders empty; localized digits follow `NUMERALS`.
+backend. `None` and invalid date values render empty; localized digits follow
+`NUMERALS`.
 
 ### `l10n_datetime`
 
@@ -134,8 +144,9 @@ Format a datetime. The optional style defaults to `"medium"`:
 {{ updated_at|l10n_datetime:"short" }}
 ```
 
-Styles and custom-pattern behavior match `l10n_date`. `None` renders empty.
-Both `l10n_datetime` and `l10n_time` register `expects_localtime=True`, so
+Styles and custom-pattern behavior match `l10n_date`. `None` and invalid datetime
+values render empty. Both `l10n_datetime` and `l10n_time` register
+`expects_localtime=True`, so
 Django converts aware `datetime` values to the active time zone when `USE_TZ`
 is enabled and leaves them as given inside `{% localtime off %}` (or when
 `USE_TZ=False`).
@@ -149,7 +160,7 @@ Format a time or datetime. The optional style defaults to `"medium"`:
 ```
 
 Babel honors the style; the Django fallback always uses the locale's time format,
-ignoring the argument. `None` renders empty.
+ignoring the argument. `None` and invalid time values render empty.
 
 ### `local_digits`
 
@@ -160,7 +171,9 @@ Rewrite digit shapes in an already-formatted string, without changing punctuatio
 ```
 
 With automatic numerals in `ar-eg`, this renders `REF-٢٠٢٤`. Conversion recognizes
-Latin, Arabic-Indic, and extended Arabic-Indic input digits. `None` renders empty.
+Latin, Arabic-Indic, and extended Arabic-Indic input digits. `None` renders empty;
+nonnumeric text passes through unchanged, as does the original value if conversion
+fails.
 
 ### Backend differences
 

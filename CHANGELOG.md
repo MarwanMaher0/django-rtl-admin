@@ -67,6 +67,14 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- The `l10n_*` and `local_digits` filters now fail silently like Django's
+  built-ins: numeric filters accept and normalize finite numeric strings,
+  including exponent notation and surrounding whitespace, and return invalid
+  values as text. Non-finite values are rejected instead of formatted, an invalid `l10n_number` precision argument is
+  ignored, and invalid dates or times—including integer timestamps—render
+  empty. The Python `format_currency()` helper validates its input and raises
+  `ValueError` for nonempty, nonnumeric, or non-finite values instead of
+  rendering malformed amounts.
 - `rtl_admin.W001` now uses ordered app-registry names to recognize custom
   AppConfig subclasses, including project-defined admin configurations.
 - `format_datetime()`, `format_time()`, `l10n_datetime` and `l10n_time` now

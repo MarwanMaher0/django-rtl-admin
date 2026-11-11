@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 from typing import TYPE_CHECKING, Any, TypedDict
 
 import django
@@ -19,7 +20,6 @@ from .. import formatting
 from ..conf import rtl_settings
 
 if TYPE_CHECKING:
-    import datetime
     from collections.abc import Iterable, Sequence
 
     from django.template.context import Context
@@ -80,32 +80,60 @@ def bidi_dir(value: Any, default: str = "ltr") -> str:
 @register.filter(name="l10n_number")
 def l10n_number(value: Any, decimal_pos: int | str | None = None) -> str:
     """Locale-aware number, in the locale's own numbering system."""
-    places = None if decimal_pos is None or decimal_pos == "" else int(decimal_pos)
-    return formatting.format_number(value, decimal_pos=places)
+    if value is None or value == "":
+        return ""
+    try:
+        places = None if decimal_pos is None or decimal_pos == "" else int(decimal_pos)
+    except (TypeError, ValueError):
+        places = None
+    try:
+        number = formatting._as_decimal(value)
+        return formatting.format_number(number, decimal_pos=places)
+    except (ArithmeticError, TypeError, ValueError):
+        return str(value)
 
 
 @register.filter(name="l10n_currency")
 def l10n_currency(value: Any, currency: str | None = None) -> str:
     """Locale-aware money: ``{{ book.price|l10n_currency:"EGP" }}``."""
-    return formatting.format_currency(value, currency)
+    try:
+        return formatting.format_currency(value, currency)
+    except (ArithmeticError, TypeError, ValueError):
+        return str(value)
 
 
 @register.filter(name="l10n_percent")
 def l10n_percent(value: Any) -> str:
     """Locale-aware percentage from a 0..1 ratio."""
-    return formatting.format_percent(value)
+    if value is None or value == "":
+        return ""
+    try:
+        number = formatting._as_decimal(value)
+        return formatting.format_percent(number)
+    except (ArithmeticError, TypeError, ValueError):
+        return str(value)
 
 
 @register.filter(name="l10n_date")
 def l10n_date(value: datetime.date | None, fmt: str = "medium") -> str:
     """Locale-aware date: ``{{ book.published_on|l10n_date:"long" }}``."""
-    return formatting.format_date(value, fmt)
+    if not isinstance(value, datetime.date):
+        return ""
+    try:
+        return formatting.format_date(value, fmt)
+    except (AttributeError, TypeError, ValueError):
+        return ""
 
 
 @register.filter(name="l10n_datetime", expects_localtime=True)
 def l10n_datetime(value: datetime.datetime | None, fmt: str = "medium") -> str:
     """Locale-aware date and time."""
-    return formatting._format_datetime(value, fmt)
+    if not isinstance(value, datetime.datetime):
+        return ""
+    try:
+        return formatting._format_datetime(value, fmt)
+    except (AttributeError, TypeError, ValueError):
+        return ""
 
 
 @register.filter(name="l10n_time", expects_localtime=True)
@@ -113,15 +141,23 @@ def l10n_time(
     value: datetime.time | datetime.datetime | None, fmt: str = "medium"
 ) -> str:
     """Locale-aware time of day."""
-    return formatting._format_time(value, fmt)
+    if not isinstance(value, (datetime.time, datetime.datetime)):
+        return ""
+    try:
+        return formatting._format_time(value, fmt)
+    except (AttributeError, TypeError, ValueError):
+        return ""
 
 
 @register.filter(name="local_digits")
-def local_digits(value: Any) -> str:
+def local_digits(value: Any) -> Any:
     """Rewrite the digits in a ready-made string using the active locale's set."""
     if value is None:
         return ""
-    return formatting.transliterate_digits(str(value), formatting.numbering_system())
+    try:
+        return formatting.transliterate_digits(str(value), formatting.numbering_system())
+    except (TypeError, ValueError):
+        return value
 
 
 # ---------------------------------------------------------------------------
