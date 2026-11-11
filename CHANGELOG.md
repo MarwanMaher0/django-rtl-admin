@@ -48,6 +48,22 @@ All notable changes to this project are documented here. The format follows
   English, in light and dark schemes and at both viewport widths. It checks
   WCAG 2 A/AA, 2.1 AA and 2.2 AA rules and saves a JSON report for each
   failing scan.
+- **Complete translation catalogs.** The package now ships six locales —
+  Arabic (`ar`), Kurdish Sorani (`ckb`), Hebrew (`he`), Persian (`fa`),
+  Uyghur (`ug`) and Urdu (`ur`) — and every catalog translates the full
+  message set: the switcher labels, the app's verbose name, the changelist
+  sorting and action labels and the inline row labels. Messages shared with
+  Django's admin mirror the wording of Django's own admin catalog for the
+  same language, so overridden and stock templates render identically;
+  entries written without a native reviewer carry a `TRANSLATORS` note in
+  the `.po` asking for corrections.
+- **Translation integrity tests.** `tests/test_translations.py` extracts the
+  marked messages from the package's Python and templates, asserts every
+  shipped locale translates all of them with intact placeholders and no fuzzy
+  flags, and verifies each committed `.mo` matches its `.po` and is
+  reproduced by recompiling it (Babel or `msgfmt`, skipped when neither is
+  installed). The packaging test and the CI wheel check now require the
+  compiled catalogs of all six locales.
 
 ### Fixed
 

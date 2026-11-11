@@ -16,7 +16,7 @@
 - Number, currency, percentage, and date/time formatting helpers are explicit opt-ins.
 - Babel is optional. Without it, Django formatting and digit transliteration provide a fallback.
 - The language switcher POSTs with CSRF protection to Django's set_language view and preserves the current path and query string.
-- The package ships Arabic, Hebrew, Persian, and Urdu catalogs. A project's LANGUAGES setting controls its own switcher.
+- The package ships Arabic, Kurdish Sorani, Hebrew, Persian, Uyghur, and Urdu catalogs. A project's LANGUAGES setting controls its own switcher.
 - Third-party admin theme compatibility is not guaranteed.
 
 ## Reference

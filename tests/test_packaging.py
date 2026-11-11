@@ -22,7 +22,7 @@ def test_the_templates_are_part_of_the_package():
 
 
 def test_compiled_translations_are_part_of_the_package():
-    for code in ("ar", "he", "fa", "ur"):
+    for code in ("ar", "ckb", "fa", "he", "ug", "ur"):
         assert (ROOT / "locale" / code / "LC_MESSAGES" / "django.mo").is_file()
 
 

@@ -1,0 +1,80 @@
+# django-rtl-admin translations.
+# Copyright (c) 2026 Marwan Maher
+# This file is distributed under the same MIT licence as the package.
+#
+# Messages shared with Django's admin interface mirror the wording of
+# Django 5.2's django/contrib/admin catalog for this language, so stock and
+# overridden templates render identically; re-check them when Django's own
+# translations change.
+#
+# TRANSLATORS: messages marked below were written without a native
+# reviewer. Please review and correct them.
+msgid ""
+msgstr ""
+"Project-Id-Version: django-rtl-admin 0.1.0\n"
+"Report-Msgid-Bugs-To: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: ug\n"
+
+
+# TRANSLATORS: written without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+#: templates/django_rtl_admin/language_switcher.html
+msgid "Language"
+msgstr "تىل"
+
+#: templates/django_rtl_admin/language_switcher.html
+msgid "Go"
+msgstr "يۆتكەل"
+
+#: templates/django_rtl_admin/base_site.html
+msgid "Django site admin"
+msgstr "جانگو تور بېكەت باشقۇرغۇچى"
+
+#: templates/django_rtl_admin/base_site.html
+msgid "Django administration"
+msgstr "جانگو باشقۇرۇش"
+
+#: templates/admin/change_list_results.html
+msgid "Remove from sorting"
+msgstr "تەرتىپلەشتىن چىقىرىۋەت"
+
+#: templates/admin/change_list_results.html
+msgid "Sorting priority: %(priority_number)s"
+msgstr "تەرتىپلەش دەرىجىسى: %(priority_number)s"
+
+#: templates/admin/change_list_results.html
+msgid "Toggle sorting"
+msgstr "تەرتىپلەشنى ئالماشتۇرۇش"
+
+#: templates/admin/change_list_results.html
+msgid "Select all objects on this page for an action"
+msgstr "مەشغۇلات ئۈچۈن بۇ بەتتىكى ھەممە ئوبيېكت تاللىنىدۇ"
+
+#: templates/admin/edit_inline/tabular.html
+msgid "Delete?"
+msgstr "ئۆچۈرۈۋېتەمسىز؟"
+
+#: templates/admin/edit_inline/tabular.html
+msgid "Change"
+msgstr "ئۆزگەرتىش"
+
+#: templates/admin/edit_inline/tabular.html
+msgid "View"
+msgstr "كۆرۈنۈش"
+
+#: templates/admin/edit_inline/tabular.html
+msgid "View on site"
+msgstr "بېكەتتە كۆرۈش"
+
+# TRANSLATORS: written without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+#: apps.py
+msgid "Bilingual / RTL admin"
+msgstr "ئىككى تىللىق / ئوڭدىن سولغا باشقۇرۇش"
+
+#: templatetags/rtl_admin.py
+msgid "Select this object for an action - {}"
+msgstr "مەشغۇلات ئۈچۈن ئوبيېكت تاللىنىدۇ-{}"

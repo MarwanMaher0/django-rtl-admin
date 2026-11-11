@@ -1,6 +1,6 @@
 ---
 title: Translations and locales | django-rtl-admin
-description: Explore shipped Arabic, Hebrew, Persian, and Urdu catalogs, RTL language recognition, demo language choices, and the locale contribution workflow.
+description: Explore the shipped Arabic, Kurdish Sorani, Hebrew, Persian, Uyghur, and Urdu catalogs, RTL language recognition, demo language choices, and the locale contribution workflow.
 ---
 
 # Translations and contributing a locale
@@ -12,37 +12,44 @@ extraction, compilation, or commits performed for this documentation.
 
 ## Shipped catalogs and recognized languages
 
-The package ships four translation catalogs under
+The package ships six translation catalogs under
 `src/django_rtl_admin/locale/`. Each directory contains both the editable
 `django.po` and compiled `django.mo`:
 
 | Language | Catalog directory | Translation of `Language` |
 | --- | --- | --- |
 | Arabic (`ar`) | `ar/LC_MESSAGES/` | `اللغة` |
+| Kurdish Sorani (`ckb`) | `ckb/LC_MESSAGES/` | `زمان` |
 | Hebrew (`he`) | `he/LC_MESSAGES/` | `שפה` |
 | Persian (`fa`) | `fa/LC_MESSAGES/` | `زبان` |
+| Uyghur (`ug`) | `ug/LC_MESSAGES/` | `تىل` |
 | Urdu (`ur`) | `ur/LC_MESSAGES/` | `زبان` |
 
-Each currently contains two non-header messages: `Language`, used by the switcher,
-and `Bilingual / RTL admin`, the application's verbose name. English is the source
-language, not a separate shipped `en` catalog. There is no separate `ar_EG`
-package catalog.
+Every catalog translates the package's full message set: the switcher labels
+(`Language`, `Go`), the application's verbose name (`Bilingual / RTL admin`),
+the changelist sorting and action labels, and the inline row labels. Messages
+shared with Django's admin mirror the wording of Django's own admin catalog for
+that language, so overridden and stock templates render identically. Entries
+written without a native reviewer carry a `TRANSLATORS` note in the `.po`
+asking for review; corrections are welcome. English is the source language,
+not a separate shipped `en` catalog, and there is no separate `ar_EG` package
+catalog. There is no package `djangojs` catalog and the switcher JavaScript
+contains no translated strings.
 
-The templates also mark `Go`, `Django site admin`, and `Django administration` for
-translation, but those messages are absent from the four package catalogs.
-Django's own catalogs may supply them; absence here does not establish an
-untranslated runtime label. Refreshing messages can extract more than the two
-currently translated strings. There is no package `djangojs` catalog and the
-switcher JavaScript contains no translated strings.
+`tests/test_translations.py` keeps this true: it extracts the marked messages
+from the package source, asserts every shipped locale translates all of them
+without fuzzy flags and with intact placeholders, and recompiles each `.po` to
+verify the committed `.mo` is current.
 
-RTL recognition is broader than these four translations. The direction helpers
+RTL recognition is broader than these six translations. The direction helpers
 use Django's language metadata, regional base-language fallback, and
 `EXTRA_RTL_LANGUAGES`. Adding a catalog does not itself register a language as RTL,
 and adding an RTL code does not install translations or add a menu entry. See
 [Configuration](configuration.md).
 
-The example project's `LANGUAGES` contains `en`, `ar`, and `ar-eg`. Hebrew,
-Persian, and Urdu catalogs ship but are not enabled in that demo menu. Numbering-system
+The example project's `LANGUAGES` contains `en`, `ar`, and `ar-eg`. The
+Kurdish Sorani, Hebrew, Persian, Uyghur, and Urdu catalogs ship but are not
+enabled in that demo menu. Numbering-system
 support is separate again: plain `ar` normally uses Latin digits, `ar-eg` uses
 Arabic-Indic digits, and `fa` uses extended Arabic-Indic digits in the explicit
 formatting helpers.
@@ -122,23 +129,23 @@ Still in `src/django_rtl_admin`, compile the reviewed catalog:
 django-admin compilemessages -l ar
 ```
 
-The output is `locale/ar/LC_MESSAGES/django.mo`. Substitute `he`, `fa`, or `ur`
-for another existing locale. Review the diff and include **both `.po` and `.mo`**
-in your contribution; do not edit the binary `.mo` directly.
+The output is `locale/ar/LC_MESSAGES/django.mo`. Substitute `ckb`, `he`, `fa`,
+`ug`, or `ur` for another existing locale. Review the diff and include **both
+`.po` and `.mo`** in your contribution; do not edit the binary `.mo` directly.
 
 ## Add a new package locale
 
 From the same `src/django_rtl_admin` working directory, for example:
 
 ```sh
-django-admin makemessages -l ckb
+django-admin makemessages -l ps
 ```
 
-Translate the generated `locale/ckb/LC_MESSAGES/django.po` and review its metadata
+Translate the generated `locale/ps/LC_MESSAGES/django.po` and review its metadata
 and fuzzy entries as above. Then compile it:
 
 ```sh
-django-admin compilemessages -l ckb
+django-admin compilemessages -l ps
 ```
 
 Include the new source and compiled catalogs in your contribution. A regional
@@ -170,8 +177,10 @@ LANGUAGES = [
     ("en", "English"),
     ("ar", "Arabic"),
     ("ar-eg", "Arabic (Egypt)"),
+    ("ckb", "Kurdish (Sorani)"),
     ("he", "Hebrew"),
     ("fa", "Persian"),
+    ("ug", "Uyghur"),
     ("ur", "Urdu"),
 ]
 ```
@@ -195,7 +204,7 @@ RTL_ADMIN = {
 Merge these keys with any other package settings. A menu override does not enable
 languages outside Django's configured language support or install translations.
 Keep offered languages in `LANGUAGES`. Native labels normally come from Django's
-language metadata, not the two package messages. See
+language metadata, not the package catalog. See
 [Configuration](configuration.md#language-switcher) for label modes and
 [Template tags and filters](template-tags.md) for custom switcher integration.
 
@@ -233,8 +242,10 @@ Check the following in the language under review and again in English:
   cookie and middleware.
 - With JavaScript disabled, the switcher submit button remains usable. With
   JavaScript enabled, changing the selection submits the form.
-- The switcher's `Language` label is translated. Check `Go` and stock admin text
-  too, remembering that Django can supply translations for shared messages.
+- The switcher's `Language` label is translated. Check `Go`, the changelist
+  sorting and action labels, and the inline row labels too; messages shared
+  with the stock admin should render identically whether they come from this
+  package's catalog or Django's own.
 - The interface direction, icon gaps, label punctuation, help text, and long
   content are readable at desktop and narrow widths. Inspect an actual change
   form as well as the changelist.

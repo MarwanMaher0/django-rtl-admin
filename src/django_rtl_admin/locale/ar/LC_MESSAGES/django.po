@@ -1,6 +1,11 @@
 # django-rtl-admin translations.
 # Copyright (c) 2026 Marwan Maher
 # This file is distributed under the same MIT licence as the package.
+#
+# Messages shared with Django's admin interface mirror the wording of
+# Django 5.2's django/contrib/admin catalog for this language, so stock and
+# overridden templates render identically; re-check them when Django's own
+# translations change.
 msgid ""
 msgstr ""
 "Project-Id-Version: django-rtl-admin 0.1.0\n"
@@ -10,17 +15,58 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Language: ar\n"
 
+
 #: templates/django_rtl_admin/language_switcher.html
 msgid "Language"
 msgstr "اللغة"
 
-#: apps.py
-msgid "Bilingual / RTL admin"
-msgstr "إدارة ثنائية اللغة / من اليمين إلى اليسار"
+#: templates/django_rtl_admin/language_switcher.html
+msgid "Go"
+msgstr "نفّذ"
+
+#: templates/django_rtl_admin/base_site.html
+msgid "Django site admin"
+msgstr "إدارة موقع جانغو"
+
+#: templates/django_rtl_admin/base_site.html
+msgid "Django administration"
+msgstr "إدارة جانغو"
+
+#: templates/admin/change_list_results.html
+msgid "Remove from sorting"
+msgstr "إزالة من الترتيب"
+
+#: templates/admin/change_list_results.html
+msgid "Sorting priority: %(priority_number)s"
+msgstr "أولوية الترتيب: %(priority_number)s"
+
+#: templates/admin/change_list_results.html
+msgid "Toggle sorting"
+msgstr "عكس الترتيب"
 
 #: templates/admin/change_list_results.html
 msgid "Select all objects on this page for an action"
 msgstr "تحديد جميع العناصر في هذه الصفحة لتنفيذ إجراء"
+
+#: templates/admin/edit_inline/tabular.html
+msgid "Delete?"
+msgstr "احذفه؟"
+
+#: templates/admin/edit_inline/tabular.html
+msgid "Change"
+msgstr "تعديل"
+
+#: templates/admin/edit_inline/tabular.html
+msgid "View"
+msgstr "استعراض"
+
+#: templates/admin/edit_inline/tabular.html
+msgid "View on site"
+msgstr "مشاهدة على الموقع"
+
+#: apps.py
+msgid "Bilingual / RTL admin"
+msgstr "إدارة ثنائية اللغة / من اليمين إلى اليسار"
 
 #: templatetags/rtl_admin.py
 msgid "Select this object for an action - {}"

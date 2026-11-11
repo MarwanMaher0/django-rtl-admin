@@ -430,8 +430,8 @@ The library app has a model with parallel English and Arabic fields, an inline,
 an autocomplete, a date hierarchy, filters and the sorts of values that break
 under bidi. Use the switcher in the header to flip between English, Arabic and
 Arabic (Egypt); `ar` and `ar-eg` differ only in their numbering system, which
-is the point. The Hebrew, Persian and Urdu catalogs ship with the package; add
-their codes to `LANGUAGES` to try them in the demo.
+is the point. Kurdish Sorani, Hebrew, Persian, Uyghur and Urdu catalogs ship
+with the package; add their codes to `LANGUAGES` to try them in the demo.
 
 ---
 

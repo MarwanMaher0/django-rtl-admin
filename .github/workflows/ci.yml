@@ -153,6 +153,11 @@ jobs:
               "django_rtl_admin/static/django_rtl_admin/css/rtl-admin.css",
               "django_rtl_admin/static/django_rtl_admin/js/language_switcher.js",
               "django_rtl_admin/locale/ar/LC_MESSAGES/django.mo",
+              "django_rtl_admin/locale/ckb/LC_MESSAGES/django.mo",
+              "django_rtl_admin/locale/fa/LC_MESSAGES/django.mo",
+              "django_rtl_admin/locale/he/LC_MESSAGES/django.mo",
+              "django_rtl_admin/locale/ug/LC_MESSAGES/django.mo",
+              "django_rtl_admin/locale/ur/LC_MESSAGES/django.mo",
           }
           missing = sorted(required - names)
           assert not missing, f"missing from {wheel.name}: {missing}"

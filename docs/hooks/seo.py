@@ -62,8 +62,9 @@ FAQS = {
         (
             "Which RTL languages can I use?",
             "Direction handling follows Django's language metadata and supports regional "
-            "fallback and EXTRA_RTL_LANGUAGES. The package ships Arabic, Hebrew, Persian, "
-            "and Urdu catalogs; your project's LANGUAGES setting controls the switcher.",
+            "fallback and EXTRA_RTL_LANGUAGES. The package ships Arabic, Kurdish Sorani, "
+            "Hebrew, Persian, Uyghur, and Urdu catalogs; your project's LANGUAGES setting "
+            "controls the switcher.",
         ),
         (
             "Does it change identifiers in the database?",

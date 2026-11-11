@@ -1,6 +1,14 @@
 # django-rtl-admin translations.
 # Copyright (c) 2026 Marwan Maher
 # This file is distributed under the same MIT licence as the package.
+#
+# Messages shared with Django's admin interface mirror the wording of
+# Django 5.2's django/contrib/admin catalog for this language, so stock and
+# overridden templates render identically; re-check them when Django's own
+# translations change.
+#
+# TRANSLATORS: messages marked below were written without a native
+# reviewer. Please review and correct them.
 msgid ""
 msgstr ""
 "Project-Id-Version: django-rtl-admin 0.1.0\n"
@@ -10,10 +18,71 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Language: ur\n"
 
+
 #: templates/django_rtl_admin/language_switcher.html
 msgid "Language"
 msgstr "زبان"
 
+#: templates/django_rtl_admin/language_switcher.html
+msgid "Go"
+msgstr "جاؤ"
+
+#: templates/django_rtl_admin/base_site.html
+msgid "Django site admin"
+msgstr "منتظم برائے جینگو سائٹ"
+
+#: templates/django_rtl_admin/base_site.html
+msgid "Django administration"
+msgstr "انتظامیہ برائے جینگو سائٹ"
+
+# TRANSLATORS: written without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+#: templates/admin/change_list_results.html
+msgid "Remove from sorting"
+msgstr "ترتیب سے ہٹائیں"
+
+# TRANSLATORS: written without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+#: templates/admin/change_list_results.html
+msgid "Sorting priority: %(priority_number)s"
+msgstr "ترتیب کی ترجیح: %(priority_number)s"
+
+# TRANSLATORS: written without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+#: templates/admin/change_list_results.html
+msgid "Toggle sorting"
+msgstr "ترتیب معکوس کریں"
+
+# TRANSLATORS: written without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+#: templates/admin/change_list_results.html
+msgid "Select all objects on this page for an action"
+msgstr "کسی کاروائی کے لیے اس صفحے کی تمام اشیاء منتخب کریں"
+
+#: templates/admin/edit_inline/tabular.html
+msgid "Delete?"
+msgstr "مٹاؤں؟"
+
+#: templates/admin/edit_inline/tabular.html
+msgid "Change"
+msgstr "تدوین"
+
+# TRANSLATORS: written without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+#: templates/admin/edit_inline/tabular.html
+msgid "View"
+msgstr "دیکھیں"
+
+#: templates/admin/edit_inline/tabular.html
+msgid "View on site"
+msgstr "سائٹ پر مشاھدہ کریں"
+
 #: apps.py
 msgid "Bilingual / RTL admin"
 msgstr "دو لسانی انتظامیہ / دائیں سے بائیں"
+
+# TRANSLATORS: written without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+#: templatetags/rtl_admin.py
+msgid "Select this object for an action - {}"
+msgstr "کسی کاروائی کے لیے یہ شے منتخب کریں - {}"
