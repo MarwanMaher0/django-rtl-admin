@@ -30,6 +30,7 @@ def test_a_correct_installation_reports_nothing():
     assert checks.check_settings_keys(None) == []
     assert checks.check_settings_values(None) == []
     assert checks.check_settings_types(None) == []
+    assert checks.check_extra_rtl_languages_bidi(None) == []
     assert checks.check_language_switcher(None) == []
 
 
@@ -143,6 +144,60 @@ def test_a_bare_extra_rtl_language_string_is_reported(value):
     assert ids(warnings) == ["rtl_admin.W005"]
     assert isinstance(warnings[0], Warning)
     assert "EXTRA_RTL_LANGUAGES" in warnings[0].msg
+
+
+@pytest.mark.parametrize("value", [(), [], ("ps",), ("ps-AF",), ("ar-eg",), ("he",)])
+@override_settings(LANGUAGES_BIDI=["ar", "ar-dz", "he", "ps"])
+def test_extra_rtl_languages_present_in_languages_bidi_pass(value):
+    with override_settings(RTL_ADMIN={"EXTRA_RTL_LANGUAGES": value}):
+        assert checks.check_extra_rtl_languages_bidi(None) == []
+
+
+@pytest.mark.parametrize(
+    ("value", "missing"),
+    [
+        (("tzm",), ["tzm"]),
+        (("ps",), ["ps"]),
+        (("tzm", "ps-AF", "ar-eg"), ["ps-AF", "tzm"]),
+    ],
+)
+@override_settings(LANGUAGES_BIDI=["ar"])
+def test_extra_rtl_languages_missing_from_languages_bidi_are_reported(value, missing):
+    with override_settings(RTL_ADMIN={"EXTRA_RTL_LANGUAGES": value}):
+        warnings = checks.check_extra_rtl_languages_bidi(None)
+    assert ids(warnings) == ["rtl_admin.W006"]
+    assert isinstance(warnings[0], Warning)
+    assert warnings[0].msg == (
+        "RTL_ADMIN['EXTRA_RTL_LANGUAGES'] contains language codes missing from "
+        f"settings.LANGUAGES_BIDI: {', '.join(missing)}."
+    )
+    assert "LANGUAGES_BIDI" in warnings[0].hint
+
+
+def test_a_bare_extra_rtl_language_string_skips_the_bidi_check():
+    with override_settings(RTL_ADMIN={"EXTRA_RTL_LANGUAGES": "tzm"}):
+        assert checks.check_extra_rtl_languages_bidi(None) == []
+
+
+@pytest.mark.parametrize("value", [("AR",), ("Ar",), ("PS_AF",), ["AR-eg"]])
+@override_settings(LANGUAGES_BIDI=["ar", "ps"])
+def test_w006_normalizes_extra_codes_before_comparing(value):
+    with override_settings(RTL_ADMIN={"EXTRA_RTL_LANGUAGES": value}):
+        assert checks.check_extra_rtl_languages_bidi(None) == []
+
+
+@override_settings(LANGUAGES_BIDI=["PS", "ps-AF"])
+def test_w006_compares_against_the_raw_languages_bidi_entries():
+    with override_settings(RTL_ADMIN={"EXTRA_RTL_LANGUAGES": ("ps",)}):
+        warnings = checks.check_extra_rtl_languages_bidi(None)
+    assert ids(warnings) == ["rtl_admin.W006"]
+    assert "ps" in warnings[0].msg
+
+
+def test_a_missing_extra_rtl_languages_setting_skips_the_bidi_check():
+    assert checks.check_extra_rtl_languages_bidi(None) == []
+    with override_settings(RTL_ADMIN={}):
+        assert checks.check_extra_rtl_languages_bidi(None) == []
 
 
 @pytest.mark.parametrize(

@@ -32,8 +32,8 @@ DEFAULTS: dict[str, Any] = {
     # Extra font-family stack used for the admin in RTL locales.  ``None``
     # keeps the stack shipped with the package.
     "FONT_STACK": None,
-    # Languages treated as right-to-left on top of the ones Django already
-    # knows about (``django.conf.locale.LANG_INFO``).
+    # Languages treated as right-to-left on top of the ones in Django's
+    # ``settings.LANGUAGES_BIDI``.
     "EXTRA_RTL_LANGUAGES": (),
 
     # -- bidirectional text --------------------------------------------

@@ -25,7 +25,7 @@ These are all 13 supported keys, defined in `django_rtl_admin.conf.DEFAULTS`.
 | --- | --- | --- |
 | `ENABLE_CSS` | `True` | Emit the package stylesheet link and any inline font override through `rtl_admin_styles`. |
 | `FONT_STACK` | `None` | Override `--rtl-admin-font-stack` with a string or sequence of family names; `None` retains the shipped stack. |
-| `EXTRA_RTL_LANGUAGES` | `()` | Add language codes to the RTL languages already known by Django. |
+| `EXTRA_RTL_LANGUAGES` | `()` | Add language codes to the RTL languages already in Django's `LANGUAGES_BIDI`. |
 | `ISOLATION_DIRECTION` | `"auto"` | Default whole-value isolate: `"auto"` (FSI), `"ltr"` (LRI), or `"rtl"` (RLI). |
 | `ISOLATE_CHANGELIST` | `True` | Enable isolation in admins that explicitly use `BidiSafeAdminMixin`, unless overridden per admin. |
 | `ISOLATE_TABLE_CELLS` | `True` | Add the body class enabling CSS isolation for changelist cells and related navigation/data containers. |
@@ -55,11 +55,16 @@ RTL_ADMIN = {
 ```
 
 Extra RTL languages affect the direction tag, body classes, switcher option
-`dir`, and the default base of `bidi_runs`. Prefer lowercase, hyphenated codes;
-regional codes can inherit their base language's direction. This setting does
+`dir`, and the default base of `bidi_runs`. Direction detection also reads
+Django's `LANGUAGES_BIDI` with the same base-code matching as
+`get_language_bidi()`, so a code added to `LANGUAGES_BIDI` gets matching
+`rtl-admin--rtl` body classes. Codes in `EXTRA_RTL_LANGUAGES` that are missing
+from `LANGUAGES_BIDI` trigger `rtl_admin.W006`: Django would leave `<html dir>`
+at LTR while the package turns the body RTL. Prefer lowercase, hyphenated codes;
+regional codes can inherit their base language's direction. These settings do
 not add languages to `LANGUAGES`, install translations, or change Babel data.
-The stylesheet supplies body direction for these extra languages; it does not
-rewrite Django's `<html dir>` attribute.
+The stylesheet supplies body direction for extra languages; it does not rewrite
+Django's `<html dir>` attribute. See [System checks](system-checks.md#rtl_adminw006-extra-rtl-language-missing-from-languages_bidi).
 
 `ISOLATE_TABLE_CELLS` gates `unicode-bidi: isolate` on changelist body cells,
 tabular-inline cells, breadcrumbs, content headings, object-tool links, and

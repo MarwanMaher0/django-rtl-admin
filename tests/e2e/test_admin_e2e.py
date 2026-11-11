@@ -11,7 +11,9 @@ scheme, on a 360px phone and a 1280px desktop.  Each visit asserts that
 and saves a full-page screenshot to ``test-artifacts/e2e/``.  On top of that
 each test checks the widgets on the page, and the ``*_point_the_right_way``
 tests compare the English and Arabic renderings pixel by pixel to prove that
-every arrow, chevron and icon flipped with the text.
+every arrow, chevron and icon flipped with the text.  One test also opens a
+language that Django's metadata does not mark as RTL, promoted only through
+``LANGUAGES_BIDI``.
 """
 
 from __future__ import annotations
@@ -156,6 +158,28 @@ def test_language_switcher_and_login(open_admin, lang):
     assert page.url.rstrip("/").endswith("/admin")
     assert page.locator("#user-tools").is_visible()
     check_page(page, other, "light", "index after login")
+
+
+def test_language_known_only_through_languages_bidi(open_admin, snapshot):
+    """A code promoted to RTL with LANGUAGES_BIDI stays RTL in the body too."""
+    for page in visit(open_admin, "/admin/", "ps", "light"):
+        where = f"custom RTL [{page.viewport_size['width']}px]"
+        assert page.locator("html").get_attribute("dir") == "rtl", f"{where}: <html dir>"
+        assert page.locator("html").get_attribute("lang") == "ps", f"{where}: <html lang>"
+
+        stylesheets = page.locator('link[rel="stylesheet"]').evaluate_all(
+            "links => links.map(link => link.getAttribute('href'))"
+        )
+        assert any(path.endswith("admin/css/rtl.css") for path in stylesheets), (
+            f"{where}: contrib RTL stylesheet missing: {stylesheets}"
+        )
+
+        body_class = page.locator("body").get_attribute("class") or ""
+        assert "rtl-admin--rtl" in body_class.split(), f"{where}: body class {body_class!r}"
+        assert page.locator("body").evaluate("el => getComputedStyle(el).direction") == "rtl"
+        assert not page.js_errors, f"{where}: JavaScript errors {page.js_errors}"
+        assert_no_horizontal_overflow(page, where)
+        snapshot(page, "custom-rtl")
 
 
 # -- changelist -------------------------------------------------------------------

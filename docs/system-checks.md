@@ -1,24 +1,24 @@
 ---
 title: System checks | django-rtl-admin
-description: Diagnose rtl_admin.E001 and W001 through W005 for invalid configuration choices and types, app ordering, unknown keys, the missing set_language endpoint, and LocaleMiddleware setup.
+description: Diagnose rtl_admin.E001 and W001 through W006 for invalid configuration choices and types, app ordering, unknown keys, the missing set_language endpoint, LocaleMiddleware setup, and RTL languages absent from LANGUAGES_BIDI.
 ---
 
 # System checks
 
-The app registers five Django check functions that can emit one error ID and
-five warning IDs. Run them as part of your project's normal checks:
+The app registers six Django check functions that can emit one error ID and
+six warning IDs. Run them as part of your project's normal checks:
 
 ```sh
 python manage.py check
 ```
 
-E001 is a Django `Error`; W001 through W005 are Django `Warning` objects. Their
+E001 is a Django `Error`; W001 through W006 are Django `Warning` objects. Their
 exact prefix is `rtl_admin`, not `django_rtl_admin`. Registration occurs when
 `django_rtl_admin.apps.RTLAdminConfig.ready()` imports the checks module.
 
-The two new checks read raw settings rather than the runtime configuration
-accessor, so invalid configuration is reported without those checks raising
-`ImproperlyConfigured`. Runtime validation remains in place.
+The checks that inspect configuration read raw settings rather than the runtime
+configuration accessor, so invalid configuration is reported without those
+checks raising `ImproperlyConfigured`. Runtime validation remains in place.
 
 | ID | Condition | Primary fix |
 | --- | --- | --- |
@@ -28,6 +28,7 @@ accessor, so invalid configuration is reported without those checks raising
 | `rtl_admin.W003` | The switcher is enabled and `set_language` cannot be reversed. | Route Django's language endpoint or disable the switcher. |
 | `rtl_admin.W004` | The switcher is enabled and the exact `LocaleMiddleware` path is absent. | Add the middleware or disable the switcher. |
 | `rtl_admin.W005` | `RTL_ADMIN` is neither a mapping nor `None`, or a checked option has an invalid type. | Use a mapping or `None` and the documented option types. |
+| `rtl_admin.W006` | An `EXTRA_RTL_LANGUAGES` code is missing from `settings.LANGUAGES_BIDI`. | Add the code to `LANGUAGES_BIDI` or remove it from `EXTRA_RTL_LANGUAGES`. |
 
 ## `rtl_admin.E001`: invalid setting choices
 
@@ -166,6 +167,36 @@ The `EXTRA_RTL_LANGUAGES` diagnostic targets bare strings, not language-code
 validity. These type checks are not comprehensive validation of all
 configuration contents.
 
+## `rtl_admin.W006`: extra RTL language missing from `LANGUAGES_BIDI`
+
+`check_extra_rtl_languages_bidi` emits W006 when a code in
+`RTL_ADMIN["EXTRA_RTL_LANGUAGES"]` is absent from Django's
+`settings.LANGUAGES_BIDI`. Django sets `<html dir>` from that setting, using the
+language's base code as `get_language_bidi()` does. Without the corresponding
+entry, Django renders an LTR document while the package adds
+`rtl-admin--rtl` to the body, so contrib `admin/css/rtl.css` is not loaded and
+the two directions disagree.
+
+The check compares base codes the same way: an extra `ps-AF` is satisfied by
+`"ps"` in `LANGUAGES_BIDI`. It skips a bare-string value, which W005 already
+reports, and it does nothing when `EXTRA_RTL_LANGUAGES` is omitted or empty.
+The package's direction helpers also read `LANGUAGES_BIDI` -- they ignore the
+per-language `bidi` flag in `LANG_INFO` -- so a code marked bidi only there
+still needs the entry. Align both settings when promoting a new language:
+
+```python
+from django.conf.global_settings import LANGUAGES_BIDI
+
+LANGUAGES = [..., ("ps", "Pashto")]
+LANGUAGES_BIDI = [*LANGUAGES_BIDI, "ps"]
+RTL_ADMIN = {"EXTRA_RTL_LANGUAGES": ("ps",)}
+```
+
+Adding the code to `LANGUAGES_BIDI` alone is enough for the package's direction
+helpers. `EXTRA_RTL_LANGUAGES` is for locales that Django does not know yet;
+mirror each code in `LANGUAGES_BIDI` when the document should be RTL too. That
+pairing is the usual case, and W006 enforces it.
+
 ## Disabling the switcher checks
 
 If the switcher is not wanted, disable its feature rather than merely hiding
@@ -178,8 +209,9 @@ RTL_ADMIN = {
 ```
 
 This skips both W003 and W004 and suppresses the form and its script. E001,
-W001, W002, and W005 still run. W003 and W004 can occur together, and they still
-run with only one configured language even though the form hides in that case.
+W001, W002, W005, and W006 still run. W003 and W004 can occur together, and they
+still run with only one configured language even though the form hides in that
+case.
 
 ## What a clean result does not guarantee
 

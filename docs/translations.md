@@ -42,7 +42,7 @@ without fuzzy flags and with intact placeholders, and recompiles each `.po` to
 verify the committed `.mo` is current.
 
 RTL recognition is broader than these six translations. The direction helpers
-use Django's language metadata, regional base-language fallback, and
+use `LANGUAGES_BIDI`, regional base-language fallback, and
 `EXTRA_RTL_LANGUAGES`. Adding a catalog does not itself register a language as RTL,
 and adding an RTL code does not install translations or add a menu entry. See
 [Configuration](configuration.md).

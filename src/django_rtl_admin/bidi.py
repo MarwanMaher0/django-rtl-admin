@@ -21,7 +21,7 @@ from __future__ import annotations
 import unicodedata
 from typing import Any
 
-from django.conf import locale as django_locale
+from django.conf import settings
 from django.utils.html import conditional_escape, escape
 from django.utils.safestring import SafeString, mark_safe
 from django.utils.translation import get_language
@@ -66,26 +66,50 @@ def _char_class(char: str) -> str:
 
 
 def rtl_languages() -> frozenset[str]:
-    """Every language code known to be right-to-left."""
+    """Every language code this package treats as right-to-left.
+
+    Combines the entries of ``settings.LANGUAGES_BIDI`` that Django can
+    actually match with ``RTL_ADMIN["EXTRA_RTL_LANGUAGES"]``, normalized the
+    same way :func:`is_rtl_language` matches them.  Raw regional or upper-case
+    ``LANGUAGES_BIDI`` entries are omitted: Django compares the base subtag to
+    the raw entries, so those never make a language RTL.  The per-language
+    ``bidi`` flag in Django's ``LANG_INFO`` is deliberately not consulted: it
+    can disagree with ``LANGUAGES_BIDI``, and the document direction follows
+    the latter.
+    """
     codes = {
         code
-        for code, info in django_locale.LANG_INFO.items()
-        if info.get("bidi")
+        for code in settings.LANGUAGES_BIDI
+        if isinstance(code, str)
+        and code == code.lower()
+        and "-" not in code
+        and "_" not in code
     }
-    codes.update(rtl_settings.EXTRA_RTL_LANGUAGES)
+    codes.update(
+        extra.replace("_", "-").lower()
+        for extra in rtl_settings.EXTRA_RTL_LANGUAGES
+    )
     return frozenset(codes)
 
 
 def is_rtl_language(language_code: str | None = None) -> bool:
-    """Is ``language_code`` (default: the active language) right-to-left?"""
-    code = language_code or get_language() or ""
-    code = code.replace("_", "-").lower()
-    known = {c.lower() for c in rtl_languages()}
-    if code in known:
-        return True
-    # "ar-eg" -> "ar"
+    """Is ``language_code`` (default: the active language) right-to-left?
+
+    ``LANGUAGES_BIDI`` is matched exactly as Django's ``get_language_bidi()``
+    does -- the code's base subtag against the raw entries, case-sensitively --
+    so the body class always agrees with the document's ``dir`` attribute.
+    ``EXTRA_RTL_LANGUAGES`` stays additive and is matched case-insensitively.
+    """
+    code = (language_code or get_language() or "").replace("_", "-").lower()
+    # "ar-eg" -> "ar", like Django's get_language_bidi().
     base = code.split("-", 1)[0]
-    return base in known
+    if base in settings.LANGUAGES_BIDI:
+        return True
+    extras = {
+        extra.replace("_", "-").lower()
+        for extra in rtl_settings.EXTRA_RTL_LANGUAGES
+    }
+    return code in extras or base in extras
 
 
 def current_direction() -> str:

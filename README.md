@@ -299,7 +299,7 @@ RTL_ADMIN = {
 | --- | --- | --- |
 | `ENABLE_CSS` | `True` | Link the direction-aware stylesheet into the admin `<head>`. |
 | `FONT_STACK` | `None` | Override the `--rtl-admin-font-stack` custom property. A string or a sequence of family names. |
-| `EXTRA_RTL_LANGUAGES` | `()` | Language codes to treat as RTL on top of the ones Django already knows about. |
+| `EXTRA_RTL_LANGUAGES` | `()` | Language codes to treat as RTL on top of the ones in Django's `LANGUAGES_BIDI`. |
 | `ISOLATION_DIRECTION` | `"auto"` | Default isolate used by `bidi_isolate` and the mixin: `"auto"` (FSI), `"ltr"` (LRI) or `"rtl"` (RLI). |
 | `ISOLATE_CHANGELIST` | `True` | Let `BidiSafeAdminMixin` isolate changelist cells. |
 | `ISOLATE_TABLE_CELLS` | `True` | CSS-level `unicode-bidi: isolate` on changelist cells. |

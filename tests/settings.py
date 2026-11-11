@@ -1,5 +1,7 @@
 """Settings for the django-rtl-admin test suite."""
 
+from django.conf import global_settings
+
 SECRET_KEY = "test-secret-key"
 DEBUG = False
 
@@ -44,7 +46,18 @@ TEMPLATES = [
 DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}}
 
 LANGUAGE_CODE = "en"
-LANGUAGES = [("en", "English"), ("ar", "Arabic"), ("ar-eg", "Arabic (Egypt)"), ("he", "Hebrew")]
+LANGUAGES = [
+    ("en", "English"),
+    ("ar", "Arabic"),
+    ("ar-eg", "Arabic (Egypt)"),
+    ("he", "Hebrew"),
+    # Not in Django's language metadata: recognised as RTL only through
+    # LANGUAGES_BIDI, which is what the browser end-to-end test exercises.
+    # tests/testapp ships an empty "ps" catalog so LocaleMiddleware can
+    # activate it (Django only accepts languages that have a catalog).
+    ("ps", "Pashto"),
+]
+LANGUAGES_BIDI = [*global_settings.LANGUAGES_BIDI, "ps"]
 USE_I18N = True
 USE_TZ = True
 TIME_ZONE = "UTC"

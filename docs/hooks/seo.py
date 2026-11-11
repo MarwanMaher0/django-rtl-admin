@@ -61,7 +61,7 @@ FAQS = {
         ),
         (
             "Which RTL languages can I use?",
-            "Direction handling follows Django's language metadata and supports regional "
+            "Direction handling follows Django's LANGUAGES_BIDI setting and supports regional "
             "fallback and EXTRA_RTL_LANGUAGES. The package ships Arabic, Kurdish Sorani, "
             "Hebrew, Persian, Uyghur, and Urdu catalogs; your project's LANGUAGES setting "
             "controls the switcher.",

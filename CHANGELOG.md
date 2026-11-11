@@ -67,6 +67,14 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- Direction detection now follows `settings.LANGUAGES_BIDI` exactly as Django's
+  `get_language_bidi()` does -- the base subtag against the raw entries -- with
+  `EXTRA_RTL_LANGUAGES` as the additive escape hatch. The per-language `bidi`
+  flag in `LANG_INFO` is no longer consulted, so for codes in `LANGUAGES_BIDI`
+  the body class agrees with the document's `dir` attribute. `EXTRA_RTL_LANGUAGES`
+  codes can still turn the body RTL without the document, and the new
+  `rtl_admin.W006` check warns about exactly that when a code is missing from
+  `LANGUAGES_BIDI`, where Django reads the document direction.
 - The `l10n_*` and `local_digits` filters now fail silently like Django's
   built-ins: numeric filters accept and normalize finite numeric strings,
   including exponent notation and surrounding whitespace, and return invalid

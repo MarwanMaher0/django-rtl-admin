@@ -141,6 +141,44 @@ def check_settings_types(
 
 
 @register()
+def check_extra_rtl_languages_bidi(
+    app_configs: Sequence[AppConfig] | None, **kwargs: Any
+) -> list[CheckMessage]:
+    """``EXTRA_RTL_LANGUAGES`` must agree with Django's ``LANGUAGES_BIDI``."""
+    configured = _configured_settings()
+    if configured is None:
+        return []
+    extras = configured.get(
+        "EXTRA_RTL_LANGUAGES", rtl_settings.defaults["EXTRA_RTL_LANGUAGES"]
+    )
+    if isinstance(extras, (str, bytes, bytearray)) or not isinstance(extras, Sequence):
+        return []
+    bidi = getattr(settings, "LANGUAGES_BIDI", ())
+    missing = sorted(
+        {
+            code
+            for code in extras
+            if isinstance(code, str)
+            and code.replace("_", "-").lower().split("-", 1)[0] not in bidi
+        }
+    )
+    if not missing:
+        return []
+    return [
+        Warning(
+            "RTL_ADMIN['EXTRA_RTL_LANGUAGES'] contains language codes missing "
+            f"from settings.LANGUAGES_BIDI: {', '.join(missing)}.",
+            hint=(
+                "Django sets the <html dir> attribute from LANGUAGES_BIDI. Add "
+                "the same codes there so the document and rtl-admin's body "
+                "classes agree, or remove them from EXTRA_RTL_LANGUAGES."
+            ),
+            id="rtl_admin.W006",
+        )
+    ]
+
+
+@register()
 def check_language_switcher(
     app_configs: Sequence[AppConfig] | None, **kwargs: Any
 ) -> list[CheckMessage]:
