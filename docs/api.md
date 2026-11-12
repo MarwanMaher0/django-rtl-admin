@@ -55,8 +55,12 @@ not before saving business identifiers; the controls can survive copy/paste.
 ## Locale-aware formatting
 
 Install `django-rtl-admin[babel]` for CLDR separators and currency/date patterns.
-Without Babel, or with `USE_BABEL=False`, formatting uses Django plus digit
-transliteration. An explicit `language` is respected on both paths.
+Without Babel, or with `USE_BABEL=False`, number formatting renders from a
+built-in CLDR table — the locale's own group and decimal separators, grouping
+convention and digits — matching Babel's output for the supported locales, and
+only locales the table does not cover fall back to Django plus digit
+transliteration; date/time formatting still uses Django. An explicit `language`
+is respected on every path.
 
 Use `short`, `medium`, `long`, or `full` for portable date/datetime requests.
 Without Babel, `short` uses Django's short date/datetime format and the other

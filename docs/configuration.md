@@ -31,7 +31,7 @@ These are all 13 supported keys, defined in `django_rtl_admin.conf.DEFAULTS`.
 | `ISOLATE_TABLE_CELLS` | `True` | Add the body class enabling CSS isolation for changelist cells and related navigation/data containers. |
 | `PLAINTEXT_FORM_FIELDS` | `True` | Add the body class enabling first-strong plaintext direction for text-like inputs and textareas. |
 | `NUMERALS` | `"auto"` | Follow the locale's numbering system, or force `"latn"`, `"arab"`, or `"arabext"` in the formatting helpers. |
-| `USE_BABEL` | `True` | Use Babel when installed; otherwise use Django formatting plus digit transliteration. |
+| `USE_BABEL` | `True` | Use Babel when installed; otherwise render numbers from built-in CLDR tables, with Django as a last resort. |
 | `CURRENCY` | `"USD"` | Default currency for `format_currency` and `l10n_currency` when no truthy currency argument is supplied. |
 | `LANGUAGE_SWITCHER` | `True` | Enable the switcher form, its progressive-enhancement script, and checks W003/W004. |
 | `LANGUAGE_SWITCHER_LANGUAGES` | `None` | Use `settings.LANGUAGES`, or provide a sequence of codes or `(code, label)` pairs. |
@@ -139,10 +139,14 @@ the package's fallback mapping. Plain `ar` uses Latin digits, `ar-eg` uses
 Arabic-Indic digits, and `fa` uses extended Arabic-Indic digits.
 
 Forcing `NUMERALS` changes digit characters, not every separator or currency
-pattern. `USE_BABEL=False` forces Django formatting, but still localizes digits.
-Missing Babel is handled the same way. Currency fallback is a two-decimal number,
-a nonbreaking space, and the currency code; percentage fallback uses a rounded
-whole percentage. Date/time fallback details are in the [Python API](api.md).
+pattern. `USE_BABEL=False` skips Babel even when it is installed, and missing
+Babel behaves the same way: numbers are then rendered from the package's
+built-in CLDR tables — the same digit translation, separators, and grouping as
+with Babel — and only locales those tables do not cover fall back to Django
+plus digit transliteration. Currency fallback is a two-decimal number, a
+nonbreaking space, and the currency code; percentage fallback uses a rounded
+whole percentage. Date/time without Babel always uses Django; details are in
+the [Python API](api.md).
 
 These settings affect explicit formatting helpers and [filters](template-tags.md),
 not every admin field. The mixin uses Django's normal field-display formatting.

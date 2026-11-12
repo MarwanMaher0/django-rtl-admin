@@ -67,6 +67,22 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- Number formatting without Babel now renders from built-in CLDR tables
+  instead of Django's locale files. `format_number()`, `format_currency()` and
+  `format_percent()` use each supported locale's own group and decimal
+  separators — `ar-eg` shows `١٬٢٣٤٬٥٦٧٫٨٩١`, `ar-ma` shows `1.234.567,891`
+  and `kk` groups with a nonbreaking space — and its grouping convention
+  (Indian-style `12,34,567` for `dv` and `en-in`). Rounding matches Babel:
+  half-to-even, at most three fraction digits by default with trailing zeros
+  stripped, or exactly `decimal_pos` digits when given; `grouping=False` still
+  drops group separators and a sign survives rounding to zero. Decimals with
+  more than 28 significant digits keep every digit (Babel's quantize raises on
+  those, so the fallback renderer handles them at full precision). The fallback
+  numbering-system table was corrected against CLDR 46 as well: `ar-ae` and
+  `dv` use Latin digits, while `ar-dj`, `ar-er`, `ar-il`, `ar-km`, `ar-mr`,
+  `ar-so`, `ar-ss` and `ar-td` use Arabic-Indic digits. Locales the tables do
+  not cover keep using Django's formatter. When Babel is installed, tests
+  assert the two paths agree exactly.
 - `FONT_STACK` with a quoted family no longer breaks the override.
   `rtl_admin_styles` used to HTML-escape the value inside `<style>`, where
   entities are not decoded, so `'"Noto Naskh Arabic", serif'` reached the

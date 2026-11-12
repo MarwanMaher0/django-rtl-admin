@@ -8,9 +8,10 @@ machinery has no concept of a numbering system at all, so an Arabic admin ends
 up showing Latin digits everywhere no matter what the locale says.
 
 These helpers use `Babel <https://babel.pocoo.org/>`_ when it is installed --
-``pip install django-rtl-admin[babel]`` -- and fall back to Django's own
-``django.utils.formats`` plus a digit transliteration step when it is not.
-Nothing here raises if Babel is missing.
+``pip install django-rtl-admin[babel]`` -- and fall back to a small built-in
+CLDR table (numbering system, separators and grouping per locale) when it is
+not, deferring to Django's own ``django.utils.formats`` only for locales the
+table does not cover.  Nothing here raises if Babel is missing.
 """
 
 from __future__ import annotations
@@ -52,28 +53,97 @@ DIGITS: dict[str, str] = {
 
 NUMBERING_SYSTEMS = tuple(DIGITS)
 
-#: Used when Babel is unavailable.  Values match CLDR 46.
+#: Used when Babel is unavailable.  Values match CLDR 46.  Locales absent
+#: from the table inherit from their base language; anything without an entry
+#: anywhere gets Latin digits.  Note ``ar-AE`` and ``dv``: both use Latin
+#: digits even though their neighbours do not.
 _FALLBACK_NUMBERING: dict[str, str] = {
     "ar": "latn",
+    "ar_AE": "latn",
+    "ar_BH": "arab",
+    "ar_DJ": "arab",
     "ar_EG": "arab",
-    "ar_SD": "arab",
-    "ar_YE": "arab",
-    "ar_SY": "arab",
+    "ar_ER": "arab",
+    "ar_IL": "arab",
     "ar_IQ": "arab",
-    "ar_SA": "arab",
     "ar_JO": "arab",
+    "ar_KM": "arab",
+    "ar_KW": "arab",
     "ar_LB": "arab",
+    "ar_MR": "arab",
+    "ar_OM": "arab",
     "ar_PS": "arab",
     "ar_QA": "arab",
-    "ar_KW": "arab",
-    "ar_BH": "arab",
-    "ar_OM": "arab",
-    "ar_AE": "arab",
+    "ar_SA": "arab",
+    "ar_SD": "arab",
+    "ar_SO": "arab",
+    "ar_SS": "arab",
+    "ar_SY": "arab",
+    "ar_TD": "arab",
+    "ar_YE": "arab",
+    "ckb": "arab",
+    "dv": "latn",
     "fa": "arabext",
     "ps": "arabext",
     "ur_IN": "arabext",
-    "ckb": "arab",
-    "dv": "arab",
+}
+
+#: (group separator, decimal separator) per locale, used when Babel is
+#: unavailable.  Keys are Django locale codes (``to_locale()`` output);
+#: unlisted locales inherit from their base language.  Values match the
+#: symbols CLDR assigns to each locale's *default* numbering system.
+_LATIN_SEPARATORS = (",", ".")
+_ARABIC_SEPARATORS = ("\u066c", "\u066b")  # ARABIC THOUSANDS / DECIMAL SEPARATOR
+_EUROPEAN_SEPARATORS = (".", ",")
+_NBSP_SEPARATORS = ("\xa0", ",")
+
+_FALLBACK_SEPARATORS: dict[str, tuple[str, str]] = {
+    code: separators
+    for separators, codes in (
+        (_LATIN_SEPARATORS, ("ar", "dv", "en", "he", "ur")),
+        (
+            _ARABIC_SEPARATORS,
+            (
+                "ar_BH",
+                "ar_DJ",
+                "ar_EG",
+                "ar_ER",
+                "ar_IL",
+                "ar_IQ",
+                "ar_JO",
+                "ar_KM",
+                "ar_KW",
+                "ar_LB",
+                "ar_MR",
+                "ar_OM",
+                "ar_PS",
+                "ar_QA",
+                "ar_SA",
+                "ar_SD",
+                "ar_SO",
+                "ar_SS",
+                "ar_SY",
+                "ar_TD",
+                "ar_YE",
+                "ckb",
+                "fa",
+                "ps",
+                "ur_IN",
+            ),
+        ),
+        (_EUROPEAN_SEPARATORS, ("ar_DZ", "ar_LY", "ar_MA", "ar_TN")),
+        (_NBSP_SEPARATORS, ("kk",)),
+    )
+    for code in codes
+}
+
+#: Digit group sizes, right to left, for locales that do not group by three.
+#: The last size repeats (``dv``: ``12,34,567``).  Only applies when the
+#: caller left ``decimal_pos`` alone; an explicit position always groups by
+#: three, matching Babel's ``#,##0`` patterns.
+_FALLBACK_GROUP_SIZES: dict[str, tuple[int, ...]] = {
+    "dv": (3, 2),
+    "en_IN": (3, 2),
 }
 
 # Reverse lookup: any supported digit -> its value.
@@ -190,6 +260,82 @@ def _as_decimal(value: Any) -> decimal.Decimal:
     return number
 
 
+def _fallback_separators(code: str) -> tuple[str, str] | None:
+    """CLDR separators for a Django locale code, or ``None`` if unknown."""
+    if code in _FALLBACK_SEPARATORS:
+        return _FALLBACK_SEPARATORS[code]
+    return _FALLBACK_SEPARATORS.get(code.split("_", 1)[0])
+
+
+def _fallback_group_sizes(code: str) -> tuple[int, ...]:
+    if code in _FALLBACK_GROUP_SIZES:
+        return _FALLBACK_GROUP_SIZES[code]
+    return _FALLBACK_GROUP_SIZES.get(code.split("_", 1)[0], (3,))
+
+
+def _quantize(number: decimal.Decimal, decimal_pos: int | None) -> decimal.Decimal:
+    """Round like Babel's ``#,##0.###`` (default) or ``#,##0.00`` patterns.
+
+    ``decimal_pos=None`` keeps at most three fraction digits and strips
+    trailing zeros; an explicit position keeps exactly that many.  Both round
+    half-to-even.
+    """
+    keep = 3 if decimal_pos is None else decimal_pos
+    exponent = decimal.Decimal(1).scaleb(-keep)
+    width = len(format(number, "f")) + keep + 1
+    with decimal.localcontext() as context:
+        # quantize() raises InvalidOperation when the result does not fit the
+        # context precision; huge inputs (10**20 and up) need a wider one.
+        context.prec = max(context.prec, width)
+        quantized = number.quantize(exponent, rounding=decimal.ROUND_HALF_EVEN)
+        if decimal_pos is None:
+            # normalize() is a context operation too: strip trailing zeros
+            # under the widened precision so Decimals with more significant
+            # digits than the default context keep every digit.
+            quantized = quantized.normalize()
+    return quantized
+
+
+def _group_digits(digits: str, sizes: tuple[int, ...], separator: str) -> str:
+    """Insert ``separator`` into an integer digit string, right to left.
+
+    ``sizes`` gives the group widths right to left; the last one repeats
+    (``(3, 2)`` renders ``1234567`` as ``12,34,567``).
+    """
+    if not separator or len(digits) <= sizes[0]:
+        return digits
+    chunks: list[str] = []
+    remaining = digits
+    index = 0
+    while len(remaining) > (size := sizes[min(index, len(sizes) - 1)]):
+        chunks.append(remaining[-size:])
+        remaining = remaining[:-size]
+        index += 1
+    chunks.append(remaining)
+    return separator.join(reversed(chunks))
+
+
+def _render_number(
+    number: decimal.Decimal,
+    code: str,
+    separators: tuple[str, str],
+    language: str | None,
+    *,
+    grouping: bool,
+    decimal_pos: int | None,
+) -> str:
+    """Format ``number`` from the fallback CLDR tables, Babel-style."""
+    group_separator, decimal_separator = separators
+    sizes = (3,) if decimal_pos is not None else _fallback_group_sizes(code)
+    text = format(_quantize(number, decimal_pos), "f")
+    sign = "-" if text.startswith("-") else ""
+    digits, _, fraction = text[len(sign) :].partition(".")
+    rendered = _group_digits(digits, sizes, group_separator if grouping else "")
+    if fraction:
+        rendered += decimal_separator + fraction
+    return _localize_digits(sign + rendered, language)
+
+
 def format_number(
     value: Any,
     *,
@@ -222,6 +368,22 @@ def format_number(
             text = None
         if text is not None:
             return _localize_digits(text, language)
+    code = to_locale(language or get_language() or "en")
+    separators = _fallback_separators(code)
+    if separators is not None:
+        try:
+            number = _as_decimal(value)
+        except ValueError:
+            number = None  # Not numeric: let Django's formatter deal with it.
+        if number is not None:
+            return _render_number(
+                number,
+                code,
+                separators,
+                language,
+                grouping=grouping,
+                decimal_pos=decimal_pos,
+            )
     with _active(language):
         text = formats.number_format(
             value, decimal_pos=decimal_pos, force_grouping=grouping, use_l10n=True
