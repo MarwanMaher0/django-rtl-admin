@@ -182,6 +182,31 @@ def test_language_known_only_through_languages_bidi(open_admin, snapshot):
         snapshot(page, "custom-rtl")
 
 
+def first_font_family(font_family):
+    """The first family of a computed ``font-family`` list, unquoted."""
+    match = re.match(r'\s*"((?:[^"\\]|\\.)*)"', font_family)
+    if match:
+        return re.sub(r"\\(.)", r"\1", match.group(1))
+    return font_family.split(",", 1)[0].strip()
+
+
+@pytest.mark.parametrize(
+    ("font_stack", "family"),
+    [
+        ('"Noto Naskh Arabic", serif', "Noto Naskh Arabic"),
+        (("Rtl 'Admin' \"Test\"", "Tahoma", "sans-serif"), "Rtl 'Admin' \"Test\""),
+    ],
+    ids=["quoted-string", "sequence-with-quotes"],
+)
+def test_font_stack_override_reaches_the_arabic_body(open_admin, settings, font_stack, family):
+    settings.RTL_ADMIN = {"FONT_STACK": font_stack}
+    page = open_admin("/admin/", lang="ar")
+    assert page.locator("html").get_attribute("dir") == "rtl"
+    computed = page.locator("body").evaluate("el => getComputedStyle(el).fontFamily")
+    assert first_font_family(computed) == family, f"body font-family {computed!r}"
+    assert not page.js_errors, f"JavaScript errors {page.js_errors}"
+
+
 # -- changelist -------------------------------------------------------------------
 
 

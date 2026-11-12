@@ -44,8 +44,20 @@ override. It does not disable Unicode isolation, formatting, body-class output,
 or the switcher script. Existing Django admin styles remain independent.
 
 `FONT_STACK` applies to RTL bodies and their inputs, textareas, selects, and
-buttons. Sequences are joined with `", "`. The tag HTML-escapes the resulting
-stack rather than applying CSS-specific quoting. Falsy values emit no override:
+buttons. The tag serializes it as a CSS `font-family` list inside a `<style>`
+element:
+
+- A string is read as a CSS family list, for example
+  `'"Noto Naskh Arabic", Tahoma, serif'`. Unquoted names may contain spaces;
+  a quote or backslash belongs inside a quoted name.
+- A sequence holds one family name per entry, raw (`"Noto Naskh Arabic"`) or
+  already quoted (`'"Noto Naskh Arabic"'`). An entry containing a comma is a
+  single name.
+- Every family name is emitted as a double-quoted CSS string, with `\` and `"`
+  escaped. Generic keywords (`serif`, `sans-serif`, `monospace`, `cursive`,
+  `fantasy`, `system-ui`, `ui-serif`, `ui-sans-serif`, `ui-monospace`,
+  `ui-rounded`, `math`, `emoji`, `fangsong`) and the `-apple-system` and
+  `BlinkMacSystemFont` system-font keywords stay bare unless you quote them.
 
 ```python
 RTL_ADMIN = {
@@ -53,6 +65,16 @@ RTL_ADMIN = {
     "EXTRA_RTL_LANGUAGES": ("tzm",),
 }
 ```
+
+This emits
+`:root { --rtl-admin-font-stack: "Noto Naskh Arabic", "Tahoma", sans-serif; }`,
+and so does the string `'"Noto Naskh Arabic", Tahoma, sans-serif'`.
+
+Falsy values emit no override. A value that is malformed, for example an
+unterminated quote, or a family containing `<`, `>`, `{`, `}`, `;` or a control
+character, could close the `<style>` element or the CSS rule. The tag then
+skips the override, logs a warning on the `django_rtl_admin` logger, and the
+shipped stack applies.
 
 Extra RTL languages affect the direction tag, body classes, switcher option
 `dir`, and the default base of `bidi_runs`. Direction detection also reads

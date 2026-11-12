@@ -67,6 +67,18 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- `FONT_STACK` with a quoted family no longer breaks the override.
+  `rtl_admin_styles` used to HTML-escape the value inside `<style>`, where
+  entities are not decoded, so `'"Noto Naskh Arabic", serif'` reached the
+  browser as `&quot;Noto Naskh Arabic&quot;` and the rule was dropped. The
+  stack is now serialized as CSS: a string is read as a `font-family` list,
+  each sequence entry is one family name, family names become CSS strings with
+  `\` and `"` escaped, pre-quoted names are accepted, and generic keywords
+  (`serif`, `system-ui`, ...) plus `-apple-system` and `BlinkMacSystemFont`
+  stay bare. A malformed value, or one containing `<`, `>`, `{`, `}`, `;` or a
+  control character, is skipped with a warning on the `django_rtl_admin`
+  logger and the shipped stack applies. A sequence entry containing a comma is
+  now one family name rather than a list.
 - Direction detection now follows `settings.LANGUAGES_BIDI` exactly as Django's
   `get_language_bidi()` does -- the base subtag against the raw entries -- with
   `EXTRA_RTL_LANGUAGES` as the additive escape hatch. The per-language `bidi`

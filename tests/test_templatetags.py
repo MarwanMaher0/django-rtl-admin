@@ -450,11 +450,98 @@ def test_styles_tag_can_be_turned_off():
     assert render("{% rtl_admin_styles %}") == ""
 
 
+STYLE_OPEN = "<style>:root { --rtl-admin-font-stack: "
+STYLE_CLOSE = "; }</style>"
+
+
 @override_settings(RTL_ADMIN={"FONT_STACK": '"Noto Naskh Arabic", serif'})
 def test_font_stack_setting_is_emitted_as_a_custom_property():
     output = render("{% rtl_admin_styles %}")
-    assert "--rtl-admin-font-stack" in output
-    assert "Noto Naskh Arabic" in output
+    assert output == (
+        '<link rel="stylesheet" href="/static/django_rtl_admin/css/rtl-admin.css">'
+        + STYLE_OPEN
+        + '"Noto Naskh Arabic", serif'
+        + STYLE_CLOSE
+    )
+    assert "&quot;" not in output
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ('"Noto Naskh Arabic", serif', '"Noto Naskh Arabic", serif'),
+        ("'Noto Naskh Arabic', serif", '"Noto Naskh Arabic", serif'),
+        ("Noto  Naskh   Arabic, Tahoma, sans-serif", '"Noto Naskh Arabic", "Tahoma", sans-serif'),
+        (("Noto Naskh Arabic", "Tahoma", "sans-serif"), '"Noto Naskh Arabic", "Tahoma", sans-serif'),
+        (["'Vazirmatn'", '"Noto Sans Arabic"', "system-ui"], '"Vazirmatn", "Noto Sans Arabic", system-ui'),
+        (("Noto Naskh Arabic, Tahoma",), '"Noto Naskh Arabic, Tahoma"'),
+        (("Rtl 'Admin' \"Test\"", "C:\\Fonts", " ", "serif"), '"Rtl \'Admin\' \\"Test\\"", "C:\\\\Fonts", serif'),
+        (('"Half quoted', "'serif'"), '"\\"Half quoted", "serif"'),
+        ("-apple-system, BlinkMacSystemFont, Serif", "-apple-system, BlinkMacSystemFont, Serif"),
+        ('"serif", ui-monospace', '"serif", ui-monospace'),
+        ('"Font \\"Quoted\\" Name", "Back\\\\slash"', '"Font \\"Quoted\\" Name", "Back\\\\slash"'),
+        ("'It\"s', 'A\\'B'", '"It\\"s", "A\'B"'),
+        ('"\\41 rial"', '"Arial"'),
+        ('"Noto, Comma", serif', '"Noto, Comma", serif'),
+        ("Tahoma, , serif,", '"Tahoma", serif'),
+        ("Vazirmatn & Co", '"Vazirmatn & Co"'),
+        ('"", serif', "serif"),
+    ],
+)
+def test_font_stack_is_serialized_as_css(value, expected):
+    assert tags.css_font_stack(value) == expected
+    with override_settings(RTL_ADMIN={"FONT_STACK": value}):
+        output = render("{% rtl_admin_styles %}")
+    assert output.endswith(STYLE_OPEN + expected + STYLE_CLOSE)
+
+
+@pytest.mark.parametrize("value", [None, "", (), [], " , "])
+def test_empty_font_stacks_emit_no_override(value, caplog):
+    with override_settings(RTL_ADMIN={"FONT_STACK": value}):
+        output = render("{% rtl_admin_styles %}")
+    assert "<style" not in output
+    assert caplog.records == []
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "Arial</style><script>alert(1)</script>",
+        '"Arial</style>", serif',
+        '"Arial; } body { color: red", serif',
+        "Arial } body { color: red",
+        '"Arial>", serif',
+        ("Tahoma", "Evil;"),
+        '"Line\nbreak", serif',
+        '"Unterminated, serif',
+        '"Quoted" trailing, serif',
+        "Ari'al, serif",
+        "Back\\slash",
+        42,
+        ("Tahoma", 1),
+        b"Tahoma",
+    ],
+)
+def test_unsafe_or_malformed_font_stacks_are_skipped_with_a_warning(value, caplog):
+    with caplog.at_level("WARNING", logger="django_rtl_admin"):
+        assert tags.css_font_stack(value) == ""
+        with override_settings(RTL_ADMIN={"FONT_STACK": value}):
+            output = render("{% rtl_admin_styles %}")
+    assert output.startswith("<link")
+    assert "<style" not in output
+    assert "</style" not in output.split(">", 1)[1]
+    warnings = [r for r in caplog.records if r.name == "django_rtl_admin"]
+    assert len(warnings) == 2
+    assert all(r.levelname == "WARNING" for r in warnings)
+    assert "FONT_STACK" in warnings[0].getMessage()
+
+
+@override_settings(RTL_ADMIN={"FONT_STACK": '"Noto Naskh Arabic", serif'})
+def test_font_stack_style_carries_the_csp_nonce():
+    output = render("{% rtl_admin_styles %}", csp_nonce="abc")
+    assert output.endswith(
+        '<style nonce="abc">:root { --rtl-admin-font-stack: "Noto Naskh Arabic", serif; }</style>'
+    )
 
 
 def test_scripts_tag():

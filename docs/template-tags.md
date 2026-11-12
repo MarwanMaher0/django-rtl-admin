@@ -230,6 +230,9 @@ Emit the stylesheet link and any `FONT_STACK` override:
 
 Output is empty with `ENABLE_CSS=False`. URLs use Django's static-file handling.
 A `csp_nonce` supplied in context is attached to the link and optional style tag.
+The font stack is serialized as CSS, not HTML-escaped; see
+[Configuration](configuration.md#styling-and-direction) for quoting rules and
+the values that are skipped.
 
 ### `rtl_admin_scripts`
 

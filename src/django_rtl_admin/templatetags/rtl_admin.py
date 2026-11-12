@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import datetime
+import logging
+import unicodedata
+from collections.abc import Sequence as SequenceABC
 from typing import TYPE_CHECKING, Any, TypedDict
 
 import django
@@ -27,6 +30,8 @@ if TYPE_CHECKING:
     from django.utils.safestring import SafeString
 
 register = template.Library()
+
+logger = logging.getLogger("django_rtl_admin")
 
 
 # ---------------------------------------------------------------------------
@@ -224,6 +229,151 @@ def rtl_admin_action_label(value: str, obj: Any) -> str:
     return mark_safe(html.replace('class="action-select"', str(attributes), 1))
 
 
+#: Keywords that must stay unquoted in ``font-family``: the CSS generic
+#: families, plus the two vendor system-font keywords that only work bare.
+GENERIC_FONT_FAMILIES = frozenset(
+    {
+        "serif",
+        "sans-serif",
+        "monospace",
+        "cursive",
+        "fantasy",
+        "system-ui",
+        "ui-serif",
+        "ui-sans-serif",
+        "ui-monospace",
+        "ui-rounded",
+        "math",
+        "emoji",
+        "fangsong",
+        "-apple-system",
+        "blinkmacsystemfont",
+    }
+)
+
+# A family name containing any of these could end the <style> element or the
+# CSS rule it sits in, so the whole override is skipped.
+_UNSAFE_FONT_CHARS = frozenset("<>{};")
+_HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
+
+
+class _FontStackError(ValueError):
+    pass
+
+
+def _read_css_string(value: str, index: int) -> tuple[str, int]:
+    """Decode the CSS string starting at ``value[index]`` (a quote)."""
+    quote = value[index]
+    index += 1
+    chars: list[str] = []
+    while index < len(value):
+        char = value[index]
+        if char == quote:
+            return "".join(chars), index + 1
+        if char == "\\":
+            index += 1
+            if index >= len(value):
+                break
+            end = index
+            while end < len(value) and end - index < 6 and value[end] in _HEX_DIGITS:
+                end += 1
+            if end > index:
+                codepoint = int(value[index:end], 16)
+                if codepoint == 0 or 0xD800 <= codepoint <= 0xDFFF or codepoint > 0x10FFFF:
+                    codepoint = 0xFFFD
+                chars.append(chr(codepoint))
+                if end < len(value) and value[end] in " \t\n":
+                    end += 1
+                index = end
+                continue
+        chars.append(value[index])
+        index += 1
+    raise _FontStackError("unterminated quoted family name")
+
+
+def _parse_font_families(value: str) -> list[tuple[str, bool]]:
+    """Split a CSS ``font-family`` list into ``(name, was_quoted)`` pairs."""
+    families: list[tuple[str, bool]] = []
+    index = 0
+    while index < len(value):
+        if value[index].isspace() or value[index] == ",":
+            index += 1
+            continue
+        if value[index] in "\"'":
+            name, index = _read_css_string(value, index)
+            while index < len(value) and value[index].isspace():
+                index += 1
+            if index < len(value) and value[index] != ",":
+                raise _FontStackError("unexpected text after a quoted family name")
+            families.append((name, True))
+            continue
+        end = value.find(",", index)
+        if end == -1:
+            end = len(value)
+        raw = value[index:end]
+        if any(char in raw for char in "\"'\\"):
+            raise _FontStackError("stray quote or backslash in an unquoted family name")
+        families.append((" ".join(raw.split()), False))
+        index = end
+    return families
+
+
+def _sequence_font_family(item: str) -> tuple[str, bool]:
+    """One sequence entry: a pre-quoted CSS string, a keyword, or a raw name."""
+    item = item.strip()
+    if item[:1] in ("\"", "'"):
+        try:
+            name, end = _read_css_string(item, 0)
+        except _FontStackError:
+            pass
+        else:
+            if end == len(item):
+                return name, True
+    return " ".join(item.split()), False
+
+
+def _css_font_family(name: str, quoted: bool) -> str:
+    if any(
+        char in _UNSAFE_FONT_CHARS or unicodedata.category(char) == "Cc"
+        for char in name
+    ):
+        raise _FontStackError(f"unsafe character in family name {name!r}")
+    if not quoted and name.lower() in GENERIC_FONT_FAMILIES:
+        return name
+    return '"' + name.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def css_font_stack(value: Any) -> str:
+    """Serialize ``FONT_STACK`` as a CSS ``font-family`` list.
+
+    A string is read as a CSS family list (``'"Noto Naskh Arabic", serif'``);
+    each entry of a sequence is one family name, raw or already quoted.
+    Family names come out as CSS strings with ``\\`` and ``"`` escaped,
+    generic keywords (``serif``, ``system-ui``...) stay bare, and pre-quoted
+    names are decoded and re-quoted.  Returns ``""`` -- and logs a warning --
+    when the value is malformed or contains a character that could close the
+    ``<style>`` element or the CSS rule.
+    """
+    if not value:
+        return ""
+    try:
+        if isinstance(value, str):
+            names = _parse_font_families(value)
+        elif isinstance(value, SequenceABC) and all(isinstance(item, str) for item in value):
+            names = [_sequence_font_family(item) for item in value]
+        else:
+            raise _FontStackError("expected a string or a sequence of strings")
+        families = [_css_font_family(name, quoted) for name, quoted in names if name]
+    except _FontStackError as exc:
+        logger.warning(
+            "Ignoring RTL_ADMIN['FONT_STACK'] = %r: %s. The shipped font stack is used instead.",
+            value,
+            exc,
+        )
+        return ""
+    return ", ".join(families)
+
+
 @register.simple_tag(takes_context=True, name="rtl_admin_styles")
 def rtl_admin_styles(context: Context | None = None) -> str:
     """The ``<link>`` (and optional font override) for the admin stylesheet."""
@@ -235,14 +385,15 @@ def rtl_admin_styles(context: Context | None = None) -> str:
         static("django_rtl_admin/css/rtl-admin.css"),
         nonce,
     )
-    font_stack = rtl_settings.FONT_STACK
+    font_stack = css_font_stack(rtl_settings.FONT_STACK)
     if font_stack:
-        if not isinstance(font_stack, str):
-            font_stack = ", ".join(font_stack)
+        # <style> is raw text: entities are not decoded there, so the stack is
+        # inserted verbatim.  css_font_stack() has rejected "<", ">", "{", "}"
+        # and ";", and every family name is a quoted CSS string or a keyword.
         html += format_html(
             "<style{}>:root {{ --rtl-admin-font-stack: {}; }}</style>",
             nonce,
-            font_stack,
+            mark_safe(font_stack),
         )
     return html
 
