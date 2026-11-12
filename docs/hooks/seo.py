@@ -8,6 +8,8 @@ own language, and every other page gets a BreadcrumbList.
 
 import json
 import re
+import unicodedata
+from html import unescape
 from pathlib import Path
 
 try:
@@ -120,6 +122,93 @@ FAQS = {
         ),
     ],
 }
+
+
+def _heading_anchor(text, used):
+    explicit = re.search(r"\{\s*#([^\s}]+)[^}]*\}\s*$", text)
+    if explicit:
+        anchor = explicit[1]
+    else:
+        text = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", text)
+        text = unescape(re.sub(r"<[^>]*>", "", text))
+        text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+        anchor = re.sub(r"[^\w\s-]", "", text).strip().lower()
+        anchor = re.sub(r"[-\s]+", "-", anchor)
+        while anchor in used:
+            suffix = re.search(r"_(\d+)$", anchor)
+            anchor = (
+                f"{anchor[:suffix.start()]}_{int(suffix[1]) + 1}" if suffix else f"{anchor}_1"
+            )
+    used.add(anchor)
+    return anchor
+
+
+def _translation_structure(text):
+    text = re.sub(r"\A---\n.*?\n---\n", "", text, count=1, flags=re.DOTALL)
+    blocks = []
+    headings = []
+    anchors = []
+    used = set()
+    fence = None
+    block = []
+    for line in text.splitlines(keepends=True):
+        if fence:
+            block.append(line)
+            if re.fullmatch(rf" {{0,3}}{fence[0]}{{{len(fence)},}}\s*", line):
+                blocks.append("".join(block))
+                fence = None
+                block = []
+            continue
+        opening = re.match(r" {0,3}(`{3,}|~{3,})", line)
+        if opening:
+            fence = opening[1]
+            block = [line]
+            continue
+        heading = re.match(r" {0,3}(#{1,6})\s+(.*?)(?:\s+#+)?\s*$", line)
+        if heading:
+            headings.append(len(heading[1]))
+            anchors.append(_heading_anchor(heading[2], used))
+        for heading in re.finditer(r"<h([1-6])\b([^>]*)>(.*?)</h\1>", line):
+            headings.append(int(heading[1]))
+            explicit = re.search(r"\bid=[\"']([^\"']+)[\"']", heading[2])
+            anchors.append(explicit[1] if explicit else _heading_anchor(heading[3], used))
+            used.add(anchors[-1])
+    if fence:
+        raise ValueError("Unclosed code fence in documentation")
+    return blocks, headings, anchors
+
+
+def _check_translations(docs_dir):
+    docs_dir = Path(docs_dir)
+    for english in sorted(docs_dir.rglob("*.md")):
+        if english.name.endswith(".ar.md") or english.relative_to(docs_dir).as_posix() in {
+            "api.md", "changelog.md"
+        }:
+            continue
+        translated = english.with_suffix(".ar.md")
+        if not translated.is_file():
+            raise ValueError(f"Missing Arabic translation for {english.relative_to(docs_dir)}")
+    for translated in sorted(docs_dir.rglob("*.ar.md")):
+        english = translated.with_name(translated.name.removesuffix(".ar.md") + ".md")
+        if not english.is_file():
+            raise ValueError(f"Missing English source for {translated.name}")
+        source_blocks, source_headings, source_anchors = _translation_structure(
+            english.read_text(encoding="utf-8")
+        )
+        blocks, headings, anchors = _translation_structure(translated.read_text(encoding="utf-8"))
+        if blocks != source_blocks:
+            raise ValueError(f"Code blocks differ: {translated.name} / {english.name}")
+        if headings != source_headings:
+            raise ValueError(
+                f"Heading count or levels differ: {translated.name} / {english.name} "
+                f"({len(headings)} / {len(source_headings)})"
+            )
+        if anchors != source_anchors:
+            raise ValueError(f"Heading anchors differ: {translated.name} / {english.name}")
+
+
+def on_pre_build(config, **kwargs):
+    _check_translations(config.docs_dir)
 
 
 def _site_root(config):

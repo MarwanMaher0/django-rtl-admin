@@ -8,6 +8,13 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Arabic documentation.** Installation, deployment, configuration, template tags,
+  the admin mixin, system checks, locale contributions and stock admin RTL defects
+  now have Modern Standard Arabic pages and navigation titles, with a bilingual
+  glossary in the locale guide. Code examples and heading anchors match English;
+  a docs build hook rejects code-block or heading-count drift. Translated pages
+  use Arabic SEO metadata and reciprocal hreflang links, while the Python API
+  and changelog remain English.
 - **CI and packaging hygiene.** Every GitHub Action in `.github/workflows/ci.yml`
   is now pinned to a full commit SHA with a `# vX.Y.Z` version comment, matching
   `release.yml`, and `.github/dependabot.yml` opens grouped weekly pull requests

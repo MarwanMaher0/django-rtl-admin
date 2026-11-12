@@ -72,7 +72,16 @@ plugins:
           build: true
           nav_translations:
             Home: الرئيسية
+            Installation: التثبيت
             Quick start: البدء السريع
+            Live demo and deployment: العرض التجريبي المباشر والنشر
+            Reference: المرجع
+            Configuration: الإعدادات
+            Template tags and filters: وسوم القوالب ومرشحاتها
+            BidiSafeAdminMixin: المزيج BidiSafeAdminMixin
+            System checks: فحوصات النظام
+            Stock admin RTL defects: عيوب RTL في لوحة الإدارة الافتراضية
+            Translations and contributing a locale: الترجمات والمساهمة بإعدادات محلية
   - mkdocstrings:
       handlers:
         python:
