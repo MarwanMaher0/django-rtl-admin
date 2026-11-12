@@ -8,6 +8,14 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **CI and packaging hygiene.** Every GitHub Action in `.github/workflows/ci.yml`
+  is now pinned to a full commit SHA with a `# vX.Y.Z` version comment, matching
+  `release.yml`, and `.github/dependabot.yml` opens grouped weekly pull requests
+  for `github-actions` and `pip`. The sdist now ships `noxfile.py`,
+  `CONTRIBUTING.md` and `SECURITY.md`, and a new CI `sdist` job builds the
+  source tarball, unpacks it in a temporary directory, installs it and runs
+  `pytest` (excluding `e2e`) from the unpacked archive. Coverage reporting now
+  enforces `fail_under = 95` (`--fail-under=91` on the no-Babel cell).
 - **Type information.** The package now ships a `py.typed` marker
   ([PEP 561](https://peps.python.org/pep-0561/)), so type checkers read its
   annotations in your project. Every public function in `bidi`, `formatting`,

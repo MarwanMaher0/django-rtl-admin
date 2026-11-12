@@ -55,12 +55,20 @@ nox                                      # every cell, then ruff and mypy
 ```
 
 CI reads the cell list from the noxfile (`nox -l --json`) and runs every cell as a separate
-job, so adding a version to `noxfile.py` is all that is needed to add it to CI. Every job
-writes its coverage table to the job summary; the Python 3.13 / Django 5.2 job also uploads
-the report as an artifact and publishes it to [Coveralls](https://coveralls.io/github/MarwanMaher0/django-rtl-admin),
+job, so adding a version to `noxfile.py` is all that is needed to add it to CI. Coverage must
+stay at or above `fail_under = 95` in `pyproject.toml` (`--fail-under=91` on the single
+no-Babel cell, where Babel's branches in `formatting.py` do not run). Every job writes its
+coverage table to the job summary; the Python 3.13 / Django 5.2 job also uploads the report as
+an artifact and publishes it to [Coveralls](https://coveralls.io/github/MarwanMaher0/django-rtl-admin),
 which authenticates with the workflow's own `GITHUB_TOKEN` and needs no repository secret. CI
-also runs ruff, runs mypy (`nox -s typecheck`) and checks that the wheel carries the templates,
-static files, translations and `py.typed`.
+also runs ruff, runs mypy (`nox -s typecheck`), checks that the wheel carries the templates,
+static files, translations and `py.typed`, and builds the sdist (including `noxfile.py`,
+`CONTRIBUTING.md` and `SECURITY.md`), unpacks it in a temporary directory, installs it and runs
+`pytest -m "not e2e"` there.
+
+All GitHub Actions in `.github/workflows/` are pinned by full 40-character commit SHA with a
+`# vX.Y.Z` version comment, and `.github/dependabot.yml` groups weekly updates for
+`github-actions` and `pip`.
 
 ### Browser tests
 

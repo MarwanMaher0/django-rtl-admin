@@ -25,8 +25,8 @@ jobs:
     outputs:
       sessions: ${{ steps.list.outputs.sessions }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
       - id: list
         name: List the test sessions
         run: |
@@ -47,11 +47,11 @@ jobs:
         session: ${{ fromJSON(needs.matrix.outputs.sessions) }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # nox uses uv as its venv backend, so uv downloads the Python each
       # cell asks for; no setup-python step is needed.
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true
 
@@ -60,7 +60,7 @@ jobs:
 
       - name: Upload the coverage report
         if: matrix.session == env.COVERAGE_SESSION
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage
           path: |
@@ -72,7 +72,7 @@ jobs:
       # is nothing to configure in the repository secrets.
       - name: Publish coverage to Coveralls
         if: matrix.session == env.COVERAGE_SESSION
-        uses: coverallsapp/github-action@v2
+        uses: coverallsapp/github-action@8d6379e14d29928660c4ba802d8e85393440b329 # v2.3.8
         with:
           file: coverage.lcov
           format: lcov
@@ -82,15 +82,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true
       - name: Run Playwright against the admin in Arabic and English
         run: uvx nox -s e2e
       - name: Upload the screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: e2e-screenshots
           path: test-artifacts/e2e/
@@ -100,16 +100,16 @@ jobs:
     name: ruff
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
       - run: uvx nox -s lint
 
   typecheck:
     name: mypy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true
       - run: uvx nox -s typecheck
@@ -118,8 +118,8 @@ jobs:
     name: build the documentation
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
       - run: python -m pip install ".[docs]"
@@ -129,8 +129,8 @@ jobs:
     name: build the wheel
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
       - run: python -m pip install --upgrade pip build twine
@@ -163,3 +163,25 @@ jobs:
           assert not missing, f"missing from {wheel.name}: {missing}"
           print(f"{wheel.name} ok ({len(names)} files)")
           PY
+
+  sdist:
+    name: build and test the sdist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip build
+      - run: python -m build --sdist
+      - name: Unpack the sdist, install it and run pytest
+        run: |
+          sdist="$(ls "$PWD"/dist/*.tar.gz)"
+          tmpdir="$(mktemp -d)"
+          tar -xzf "$sdist" -C "$tmpdir"
+          cd "$tmpdir"/*/
+          test -f noxfile.py
+          test -f CONTRIBUTING.md
+          test -f SECURITY.md
+          python -m pip install ".[test]"
+          pytest -m "not e2e"

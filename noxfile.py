@@ -81,14 +81,15 @@ def tests(session: nox.Session, django: str, babel: bool) -> None:
         f"assert has_babel is {babel}, 'Babel should {'' if babel else 'not '}be installed'",
     )
 
+    report_args = () if babel else ("--fail-under=91",)
     session.run("coverage", "run", "-m", "pytest", *session.posargs)
-    session.run("coverage", "report")
-    session.run("coverage", "xml")
-    session.run("coverage", "lcov")
+    session.run("coverage", "report", *report_args)
+    session.run("coverage", "xml", *report_args)
+    session.run("coverage", "lcov", *report_args)
 
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
-        table = session.run("coverage", "report", "--format=markdown", silent=True)
+        table = session.run("coverage", "report", "--format=markdown", *report_args, silent=True)
         with open(summary, "a", encoding="utf-8") as fh:
             fh.write(f"### Coverage: `{session.name}`\n\n{table}\n")
 

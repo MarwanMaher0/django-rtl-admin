@@ -101,14 +101,22 @@ include = [
     "/docs",
     "/mkdocs.yml",
     "/.readthedocs.yaml",
+    "/Dockerfile",
+    "/.dockerignore",
+    "/fly.toml",
+    "/render.yaml",
+    "/noxfile.py",
     "/README.md",
     "/LICENSE",
     "/CHANGELOG.md",
+    "/CONTRIBUTING.md",
+    "/SECURITY.md",
     "/pyproject.toml",
 ]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "tests.settings"
+pythonpath = ["."]
 python_files = ["test_*.py"]
 testpaths = ["tests"]
 addopts = "-ra"
@@ -143,6 +151,7 @@ source = ["src/django_rtl_admin", "*/site-packages/django_rtl_admin"]
 [tool.coverage.report]
 show_missing = true
 precision = 1
+fail_under = 95
 
 [tool.ruff]
 line-length = 100
