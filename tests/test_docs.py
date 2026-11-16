@@ -1,8 +1,11 @@
+import json
 import runpy
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+
+import django_rtl_admin
 
 DOCS = Path(__file__).resolve().parents[1] / "docs"
 SEO = runpy.run_path(str(DOCS / "hooks" / "seo.py"))
@@ -140,7 +143,7 @@ def test_docs_build_preserves_explicit_and_duplicate_anchors(tmp_path):
 @pytest.mark.parametrize("name", TRANSLATED)
 @pytest.mark.parametrize("language", ["en", "ar"])
 def test_translated_docs_have_localized_seo_and_hreflang(name, language):
-    root = "https://django-rtl-admin.readthedocs.io/"
+    root = "https://marwanmaher0.github.io/django-rtl-admin/"
     page = SimpleNamespace(
         file=SimpleNamespace(
             src_path=f"{name}.ar.md" if language == "ar" else f"{name}.md",
@@ -158,8 +161,32 @@ def test_translated_docs_have_localized_seo_and_hreflang(name, language):
     assert page.meta["seo_direction"] == ("rtl" if language == "ar" else "ltr")
     assert page.meta["seo_en_url"] == f"{root}{name}/"
     assert page.meta["seo_ar_url"] == f"{root}ar/{name}/"
+    assert page.meta["seo_en_path"] == f"/django-rtl-admin/{name}/"
+    assert page.meta["seo_ar_path"] == f"/django-rtl-admin/ar/{name}/"
     assert page.meta["seo_canonical"] == page.meta[f"seo_{language}_url"]
     assert "(English)" not in page.meta["seo_title"]
+
+
+def test_landing_seo_uses_github_pages_root_and_package_version():
+    assert SEO["SITE_ROOT"] == "https://marwanmaher0.github.io/django-rtl-admin/"
+    assert SEO["_root_relative"]("en", "installation/", "https://example.com/") == "/installation/"
+    assert SEO["_root_relative"]("ar", "installation/", "https://example.com/") == "/ar/installation/"
+    page = SimpleNamespace(
+        file=SimpleNamespace(
+            src_path="index.md",
+            url="",
+            alternates={"ar": SimpleNamespace(locale="ar")},
+        ),
+        is_homepage=True,
+        title="django-rtl-admin",
+        meta={"description": "Description"},
+    )
+    SEO["on_page_context"]({}, page, SimpleNamespace(theme={"language": "en"}, site_url=None))
+    structured = json.loads(page.meta["seo_json_ld"])
+    assert structured["@graph"][0]["version"] == django_rtl_admin.__version__
+    assert page.meta["seo_canonical"] == "https://marwanmaher0.github.io/django-rtl-admin/"
+    assert page.meta["seo_en_path"] == "/django-rtl-admin/"
+    assert page.meta["seo_ar_path"] == "/django-rtl-admin/ar/"
 
 
 @pytest.mark.parametrize("name", ["api", "changelog"])

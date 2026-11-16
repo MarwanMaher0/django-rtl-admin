@@ -115,6 +115,8 @@ def test_bidi_runs_filter_escapes_html():
 
 def test_bidi_strip_filter():
     assert render("{{ v|bidi_strip }}", v=FSI + "abc" + PDI) == "abc"
+    assert render("{{ v|bidi_strip }}", v="\u061c\u202ea\u202cb\u202dc") == "abc"
+    assert render("{{ v|bidi_isolate }}", v="a\u2069b\u202ec") == FSI + "abc" + PDI
 
 
 @pytest.mark.parametrize(("value", "expected"), [("abc", "ltr"), (ARABIC, "rtl"), ("", "ltr")])

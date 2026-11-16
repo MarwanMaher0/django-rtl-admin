@@ -112,10 +112,12 @@ also retain their dedicated LTR/isolation rules.
 | `"ltr"` | LRI, U+2066 | Force left-to-right direction inside the isolate. |
 | `"rtl"` | RLI, U+2067 | Force right-to-left direction inside the isolate. |
 
-All three end with PDI, U+2069. The default is used by `bidi_isolate`, isolated
-joins, the parenthesized half of `"both"` language labels, and mixin wrappers
-without a per-admin direction. `bidi_runs` instead defaults to the active
-language's direction.
+All three end with PDI, U+2069, after stripping any existing Unicode
+`Bidi_Control` characters from the wrapped text so embedded controls cannot
+escape the isolate. The default is used by `bidi_isolate`, isolated joins, the
+parenthesized half of `"both"` language labels, and mixin wrappers without a
+per-admin direction. `bidi_runs` instead defaults to the active language's
+direction.
 
 `ISOLATE_CHANGELIST` does nothing to a plain `ModelAdmin`: opt in with the
 [admin mixin](admin-mixin.md). Its `bidi_isolate_changelist` attribute overrides
@@ -187,9 +189,12 @@ active even if the form hides because of the language count or URL routing.
 ## Validation and overrides
 
 Only `ISOLATION_DIRECTION`, `NUMERALS`, and `LANGUAGE_SWITCHER_LABELS` have strict
-choice validation; invalid values raise `ImproperlyConfigured` when accessed.
-Use real booleans for switches: the string `"False"` is truthy. Unknown keys are
-ignored and reported by [system check `rtl_admin.W002`](system-checks.md).
+choice validation; invalid values are reported by `rtl_admin.E001` during
+`manage.py check` and raise `ImproperlyConfigured` when accessed. Use real
+booleans for switches — the string `"False"` is truthy — and the documented
+types for `RTL_ADMIN`, `EXTRA_RTL_LANGUAGES`, and `FONT_STACK` (`rtl_admin.W005`).
+Unknown keys are ignored and reported by `rtl_admin.W002`; see
+[System checks](system-checks.md).
 
 Python callers can read `rtl_settings.CURRENCY` or `rtl_settings["CURRENCY"]`
 after importing `rtl_settings` from `django_rtl_admin`. Values are cached lazily.

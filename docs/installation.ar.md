@@ -29,8 +29,10 @@ python -m pip install django-rtl-admin
 python -m pip install "django-rtl-admin[babel]"
 ```
 
-Babel اختياري. عند غيابه، يعتمد التنسيق على صيغ الإعدادات المحلية في Django
-مع تحويل أشكال الأرقام؛ وتكون مخرجات العملات والنسب المئوية أبسط. راجع
+Babel اختياري. عند غيابه، يستخدم تنسيق الأعداد جداول CLDR المضمّنة (مع الرجوع
+إلى صيغ الإعدادات المحلية في Django وتحويل أشكال الأرقام للإعدادات غير المغطاة)،
+ويعتمد تنسيق التواريخ والأوقات على Django مع تحويل أشكال الأرقام، وتكون مخرجات
+العملات والنسب المئوية أبسط. راجع
 [واجهة Python البرمجية](api.md#locale-aware-formatting) لمعرفة اختلافات التنسيق البديل.
 
 ## تسجيل التطبيق قبل لوحة الإدارة { #register-the-app-before-the-admin }
@@ -71,7 +73,7 @@ python manage.py check
 
 تابع إلى [البدء السريع](quick-start.md) لضبط لغات الطلبات
 ونقطة نهاية المبدّل. راجع [فحوصات النظام](system-checks.md) إذا أصدر الإعداد
-تحذيرًا من `rtl_admin.W001` إلى `rtl_admin.W004`.
+الخطأ `rtl_admin.E001` أو تحذيرًا من `rtl_admin.W001` إلى `rtl_admin.W006`.
 
 ## تجاوزات القوالب والسمات القائمة { #existing-template-overrides-and-themes }
 

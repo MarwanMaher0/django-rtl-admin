@@ -31,7 +31,9 @@ Use LTR isolation for opaque identifiers:
 
 `None` and empty text render empty. Ordinary HTML is escaped under autoescape;
 already-safe HTML is trusted. `{% autoescape off %}` disables escaping. Isolation
-adds characters, not an HTML element, and does not detect existing wrappers.
+adds Unicode characters, not an HTML element, and strips any existing Unicode
+`Bidi_Control` characters inside the value before wrapping (returning empty if
+only bidi controls were present).
 
 ### `bidi_runs`
 
@@ -44,21 +46,24 @@ Isolate only embedded opposite-direction runs in prose. The optional base is
 ```
 
 In RTL prose, punctuated numbers such as dates and versions are isolated too;
-bare numbers are left alone. Isolation precedes escaping so HTML entities stay
-intact. Already-safe strings and objects exposing `__html__` are returned
-untouched to avoid damaging markup. Use an ordinary context string, not a safe
-template literal, when demonstrating run isolation. `None` renders empty.
+bare numbers are left alone. On plain text, existing Unicode `Bidi_Control`
+characters are stripped before scanning runs, and isolation precedes escaping so
+HTML entities stay intact. Already-safe strings and objects exposing `__html__`
+are returned untouched to avoid damaging markup. Use an ordinary context string,
+not a safe template literal, when demonstrating run isolation. `None` renders
+empty.
 
 ### `bidi_strip`
 
-Remove the package's LRI, RLI, FSI, PDI, LRM, and RLM characters:
+Remove all twelve Unicode `Bidi_Control` characters (`ALM`, `LRM`, `RLM`,
+`LRE`, `RLE`, `PDF`, `LRO`, `RLO`, `LRI`, `RLI`, `FSI`, and `PDI`):
 
 ```django
 {{ reference|bidi_isolate:"ltr"|bidi_strip }}
 ```
 
-`None` renders empty. This does not remove every Unicode directional control
-and is not an HTML sanitizer. Safe-input status is preserved.
+`None` renders empty. This removes Unicode bidirectional controls only and is
+not an HTML sanitizer. Safe-input status is preserved.
 
 ### `bidi_dir`
 

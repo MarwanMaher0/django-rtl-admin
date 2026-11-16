@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-12
+
 ### Added
 
 - **Arabic documentation.** Installation, deployment, configuration, template tags,
@@ -197,6 +199,17 @@ Defects found by the browser tests:
 - Form labels and fieldset legends followed the direction of their own text,
   so an untranslated English label sat on the wrong side of an Arabic form;
   they now align with the form, while legends still isolate their text.
+- `isolate()`, `isolate_runs()`, `mark_isolated()`, `mark_isolated_runs()` and
+  `strip_isolates()` (together with `bidi_isolate`, `bidi_runs`, `bidi_strip`
+  and `BidiSafeAdminMixin`) now strip all twelve Unicode `Bidi_Control`
+  characters — including `ALM` (`U+061C`), directional embeddings and overrides
+  (`LRE`, `RLE`, `PDF`, `LRO`, `RLO`) and existing `LRI`/`RLI`/`FSI`/`PDI`
+  isolates — before wrapping, so an embedded `PDI` or override cannot escape an
+  isolate and reorder surrounding text. `is_isolated()` now checks that the
+  string forms a balanced isolate without embedded directional overrides.
+- Narrowed `nox` test runs (for example `nox -s "tests(py3.12-django5.2)" -- -k bidi`)
+  now pass `--fail-under=0` to `coverage`, keeping the full-suite coverage
+  threshold intact when no `posargs` are supplied.
 
 ### Changed
 
@@ -204,6 +217,9 @@ Defects found by the browser tests:
   `MIT` (PEP 639), the project URLs include Documentation, Changelog and
   Issues, README images use absolute URLs so they render on PyPI, and the
   install instructions use `pip install django-rtl-admin`.
+- Documentation is now built and deployed to GitHub Pages
+  (`https://marwanmaher0.github.io/django-rtl-admin/`) by
+  `.github/workflows/docs.yml` instead of Read the Docs.
 
 ## [0.1.0] - 2026-09-15
 
@@ -241,4 +257,6 @@ and 3.12 against Django 4.2 and 5.2, and Python 3.12 and 3.13 against Django
 - Compiled translations for Arabic, Hebrew, Persian and Urdu.
 - An example project under `example/`.
 
+[Unreleased]: https://github.com/MarwanMaher0/django-rtl-admin/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/MarwanMaher0/django-rtl-admin/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/MarwanMaher0/django-rtl-admin/releases/tag/v0.1.0

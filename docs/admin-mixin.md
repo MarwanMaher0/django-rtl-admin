@@ -146,14 +146,18 @@ chosen definition. If you use an isolation allowlist, include the lookup or
 ## Escaping and formatting
 
 Wrappers call Django's `display_for_field` or `display_for_value`, then
-`mark_isolated`. Ordinary HTML-looking text is escaped before isolation.
-Values already marked safe, or exposing `__html__`, are trusted rather than
-sanitized. Build custom HTML with Django's `format_html`, not by marking
-untrusted text safe.
+`mark_isolated`. Ordinary HTML-looking text is escaped before isolation, and
+`mark_isolated` strips any existing Unicode `Bidi_Control` characters before
+wrapping so embedded `PDI` or directional override characters cannot break out
+of the cell's isolate. Values already marked safe, or exposing `__html__`, are
+not re-escaped or HTML-sanitized. Build custom HTML with Django's `format_html`,
+not by marking untrusted text safe.
 
-Do not manually isolate a display result that the mixin will isolate again:
-whole-value isolation is not idempotent. Either let the mixin handle the value,
-exclude that named column, or provide an already-handled callable directly.
+Because `mark_isolated` strips existing `Bidi_Control` characters before
+wrapping, a column whose display method calls `mark_isolated_runs` (or sets an
+explicit `mark_isolated` direction that differs from the admin's default) will
+have its inner isolates replaced unless you exclude that named column with
+`bidi_isolate_exclude` or place the callable directly in `list_display`.
 Unicode controls can survive copy/paste; apply them when rendering rather than
 saving them into identifiers.
 

@@ -134,7 +134,7 @@ admin themes and custom markup are outside this stock-template comparison.
 | Mechanism | What it changes | How to control it |
 | --- | --- | --- |
 | Package CSS | Layout and presentation; does not insert characters into values. | `ENABLE_CSS` controls stylesheet loading. `ISOLATE_TABLE_CELLS` gates CSS isolation; `PLAINTEXT_FORM_FIELDS` gates plaintext input/textarea rules. |
-| Unicode bidi helpers | Insert LRI, RLI, or FSI plus PDI around displayed text, or isolate embedded runs. | Explicitly use the Python helpers, template filters, or `BidiSafeAdminMixin`. |
+| Unicode bidi helpers | Strip existing `Bidi_Control` characters and insert LRI, RLI, or FSI plus PDI around displayed text, or isolate embedded runs. | Explicitly use the Python helpers, template filters, or `BidiSafeAdminMixin`. |
 | Locale formatting | Produces formatted number, currency, percentage, or date/time text with supported digit shapes. | Explicitly call helpers or filters; `NUMERALS` and optional Babel affect their output. |
 
 The two CSS safety-net switches are not complete bidi off-switches: labels,
@@ -150,9 +150,12 @@ copy/paste and serialization. See [Template tags and filters](template-tags.md),
 
 Formatting is another explicit opt-in. Plain `ar` normally uses Latin digits,
 `ar-eg` uses Arabic-Indic digits, and `fa` uses extended Arabic-Indic digits.
-Babel provides richer locale patterns when installed. Without it, the helpers
-use Django formats plus digit transliteration and simpler currency/percent
-fallbacks. Installing the package does not convert every admin number or date.
+Babel provides full CLDR currency, percentage, date, and time patterns when
+installed. Without it, numbers use built-in CLDR tables (falling back to Django
+formats plus digit transliteration for uncovered locales), dates and times use
+Django formats plus digit transliteration, and currency and percentage output
+uses simpler fallbacks. Installing the package does not convert every admin
+number or date.
 
 ## Existing example screenshots
 

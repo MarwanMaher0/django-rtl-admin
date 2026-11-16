@@ -183,8 +183,8 @@
           <a class="feature-card" href="{{ docs }}system-checks/">
             <div class="feature-top"><span>06</span><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="m16 3 12 5v8c0 7-5 11-12 13C9 27 4 23 4 16V8l12-5Z" stroke="currentColor" stroke-width="1.6"/><path d="m10 16 4 4 8-9" stroke="currentColor" stroke-width="1.6"/></svg></div>
             <h3>{{ 'إعداد يمكن التحقق منه' if is_ar else 'Configuration you can check' }}</h3>
-            <p>{{ 'تنبّهك فحوص Django إلى ترتيب التطبيق الخاطئ والمفاتيح غير المعروفة ونقطة اللغة المفقودة وLocaleMiddleware غير المضبوط.' if is_ar else 'Django checks flag wrong app order, unknown keys, a missing language endpoint, and absent LocaleMiddleware.' }}</p>
-            <code dir="ltr">rtl_admin.W001–W004</code>
+            <p>{{ 'تنبّهك فحوص Django إلى الخيارات والأنواع غير الصالحة وترتيب التطبيق الخاطئ والمفاتيح غير المعروفة ونقطة اللغة المفقودة وLocaleMiddleware ولغات RTL الغائبة عن LANGUAGES_BIDI.' if is_ar else 'Django checks flag invalid choices and types, wrong app order, unknown keys, a missing language endpoint, absent LocaleMiddleware, and extra RTL codes missing from LANGUAGES_BIDI.' }}</p>
+            <code dir="ltr">rtl_admin.E001, W001–W006</code>
           </a>
         </div>
       </div>

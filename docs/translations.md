@@ -306,22 +306,25 @@ mkdocs serve
 ```
 
 MkDocs Material provides navigation and search. The language selector switches
-between English and Arabic; Home and Quick start are translated, while missing
-Arabic pages fall back to English. Check that the Arabic pages render with
-`lang="ar"` and `dir="rtl"` and that the code samples remain readable.
+between English and Arabic; all documentation pages are available in Arabic
+except the Python API reference and Changelog, which remain in English. Check
+that the Arabic pages render with `lang="ar"` and `dir="rtl"` and that the code
+samples remain readable.
 
 Python API documentation is generated from `src/` with mkdocstrings. The
 Changelog page includes the repository's canonical `CHANGELOG.md` at build time;
 update that file rather than duplicating release notes in `docs/changelog.md`.
-Read the Docs uses `.readthedocs.yaml` to install the package's `docs` extra on
-Ubuntu 24.04 with Python 3.12 and build `mkdocs.yml`, failing on warnings.
+GitHub Actions uses `.github/workflows/docs.yml` to install the package's `docs`
+extra on Ubuntu 24.04 with Python 3.12, run `mkdocs build --strict` (failing on
+warnings), and publish the site to GitHub Pages at
+<https://marwanmaher0.github.io/django-rtl-admin/>.
 
 ## Translating the documentation into Arabic
 
 Documentation translation is separate from Django's gettext catalogs. The docs
 site uses suffix-based localization: an Arabic version of `quick-start.md` is
-`quick-start.ar.md`. The existing Arabic home and quick-start pages demonstrate
-the convention.
+`quick-start.ar.md`. All translated Arabic documentation pages follow this
+convention, while the Python API reference and Changelog remain in English.
 
 To translate another page:
 

@@ -29,8 +29,10 @@ For CLDR-aware number, currency, date, and time formatting, install Babel too:
 python -m pip install "django-rtl-admin[babel]"
 ```
 
-Babel is optional. Without it, formatting falls back to Django's locale formats
-plus digit transliteration; currency and percentage output is simpler. See the
+Babel is optional. Without it, number formatting uses built-in CLDR tables
+(falling back to Django's locale formats plus digit transliteration for
+uncovered locales), date and time formatting uses Django plus digit
+transliteration, and currency and percentage output is simpler. See the
 [Python API](api.md#locale-aware-formatting) for fallback differences.
 
 ## Register the app before the admin
@@ -70,8 +72,8 @@ package itself has no models or migrations. A newly created Django project still
 needs Django's own migrations and a staff/superuser account.
 
 Continue with [Quick start](quick-start.md) to configure request languages and
-the switcher endpoint. See [System checks](system-checks.md) if setup emits a
-`rtl_admin.W001`–`rtl_admin.W004` warning.
+the switcher endpoint. See [System checks](system-checks.md) if setup emits
+`rtl_admin.E001` or a `rtl_admin.W001`–`rtl_admin.W006` warning.
 
 ## Existing template overrides and themes
 

@@ -64,7 +64,7 @@ def bidi_runs(value: Any, base: str | None = None, autoescape: bool = True) -> S
 
 @register.filter(name="bidi_strip", is_safe=True)
 def bidi_strip(value: Any) -> str:
-    """Remove every isolate and directional mark from the value."""
+    """Remove every Unicode bidirectional control character from the value."""
     return bidi_module.strip_isolates("" if value is None else str(value))
 
 

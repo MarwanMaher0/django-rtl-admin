@@ -42,9 +42,25 @@ PDI = "⁩"
 LRM = "‎"
 RLM = "‏"
 
+#: Remaining Unicode ``Bidi_Control`` characters (UAX #9 / PropList.txt):
+#: Arabic Letter Mark plus the directional embeddings and overrides.
+ALM = "\u061c"
+LRE = "\u202a"
+RLE = "\u202b"
+PDF = "\u202c"
+LRO = "\u202d"
+RLO = "\u202e"
+
 ISOLATE_OPENERS = frozenset({LRI, RLI, FSI})
 #: Every character this module ever inserts.
 ISOLATE_CHARS = frozenset({LRI, RLI, FSI, PDI, LRM, RLM})
+#: Every character with the Unicode ``Bidi_Control`` property.
+BIDI_CONTROL_CHARS = frozenset(
+    {ALM, LRM, RLM, LRE, RLE, PDF, LRO, RLO, LRI, RLI, FSI, PDI}
+)
+
+_EMBEDDING_OR_OVERRIDE_CHARS = frozenset({LRE, RLE, PDF, LRO, RLO})
+_BIDI_CONTROL_TABLE = str.maketrans("", "", "".join(BIDI_CONTROL_CHARS))
 
 _OPENER_FOR = {"ltr": LRI, "rtl": RLI, "auto": FSI}
 
@@ -150,25 +166,46 @@ def isolate(value: str, direction: str | None = None) -> str:
     ``direction`` is ``"auto"`` (U+2068 FSI), ``"ltr"`` (U+2066 LRI) or
     ``"rtl"`` (U+2067 RLI); the default comes from
     ``RTL_ADMIN["ISOLATION_DIRECTION"]``.
+
+    Any existing Unicode ``Bidi_Control`` characters inside ``value`` are
+    stripped before wrapping so an embedded ``PDI`` or directional override
+    cannot escape the isolate and reorder surrounding text.  If nothing
+    remains after stripping, ``""`` is returned.
     """
     if value is None:
         return ""
     text = value if isinstance(value, str) else str(value)
     if not text:
         return text
-    return _OPENER_FOR[_resolve_direction(direction)] + text + PDI
+    resolved = _resolve_direction(direction)
+    cleaned = text.translate(_BIDI_CONTROL_TABLE)
+    if not cleaned:
+        return ""
+    return _OPENER_FOR[resolved] + cleaned + PDI
 
 
 def strip_isolates(value: str) -> str:
-    """Remove every isolate/mark character this module may have inserted."""
+    """Remove every Unicode ``Bidi_Control`` character from ``value``."""
     if not value:
         return value
-    return "".join(c for c in value if c not in ISOLATE_CHARS)
+    return value.translate(_BIDI_CONTROL_TABLE)
 
 
 def is_isolated(value: str) -> bool:
-    """True when ``value`` is already wrapped in a single isolate."""
-    return bool(value) and value[0] in ISOLATE_OPENERS and value[-1] == PDI
+    """True when ``value`` is wrapped in a single balanced isolate."""
+    if len(value) < 2 or value[0] not in ISOLATE_OPENERS or value[-1] != PDI:
+        return False
+    depth = 0
+    for index, char in enumerate(value):
+        if char in _EMBEDDING_OR_OVERRIDE_CHARS:
+            return False
+        if char in ISOLATE_OPENERS:
+            depth += 1
+        elif char == PDI:
+            depth -= 1
+            if depth == 0 and index != len(value) - 1:
+                return False
+    return depth == 0
 
 
 def mark_isolated(
@@ -213,6 +250,8 @@ def isolate_runs(value: str, base: str | None = None) -> str:
     reorder: Latin words inside Arabic prose, and -- in an RTL paragraph --
     punctuated numeric runs such as ``2024-03-05``, ``1.2.3`` or ``10:45:02``.
 
+    Existing Unicode ``Bidi_Control`` characters are stripped before scanning
+    so embedded overrides or ``PDI`` characters cannot escape their run.
     Plain text in, plain text out.  ``base`` defaults to the direction of the
     active language.
     """
@@ -222,6 +261,10 @@ def isolate_runs(value: str, base: str | None = None) -> str:
         base = current_direction()
     if base not in ("ltr", "rtl"):
         raise ValueError(f"base must be 'ltr' or 'rtl'; got {base!r}")
+
+    value = value.translate(_BIDI_CONTROL_TABLE)
+    if not value:
+        return ""
 
     opener = LRI if base == "rtl" else RLI
     base_strong = "R" if base == "rtl" else "L"

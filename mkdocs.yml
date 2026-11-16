@@ -1,6 +1,6 @@
 site_name: django-rtl-admin
 site_description: A properly bilingual, right-to-left Django admin.
-site_url: https://django-rtl-admin.readthedocs.io/
+site_url: https://marwanmaher0.github.io/django-rtl-admin/
 repo_url: https://github.com/MarwanMaher0/django-rtl-admin
 repo_name: MarwanMaher0/django-rtl-admin
 edit_uri: edit/main/docs/

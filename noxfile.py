@@ -81,7 +81,12 @@ def tests(session: nox.Session, django: str, babel: bool) -> None:
         f"assert has_babel is {babel}, 'Babel should {'' if babel else 'not '}be installed'",
     )
 
-    report_args = () if babel else ("--fail-under=91",)
+    if session.posargs:
+        report_args: tuple[str, ...] = ("--fail-under=0",)
+    elif babel:
+        report_args = ()
+    else:
+        report_args = ("--fail-under=91",)
     session.run("coverage", "run", "-m", "pytest", *session.posargs)
     session.run("coverage", "report", *report_args)
     session.run("coverage", "xml", *report_args)

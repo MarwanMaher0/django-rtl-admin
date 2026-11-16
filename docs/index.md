@@ -18,7 +18,8 @@ Python 3.10+ and Django 4.2+ on compatible Python/Django combinations.
 
 [Install the package](installation.md) · [Quick start](quick-start.md) · [Live demo and deployment](deployment.md)
 
-Use the language selector to read Home and Quick start in Arabic.
+Use the language selector to read the guides and reference pages in Arabic. The
+Python API and changelog remain in English.
 
 ## What it fixes
 
@@ -31,7 +32,8 @@ Use the language selector to read Home and Quick start in Arabic.
   punctuated numbers inside RTL prose.
 - **Numbers that ignore the locale's digit system.** Opt-in formatting helpers
   support Latin, Arabic-Indic, and Eastern Arabic-Indic digits, with Babel for
-  CLDR patterns and Django formatting as a fallback.
+  full CLDR patterns and built-in CLDR number tables plus Django date/time
+  formatting as a fallback.
 - **No built-in admin language selector.** A switcher in the header and on the
   login page posts to Django's `set_language` view and preserves the current URL.
 
@@ -73,7 +75,7 @@ locale-aware output; ordinary admin columns are not automatically reformatted.
 
 - [Configuration](configuration.md): all 13 `RTL_ADMIN` settings, defaults, and effects.
 - [Template tags and filters](template-tags.md): the complete `rtl_admin` library.
-- [System checks](system-checks.md): resolve `rtl_admin.W001`–`rtl_admin.W004`.
+- [System checks](system-checks.md): resolve `rtl_admin.E001` and `rtl_admin.W001`–`rtl_admin.W006`.
 - [Translations and contributing a locale](translations.md): shipped catalogs,
   translation workflow, and building these docs.
 - [Changelog](changelog.md): release history included from the repository's

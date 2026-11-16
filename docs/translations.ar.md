@@ -313,8 +313,9 @@ mkdocs serve
 يُولّد توثيق واجهة Python البرمجية من `src/` باستخدام mkdocstrings. تتضمن
 صفحة سجل التغييرات ملف المستودع المرجعي `CHANGELOG.md` وقت البناء؛
 حدّث ذلك الملف بدلًا من تكرار ملاحظات الإصدارات في `docs/changelog.md`.
-يستخدم Read the Docs ملف `.readthedocs.yaml` لتثبيت مجموعة اعتماديات الحزمة الإضافية `docs` على
-Ubuntu 24.04 مع Python 3.12 وبناء `mkdocs.yml`، ويفشل البناء عند وجود تحذيرات.
+يستخدم GitHub Actions ملف `.github/workflows/docs.yml` لتثبيت مجموعة اعتماديات الحزمة الإضافية `docs` على
+Ubuntu 24.04 مع Python 3.12 وتشغيل `mkdocs build --strict` (بحيث يفشل البناء عند وجود تحذيرات)
+ونشر الموقع على GitHub Pages في <https://marwanmaher0.github.io/django-rtl-admin/>.
 
 ## ترجمة التوثيق إلى العربية { #translating-the-documentation-into-arabic }
 

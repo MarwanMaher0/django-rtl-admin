@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "django-rtl-admin"
-version = "0.1.0"
+version = "0.2.0"
 description = "A properly bilingual, right-to-left Django admin: logical-property styling, Unicode-isolated bidirectional text, locale-aware formatting and a language switcher."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -83,7 +83,7 @@ typecheck = ["django-stubs[compatible-mypy]>=5.2", "Babel>=2.12"]
 
 [project.urls]
 Homepage = "https://github.com/MarwanMaher0/django-rtl-admin"
-Documentation = "https://django-rtl-admin.readthedocs.io/"
+Documentation = "https://marwanmaher0.github.io/django-rtl-admin/"
 Source = "https://github.com/MarwanMaher0/django-rtl-admin"
 Issues = "https://github.com/MarwanMaher0/django-rtl-admin/issues"
 Changelog = "https://github.com/MarwanMaher0/django-rtl-admin/blob/main/CHANGELOG.md"
@@ -100,7 +100,6 @@ include = [
     "/example",
     "/docs",
     "/mkdocs.yml",
-    "/.readthedocs.yaml",
     "/Dockerfile",
     "/.dockerignore",
     "/fly.toml",

@@ -85,13 +85,6 @@ pip install django-rtl-admin
 pip install "django-rtl-admin[babel]"
 ```
 
-Alternatively, install a tagged release straight from GitHub:
-
-```bash
-pip install "django-rtl-admin @ git+https://github.com/MarwanMaher0/django-rtl-admin@v0.1.0"
-pip install "django-rtl-admin[babel] @ git+https://github.com/MarwanMaher0/django-rtl-admin@v0.1.0"
-```
-
 Then put the app **above** `django.contrib.admin`, so its template overrides win:
 
 ```python
@@ -235,10 +228,14 @@ and database round-trips.
 '⁨&lt;script&gt;alert(1)&lt;/script&gt;⁩'
 ```
 
-`mark_isolated()` escapes before it wraps, and `mark_isolated_runs()` isolates
-the raw text before escaping so that an isolate character can never land inside
-an HTML entity. Values already marked safe are honoured exactly as
-`conditional_escape` honours them.
+`isolate()`, `isolate_runs()`, and their `mark_isolated*` counterparts strip any
+existing Unicode `Bidi_Control` characters before wrapping, so an embedded `PDI`
+or directional override cannot break out of the isolate and reorder surrounding
+text. `mark_isolated()` escapes before it wraps, and `mark_isolated_runs()`
+isolates the raw text before escaping so that an isolate character can never
+land inside an HTML entity. Values already marked safe are honoured by
+`mark_isolated()` just as `conditional_escape` honours them, while
+`mark_isolated_runs()` leaves already-safe markup untouched.
 
 `isolate_runs()` is the smarter of the two: it walks the string and wraps only
 the parts the algorithm would actually reorder — Latin words inside Arabic
@@ -265,10 +262,13 @@ knows this; Django does not model it at all.
 '1,234,567.891'
 ```
 
-[Babel](https://babel.pocoo.org/) is used when it is installed and falls back to
-`django.utils.formats` plus a digit transliteration step when it is not —
-the `babel` extra (see Install) if you want CLDR patterns, but nothing
-here raises without it.
+[Babel](https://babel.pocoo.org/) is used when it is installed. Without it,
+numbers render from built-in CLDR tables (matching Babel's digits, separators,
+and grouping for supported locales, falling back to `django.utils.formats` plus
+digit transliteration for others) and dates and times use Django formatting plus
+digit transliteration — install the `babel` extra (see Install) for full CLDR
+currency, percentage, date and time patterns, though nothing here raises
+without it.
 
 ### 4. A language switcher
 
@@ -305,14 +305,16 @@ RTL_ADMIN = {
 | `ISOLATE_TABLE_CELLS` | `True` | CSS-level `unicode-bidi: isolate` on changelist cells. |
 | `PLAINTEXT_FORM_FIELDS` | `True` | CSS-level `unicode-bidi: plaintext` on text inputs and textareas. |
 | `NUMERALS` | `"auto"` | Numbering system for the formatting helpers: `"auto"` follows the locale, or force `"latn"`, `"arab"` or `"arabext"`. |
-| `USE_BABEL` | `True` | Use Babel when it is installed. `False` always uses Django's own l10n. |
+| `USE_BABEL` | `True` | Use Babel when it is installed. `False` skips Babel and uses the built-in CLDR number tables plus Django date/time formatting. |
 | `CURRENCY` | `"USD"` | Default currency for `format_currency` / `l10n_currency`. |
 | `LANGUAGE_SWITCHER` | `True` | Render the switcher in the admin header. |
 | `LANGUAGE_SWITCHER_LANGUAGES` | `None` | `None` means `settings.LANGUAGES`; otherwise a sequence of codes or `(code, label)` pairs. |
 | `LANGUAGE_SWITCHER_LABELS` | `"native"` | `"native"` (العربيّة), `"translated"` (Arabic) or `"both"`. |
 
-An unknown key is reported by system check `rtl_admin.W002` rather than ignored,
-and an invalid choice raises `ImproperlyConfigured` at the point of use.
+Unknown keys (`rtl_admin.W002`), invalid option types (`rtl_admin.W005`), extra
+RTL languages missing from `LANGUAGES_BIDI` (`rtl_admin.W006`), and invalid
+choices (`rtl_admin.E001`) are reported by `manage.py check`; accessing an
+invalid choice at runtime also raises `ImproperlyConfigured`.
 
 ---
 
@@ -324,7 +326,7 @@ and an invalid choice raises `ImproperlyConfigured` at the point of use.
 | --- | --- | --- |
 | `bidi_isolate` | `{{ v\|bidi_isolate }}`, `{{ v\|bidi_isolate:"ltr" }}` | Wrap the whole value in an isolate. Escapes first; honours `{% autoescape off %}`. |
 | `bidi_runs` | `{{ note\|bidi_runs }}`, `{{ note\|bidi_runs:"rtl" }}` | Isolate only the embedded opposite-direction runs. |
-| `bidi_strip` | `{{ v\|bidi_strip }}` | Remove every isolate and directional mark. |
+| `bidi_strip` | `{{ v\|bidi_strip }}` | Remove every Unicode `Bidi_Control` character (isolates, marks, embeddings and overrides). |
 | `bidi_dir` | `<td dir="{{ v\|bidi_dir }}">` | First-strong direction of the value: `"rtl"` or `"ltr"`. |
 | `l10n_number` | `{{ n\|l10n_number }}`, `{{ n\|l10n_number:"2" }}` | Locale-aware number in the locale's numbering system. |
 | `l10n_currency` | `{{ p\|l10n_currency:"EGP" }}` | Locale-aware money; the argument is optional. |
@@ -379,10 +381,13 @@ from django_rtl_admin import (
 
 | ID | Meaning |
 | --- | --- |
+| `rtl_admin.E001` | A choice setting (`ISOLATION_DIRECTION`, `NUMERALS` or `LANGUAGE_SWITCHER_LABELS`) has an unsupported value. |
 | `rtl_admin.W001` | `django_rtl_admin` is listed after `django.contrib.admin`, so the template overrides will not apply. |
 | `rtl_admin.W002` | `RTL_ADMIN` contains keys this app does not understand. |
 | `rtl_admin.W003` | The switcher is on but `set_language` cannot be reversed. |
 | `rtl_admin.W004` | `LocaleMiddleware` is not installed, so a chosen language will not stick. |
+| `rtl_admin.W005` | `RTL_ADMIN` is not a mapping or `None`, or a checked setting has the wrong type (e.g. `"false"` instead of `False`, or a bare string for `EXTRA_RTL_LANGUAGES`). |
+| `rtl_admin.W006` | `RTL_ADMIN["EXTRA_RTL_LANGUAGES"]` lists language codes missing from `settings.LANGUAGES_BIDI`. |
 
 ---
 
@@ -461,7 +466,7 @@ summary, and one cell publishes to Coveralls (the badge at the top).
 pip install nox        # or: uvx nox ...
 nox -l                                   # list the cells
 nox -s "tests(py3.12-django5.2)"         # one cell
-nox                                      # everything, then ruff
+nox                                      # everything, then ruff and mypy
 ```
 
 ---

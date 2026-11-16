@@ -11,6 +11,7 @@ import re
 import unicodedata
 from html import unescape
 from pathlib import Path
+from urllib.parse import urlsplit
 
 try:
     from mkdocs.plugins import event_priority
@@ -18,7 +19,7 @@ except ImportError:  # pragma: no cover - older MkDocs releases
     def event_priority(_priority):
         return lambda function: function
 
-SITE_ROOT = "https://django-rtl-admin.readthedocs.io/"
+SITE_ROOT = "https://marwanmaher0.github.io/django-rtl-admin/"
 REPOSITORY = "https://github.com/MarwanMaher0/django-rtl-admin"
 LANGUAGES = ("en", "ar")
 DEFAULT_LANGUAGE = "en"
@@ -45,9 +46,10 @@ FAQS = {
         ),
         (
             "Do I need Babel?",
-            "Babel is optional. Install django-rtl-admin[babel] for CLDR number, currency, "
-            "date, and time patterns. Without it, the helpers use Django formatting plus "
-            "digit transliteration, with simpler currency and percentage output.",
+            "Babel is optional. Install django-rtl-admin[babel] for full CLDR currency, "
+            "percentage, date, and time patterns. Without it, numbers use built-in CLDR "
+            "separators, grouping, and digits (with simple currency and percentage placement), "
+            "and dates and times use Django formatting plus digit transliteration.",
         ),
         (
             "Will installation reformat every number and date?",
@@ -94,9 +96,10 @@ FAQS = {
         ),
         (
             "هل أحتاج إلى Babel؟",
-            "Babel اختيارية. ثبّت django-rtl-admin[babel] للحصول على أنماط CLDR للأرقام "
-            "والعملات والتواريخ والأوقات. بدونها تستخدم الأدوات تنسيق Django مع تحويل "
-            "الأرقام، بمخرجات أبسط للعملة والنسبة المئوية.",
+            "Babel اختيارية. ثبّت django-rtl-admin[babel] للحصول على أنماط CLDR الكاملة "
+            "للعملات والنسب المئوية والتواريخ والأوقات. بدونها تستخدم الأرقام فواصل CLDR "
+            "المدمجة وتجميعها وأرقامها (مع موضع مبسّط للعملة والنسبة المئوية)، وتستخدم "
+            "التواريخ والأوقات تنسيق Django مع تحويل الأرقام.",
         ),
         (
             "هل يعيد التثبيت تنسيق كل رقم وتاريخ؟",
@@ -111,9 +114,10 @@ FAQS = {
         ),
         (
             "ما لغات RTL التي يمكنني استخدامها؟",
-            "يتبع تحديد الاتجاه بيانات لغات Django مع دعم الرموز الإقليمية "
-            "وEXTRA_RTL_LANGUAGES. ترفق الحزمة كتالوجات العربية والعبرية والفارسية "
-            "والأردية، ويحدد إعداد LANGUAGES في مشروعك خيارات المبدّل.",
+            "يتبع تحديد الاتجاه إعداد LANGUAGES_BIDI في Django مع دعم الرموز الإقليمية "
+            "وEXTRA_RTL_LANGUAGES. ترفق الحزمة كتالوجات العربية والكردية السورانية "
+            "والعبرية والفارسية والأويغورية والأردية، ويحدد إعداد LANGUAGES في مشروعك "
+            "خيارات المبدّل.",
         ),
         (
             "هل تغيّر الحزمة المعرّفات في قاعدة البيانات؟",
@@ -237,9 +241,14 @@ def _absolute(root, language, route):
     return f"{root}{prefix}{route}"
 
 
-def _root_relative(language, route):
+def _root_relative(language, route, root=SITE_ROOT):
+    base_path = urlsplit(root).path or "/"
+    if not base_path.startswith("/"):
+        base_path = f"/{base_path}"
+    if not base_path.endswith("/"):
+        base_path = f"{base_path}/"
     prefix = "" if language == DEFAULT_LANGUAGE else f"{language}/"
-    return f"/{prefix}{route}"
+    return f"{base_path}{prefix}{route}"
 
 
 def _is_landing(page):
@@ -276,7 +285,7 @@ def _landing_json_ld(canonical, description, language):
         "url": canonical,
         "codeRepository": REPOSITORY,
         "license": "https://opensource.org/licenses/MIT",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "programmingLanguage": "Python",
         "runtimePlatform": ["Python 3.10+", "Django 4.2+"],
         "inLanguage": language,
@@ -355,8 +364,8 @@ def on_page_context(context, page, config, **kwargs):
     page.meta["seo_canonical"] = canonical
     page.meta["seo_en_url"] = _absolute(root, "en", route)
     page.meta["seo_ar_url"] = _absolute(root, "ar", route)
-    page.meta["seo_en_path"] = _root_relative("en", route)
-    page.meta["seo_ar_path"] = _root_relative("ar", route)
+    page.meta["seo_en_path"] = _root_relative("en", route, root)
+    page.meta["seo_ar_path"] = _root_relative("ar", route, root)
     page.meta["seo_og_image"] = f"{root}assets/og-image.png"
     page.meta["seo_is_landing"] = landing
     page.meta["seo_fallback"] = fallback

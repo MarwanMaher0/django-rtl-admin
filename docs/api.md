@@ -12,14 +12,19 @@ values. The reference below is generated from the Python source with mkdocstring
 
 ## Choosing an isolation helper
 
-- `isolate()` wraps an entire plain-text value; use `direction="ltr"` for an
-  opaque identifier such as an ISBN.
-- `isolate_runs()` isolates opposite-direction fragments inside plain-text prose.
+- `isolate()` strips any existing Unicode `Bidi_Control` characters and wraps an
+  entire plain-text value; use `direction="ltr"` for an opaque identifier such
+  as an ISBN.
+- `isolate_runs()` strips existing Unicode `Bidi_Control` characters and isolates
+  opposite-direction fragments inside plain-text prose.
 - `mark_isolated()` and `mark_isolated_runs()` are the HTML-producing variants.
-  Keep `autoescape=True` for untrusted text. Already-safe HTML is trusted, not
-  sanitized; the run-level helper leaves it untouched to avoid damaging markup.
-- `strip_isolates()` removes the isolate characters and legacy LRM/RLM marks
-  understood by this package. It is not a general Unicode-control sanitizer.
+  Keep `autoescape=True` for untrusted text. `mark_isolated()` strips existing
+  `Bidi_Control` characters when wrapping; already-safe HTML is not re-escaped,
+  and `mark_isolated_runs()` leaves already-safe HTML untouched to avoid
+  damaging markup.
+- `strip_isolates()` removes all twelve Unicode `Bidi_Control` characters
+  (`ALM`, `LRM`, `RLM`, `LRE`, `RLE`, `PDF`, `LRO`, `RLO`, `LRI`, `RLI`, `FSI`,
+  and `PDI`). It does not strip HTML or non-bidi control characters.
 
 ```python
 from django.utils import translation

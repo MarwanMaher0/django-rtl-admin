@@ -40,6 +40,15 @@ def test_the_public_api_is_importable():
         assert getattr(django_rtl_admin, name) is not None
 
 
+def test_package_version_matches_pyproject_toml():
+    pyproject = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    project_section = re.search(r"(?ms)^\[project\]\s*\n(.*?)(?=^\[|\Z)", pyproject)
+    assert project_section is not None
+    match = re.search(r'(?m)^version\s*=\s*"([^"]+)"\s*$', project_section.group(1))
+    assert match is not None
+    assert django_rtl_admin.__version__ == match.group(1)
+
+
 def test_the_stylesheet_prefers_logical_properties():
     css = (ROOT / "static" / "django_rtl_admin" / "css" / "rtl-admin.css").read_text()
     logical = css.count("-inline-start") + css.count("-inline-end") + css.count("inset-inline")
@@ -69,6 +78,8 @@ def test_github_workflows_pin_actions_by_full_sha():
     ci_text = (workflows_dir / "ci.yml").read_text(encoding="utf-8")
     assert "\n  sdist:\n" in ci_text
     assert 'pytest -m "not e2e"' in ci_text
+    assert (workflows_dir / "docs.yml").is_file()
+    assert not (REPO_ROOT / ".readthedocs.yaml").exists()
 
 
 def test_dependabot_tracks_github_actions_and_pip_weekly_in_groups():

@@ -1,7 +1,7 @@
 # django-rtl-admin Example & Live Demo
 
 This directory contains a runnable Django project showcasing `django-rtl-admin`
-in English (`en`), Arabic (`ar`), Arabic — Egypt (`ar-eg`), and Hebrew (`he`).
+in English (`en`), Arabic (`ar`), and Arabic — Egypt (`ar-eg`).
 It is ready to run locally with `manage.py runserver`, inside Docker with
 Gunicorn and WhiteNoise, or deployed to Fly.io / Render as a public read-only
 live demo.
@@ -32,7 +32,7 @@ Open <http://127.0.0.1:8000/admin/> and sign in with:
 - **Password:** `demo12345`
 
 Use the language switcher in the header (or on the login page) to switch between
-English, Arabic, Arabic (Egypt), and Hebrew.
+English, Arabic, and Arabic (Egypt).
 
 ## The demo user
 

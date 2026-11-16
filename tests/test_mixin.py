@@ -163,6 +163,13 @@ def test_an_empty_value_is_not_isolated(admin_client):
     assert FSI + PDI not in html
 
 
+def test_embedded_bidi_controls_are_stripped_in_the_changelist(admin_client):
+    Thing.objects.create(name="Spoofed", reference="REF-\u202e42\u2069-OK")
+    html = admin_client.get(CHANGELIST_URL).content.decode()
+    assert "\u202e" not in html
+    assert FSI + "REF-42-OK" + PDI in html
+
+
 def test_a_custom_display_method_is_isolated_too(admin_client, thing):
     html = admin_client.get(CHANGELIST_URL).content.decode()
     assert FSI + "DEEP LEARNING" + PDI in html

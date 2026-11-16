@@ -151,7 +151,8 @@ the publisher on PyPI and TestPyPI, or publishing fails with an `invalid-publish
 
 ### Cut a release
 
-1. On `main`, set `version` in `pyproject.toml` to the new version, and in `CHANGELOG.md`
+1. On `main`, set `version` in `pyproject.toml` and `__version__` in
+   `src/django_rtl_admin/__init__.py` to the new version, and in `CHANGELOG.md`
    rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD` and start a fresh `## [Unreleased]`
    above it. Commit, push, and wait for CI to go green.
 2. Rehearse on TestPyPI: run the Release workflow by hand from `main`, then check the project

@@ -70,10 +70,54 @@ def test_strip_isolates_removes_legacy_marks():
     assert strip_isolates("\u200ex\u200fy") == "xy"
 
 
+ALL_BIDI_CONTROLS = (
+    "\u061c",
+    "\u200e",
+    "\u200f",
+    "\u202a",
+    "\u202b",
+    "\u202c",
+    "\u202d",
+    "\u202e",
+    "\u2066",
+    "\u2067",
+    "\u2068",
+    "\u2069",
+)
+
+
+def test_bidi_control_chars_matches_unicode_property_set():
+    assert bidi.BIDI_CONTROL_CHARS == frozenset(ALL_BIDI_CONTROLS)
+
+
+@pytest.mark.parametrize("ctrl", ALL_BIDI_CONTROLS)
+def test_strip_isolates_removes_every_unicode_bidi_control(ctrl):
+    assert strip_isolates(f"{ctrl}ab{ctrl}cd{ctrl}") == "abcd"
+
+
+@pytest.mark.parametrize("ctrl", ALL_BIDI_CONTROLS)
+def test_isolate_strips_embedded_bidi_controls_before_wrapping(ctrl):
+    result = isolate(f"safe{ctrl}tail", "ltr")
+    assert result == f"{LRI}safetail{PDI}"
+    assert is_isolated(result)
+
+
+def test_isolate_returns_empty_when_only_bidi_controls_remain():
+    assert isolate("".join(ALL_BIDI_CONTROLS)) == ""
+    with pytest.raises(ValueError, match="direction must be one of"):
+        isolate("\u202e", "sideways")
+
+
 def test_is_isolated():
     assert is_isolated(isolate("abc"))
+    assert is_isolated(f"{FSI}outer {LRI}inner{PDI}{PDI}")
     assert not is_isolated("abc")
     assert not is_isolated("")
+    assert not is_isolated(f"{FSI}first{PDI} outside {FSI}second{PDI}")
+    assert not is_isolated(f"{FSI}{FSI}unclosed{PDI}")
+    assert not is_isolated(f"{FSI}extra{PDI}{PDI}")
+    assert not is_isolated(f"{FSI}\u202eoverride{PDI}")
+    assert not is_isolated(f"{FSI}\u202cpop{PDI}")
 
 
 # -- direction detection ---------------------------------------------------
@@ -247,6 +291,27 @@ def test_isolate_runs_uses_the_active_language_by_default():
 @pytest.mark.parametrize("value", ["", None])
 def test_isolate_runs_passes_through_empty_values(value):
     assert isolate_runs(value) == value
+
+
+@pytest.mark.parametrize("ctrl", ALL_BIDI_CONTROLS)
+def test_isolate_runs_strips_embedded_bidi_controls(ctrl):
+    result = isolate_runs(f"{ARABIC} v1.{ctrl}2.3 {ARABIC}", base="rtl")
+    assert result == f"{ARABIC} {LRI}v1.2.3{PDI} {ARABIC}"
+
+
+def test_isolate_runs_returns_empty_when_only_bidi_controls_remain():
+    assert isolate_runs("".join(ALL_BIDI_CONTROLS), base="rtl") == ""
+
+
+def test_mark_isolated_and_mark_isolated_runs_strip_bidi_controls():
+    spoofed = "invoice-\u202e42\u2069-ok"
+    assert mark_isolated(spoofed, "ltr") == f"{LRI}invoice-42-ok{PDI}"
+    assert mark_isolated("\u202e\u2069") == ""
+    assert (
+        mark_isolated_runs(f"{ARABIC} invoice-\u202e42\u2069 {ARABIC}", base="rtl")
+        == f"{ARABIC} {LRI}invoice-42{PDI} {ARABIC}"
+    )
+    assert mark_isolated_runs("\u202e\u2069", base="rtl") == ""
 
 
 # -- mark_isolated ---------------------------------------------------------
