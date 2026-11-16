@@ -29,9 +29,7 @@ def _configured_settings() -> Mapping[str, Any] | None:
 
 
 @register()
-def check_app_order(
-    app_configs: Sequence[AppConfig] | None, **kwargs: Any
-) -> list[CheckMessage]:
+def check_app_order(app_configs: Sequence[AppConfig] | None, **kwargs: Any) -> list[CheckMessage]:
     """``django_rtl_admin`` must shadow the contrib admin templates."""
     names = [config.name for config in apps.get_app_configs()]
     if APP_NAME not in names or ADMIN_APP not in names:
@@ -148,9 +146,7 @@ def check_extra_rtl_languages_bidi(
     configured = _configured_settings()
     if configured is None:
         return []
-    extras = configured.get(
-        "EXTRA_RTL_LANGUAGES", rtl_settings.defaults["EXTRA_RTL_LANGUAGES"]
-    )
+    extras = configured.get("EXTRA_RTL_LANGUAGES", rtl_settings.defaults["EXTRA_RTL_LANGUAGES"])
     if isinstance(extras, (str, bytes, bytearray)) or not isinstance(extras, Sequence):
         return []
     bidi = getattr(settings, "LANGUAGES_BIDI", ())
@@ -158,8 +154,7 @@ def check_extra_rtl_languages_bidi(
         {
             code
             for code in extras
-            if isinstance(code, str)
-            and code.replace("_", "-").lower().split("-", 1)[0] not in bidi
+            if isinstance(code, str) and code.replace("_", "-").lower().split("-", 1)[0] not in bidi
         }
     )
     if not missing:
@@ -197,8 +192,7 @@ def check_language_switcher(
     except (NoReverseMatch, Exception):
         issues.append(
             Warning(
-                "The admin language switcher is enabled but 'set_language' "
-                "cannot be reversed.",
+                "The admin language switcher is enabled but 'set_language' cannot be reversed.",
                 hint=(
                     "Add `path('i18n/', include('django.conf.urls.i18n'))` to "
                     "your root URLconf, or set "

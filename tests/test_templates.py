@@ -131,7 +131,9 @@ def test_changelist_action_checkbox_names_are_translated_into_arabic(admin_clien
     from tests.testapp.models import Thing
 
     Thing.objects.create(name="ألفا")
-    html = admin_client.get("/admin/testapp/thing/", headers={"accept-language": "ar"}).content.decode()
+    html = admin_client.get(
+        "/admin/testapp/thing/", headers={"accept-language": "ar"}
+    ).content.decode()
     assert 'aria-label="تحديد جميع العناصر في هذه الصفحة لتنفيذ إجراء"' in html
     assert 'aria-label="تحديد هذا العنصر لتنفيذ إجراء - ألفا"' in html
 
@@ -202,7 +204,9 @@ def test_the_switcher_shows_native_names_by_default(admin_client):
 
 
 def test_switching_the_language_actually_changes_the_admin(admin_client):
-    response = admin_client.post("/i18n/setlang/", {"language": "ar", "next": "/admin/"}, follow=True)
+    response = admin_client.post(
+        "/i18n/setlang/", {"language": "ar", "next": "/admin/"}, follow=True
+    )
     assert response.status_code == 200
     assert 'dir="rtl"' in response.content.decode()
 

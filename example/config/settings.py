@@ -110,9 +110,8 @@ def _parse_database_url(url: str, *, default_sqlite_path: Path) -> dict[str, obj
 
 DEBUG = _env_bool("DEBUG", default=False)
 DJANGO_ENV = (os.environ.get("DJANGO_ENV") or "production").strip().lower()
-LOCAL_DEV = (
-    DJANGO_ENV in {"development", "dev", "local"}
-    and not any(os.environ.get(key) is not None for key in _PRODUCTION_ENV_KEYS)
+LOCAL_DEV = DJANGO_ENV in {"development", "dev", "local"} and not any(
+    os.environ.get(key) is not None for key in _PRODUCTION_ENV_KEYS
 )
 
 _raw_secret_key = (

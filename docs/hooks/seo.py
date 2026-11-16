@@ -11,13 +11,14 @@ import re
 import unicodedata
 from html import unescape
 from pathlib import Path
-from urllib.parse import urlsplit
 
 try:
     from mkdocs.plugins import event_priority
 except ImportError:  # pragma: no cover - older MkDocs releases
+
     def event_priority(_priority):
         return lambda function: function
+
 
 SITE_ROOT = "https://marwanmaher0.github.io/django-rtl-admin/"
 REPOSITORY = "https://github.com/MarwanMaher0/django-rtl-admin"
@@ -140,9 +141,7 @@ def _heading_anchor(text, used):
         anchor = re.sub(r"[-\s]+", "-", anchor)
         while anchor in used:
             suffix = re.search(r"_(\d+)$", anchor)
-            anchor = (
-                f"{anchor[:suffix.start()]}_{int(suffix[1]) + 1}" if suffix else f"{anchor}_1"
-            )
+            anchor = f"{anchor[: suffix.start()]}_{int(suffix[1]) + 1}" if suffix else f"{anchor}_1"
     used.add(anchor)
     return anchor
 
@@ -186,7 +185,8 @@ def _check_translations(docs_dir):
     docs_dir = Path(docs_dir)
     for english in sorted(docs_dir.rglob("*.md")):
         if english.name.endswith(".ar.md") or english.relative_to(docs_dir).as_posix() in {
-            "api.md", "changelog.md"
+            "api.md",
+            "changelog.md",
         }:
             continue
         translated = english.with_suffix(".ar.md")
@@ -239,16 +239,6 @@ def _route(page, language):
 def _absolute(root, language, route):
     prefix = "" if language == DEFAULT_LANGUAGE else f"{language}/"
     return f"{root}{prefix}{route}"
-
-
-def _root_relative(language, route, root=SITE_ROOT):
-    base_path = urlsplit(root).path or "/"
-    if not base_path.startswith("/"):
-        base_path = f"/{base_path}"
-    if not base_path.endswith("/"):
-        base_path = f"{base_path}/"
-    prefix = "" if language == DEFAULT_LANGUAGE else f"{language}/"
-    return f"{base_path}{prefix}{route}"
 
 
 def _is_landing(page):
@@ -360,14 +350,11 @@ def on_page_context(context, page, config, **kwargs):
     page.meta["seo_language"] = page_language
     page.meta["seo_direction"] = "rtl" if page_language == "ar" else "ltr"
     page.meta["seo_title"] = seo_title
-    page.meta["seo_title_only"] = title_only
     page.meta["seo_canonical"] = canonical
     page.meta["seo_en_url"] = _absolute(root, "en", route)
     page.meta["seo_ar_url"] = _absolute(root, "ar", route)
-    page.meta["seo_en_path"] = _root_relative("en", route, root)
-    page.meta["seo_ar_path"] = _root_relative("ar", route, root)
     page.meta["seo_og_image"] = f"{root}assets/og-image.png"
-    page.meta["seo_is_landing"] = landing
+    page.meta["seo_sitemap"] = f"{root}sitemap.xml"
     page.meta["seo_fallback"] = fallback
     page.meta["seo_has_ar"] = has_ar
     page.meta["landing_faq"] = FAQS[page_language]

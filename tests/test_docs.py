@@ -1,4 +1,5 @@
 import json
+import re
 import runpy
 from pathlib import Path
 from types import SimpleNamespace
@@ -121,7 +122,9 @@ def test_quick_start_uses_the_english_heading_anchors():
         "5-format-custom-output",
     ]
     for name in ("quick-start.md", "quick-start.ar.md"):
-        assert SEO["_translation_structure"]((DOCS / name).read_text(encoding="utf-8"))[2] == expected
+        assert (
+            SEO["_translation_structure"]((DOCS / name).read_text(encoding="utf-8"))[2] == expected
+        )
 
 
 def test_docs_build_preserves_explicit_and_duplicate_anchors(tmp_path):
@@ -161,16 +164,13 @@ def test_translated_docs_have_localized_seo_and_hreflang(name, language):
     assert page.meta["seo_direction"] == ("rtl" if language == "ar" else "ltr")
     assert page.meta["seo_en_url"] == f"{root}{name}/"
     assert page.meta["seo_ar_url"] == f"{root}ar/{name}/"
-    assert page.meta["seo_en_path"] == f"/django-rtl-admin/{name}/"
-    assert page.meta["seo_ar_path"] == f"/django-rtl-admin/ar/{name}/"
+    assert page.meta["seo_sitemap"] == f"{root}sitemap.xml"
     assert page.meta["seo_canonical"] == page.meta[f"seo_{language}_url"]
     assert "(English)" not in page.meta["seo_title"]
 
 
 def test_landing_seo_uses_github_pages_root_and_package_version():
     assert SEO["SITE_ROOT"] == "https://marwanmaher0.github.io/django-rtl-admin/"
-    assert SEO["_root_relative"]("en", "installation/", "https://example.com/") == "/installation/"
-    assert SEO["_root_relative"]("ar", "installation/", "https://example.com/") == "/ar/installation/"
     page = SimpleNamespace(
         file=SimpleNamespace(
             src_path="index.md",
@@ -185,8 +185,7 @@ def test_landing_seo_uses_github_pages_root_and_package_version():
     structured = json.loads(page.meta["seo_json_ld"])
     assert structured["@graph"][0]["version"] == django_rtl_admin.__version__
     assert page.meta["seo_canonical"] == "https://marwanmaher0.github.io/django-rtl-admin/"
-    assert page.meta["seo_en_path"] == "/django-rtl-admin/"
-    assert page.meta["seo_ar_path"] == "/django-rtl-admin/ar/"
+    assert page.meta["seo_sitemap"] == "https://marwanmaher0.github.io/django-rtl-admin/sitemap.xml"
 
 
 @pytest.mark.parametrize("name", ["api", "changelog"])
@@ -194,3 +193,91 @@ def test_untranslated_reference_pages_keep_english_fallback(name):
     page = SimpleNamespace(file=SimpleNamespace(src_path=f"{name}.md"))
     assert SEO["_is_fallback"](page, "ar")
     assert not (DOCS / f"{name}.ar.md").exists()
+
+
+def test_every_seo_value_set_by_the_hook_is_read_by_a_template():
+    hook = (DOCS / "hooks" / "seo.py").read_text(encoding="utf-8")
+    templates = "".join(
+        path.read_text(encoding="utf-8") for path in (DOCS / "overrides").rglob("*.html")
+    )
+    keys = set(re.findall(r'page\.meta\["(\w+)"\] = ', hook))
+    assert "seo_sitemap" in keys
+    unused = sorted(key for key in keys if not re.search(rf"page\.meta\.{key}\b", templates))
+    assert not unused
+
+
+def test_the_sitemap_is_linked_without_a_robots_file():
+    assert not (DOCS / "robots.txt").exists()
+    assert (DOCS / "overrides" / "sitemap.xml").is_file()
+    partial = (DOCS / "overrides" / "partials" / "seo.html").read_text(encoding="utf-8")
+    assert '<link rel="sitemap" type="application/xml"' in partial
+    assert 'href="{{ page.meta.seo_sitemap }}"' in partial
+    for template in ("main.html", "home.html"):
+        assert '{% include "partials/seo.html" %}' in (DOCS / "overrides" / template).read_text(
+            encoding="utf-8"
+        )
+    llms = (DOCS / "llms.txt").read_text(encoding="utf-8")
+    assert f"{SEO['SITE_ROOT']}sitemap.xml" in llms
+
+
+FENCE = re.compile(r"\s*(`{3,}|~{3,})(.*)")
+
+
+def _prose_paragraphs(text):
+    paragraphs, lines, fence = [], [], None
+    for line in [*text.splitlines(), ""]:
+        marker = FENCE.match(line)
+        if fence is not None:
+            if marker and marker[1].startswith(fence) and not marker[2].strip():
+                fence = None
+        elif marker:
+            fence = marker[1]
+        elif line.strip():
+            lines.append(line)
+            continue
+        if lines:
+            paragraphs.append("\n".join(lines))
+            lines = []
+    return paragraphs
+
+
+def _collectstatic_paragraphs(text):
+    return [paragraph for paragraph in _prose_paragraphs(text) if "collectstatic" in paragraph]
+
+
+@pytest.mark.parametrize(
+    "path",
+    [DOCS.parent / "README.md", DOCS / "installation.md", DOCS / "installation.ar.md"],
+    ids=lambda path: path.name,
+)
+def test_collectstatic_instructions_mention_static_root(path):
+    paragraphs = _collectstatic_paragraphs(path.read_text(encoding="utf-8"))
+    assert paragraphs, f"{path.name} does not explain collectstatic in prose"
+    for paragraph in paragraphs:
+        assert "STATIC_ROOT" in paragraph, f"{path.name}: {paragraph}"
+
+
+def test_collectstatic_paragraphs_exclude_code_blocks_and_other_paragraphs():
+    text = (
+        "Set `STATIC_ROOT` first.\n\n"
+        "```sh\npython manage.py collectstatic\n\necho STATIC_ROOT\n```\n"
+        "Then run `collectstatic`\nwhen you deploy.\n\n"
+        "`STATIC_ROOT` is where the files go.\n"
+    )
+    assert _collectstatic_paragraphs(text) == ["Then run `collectstatic`\nwhen you deploy."]
+    assert _collectstatic_paragraphs("```sh\npython manage.py collectstatic\n```\n") == []
+
+
+@pytest.mark.parametrize(
+    "block",
+    [
+        "~~~sh\npython manage.py collectstatic\n~~~\n",
+        "~~~sh\npython manage.py collectstatic\n\n```\nrun collectstatic\n~~~\n",
+        "~~~~\n~~~\npython manage.py collectstatic\n~~~~\n",
+        "````md\n```sh\npython manage.py collectstatic\n```\n\nrun collectstatic\n````\n",
+        "```sh\n~~~\npython manage.py collectstatic\n```\n",
+    ],
+)
+def test_collectstatic_paragraphs_treat_tilde_and_nested_fences_as_code(block):
+    text = f"Before.\n\n{block}Run `collectstatic` with `STATIC_ROOT` set.\n"
+    assert _collectstatic_paragraphs(text) == ["Run `collectstatic` with `STATIC_ROOT` set."]

@@ -42,11 +42,7 @@ BOOKS = [
         "published_on": datetime.date(2024, 3, 5),
         "status": "published",
         "is_featured": True,
-        "summary_ar": (
-            "نسخة محققة رقم "
-            "v3.2.1 من ملف ISBN 978-0-691-16628-5 "
-            "بتاريخ 2024-03-05."
-        ),
+        "summary_ar": ("نسخة محققة رقم v3.2.1 من ملف ISBN 978-0-691-16628-5 بتاريخ 2024-03-05."),
         "chapters": [
             ("العمران البشري", "Human civilisation", 1),
             ("العصبية", "Group feeling", 148),
@@ -66,11 +62,7 @@ BOOKS = [
         "published_on": datetime.date(1998, 11, 30),
         "status": "published",
         "is_featured": True,
-        "summary_ar": (
-            "المجلد الأول "
-            "متاح على "
-            "https://example.com/nights?vol=1&fmt=epub"
-        ),
+        "summary_ar": ("المجلد الأول متاح على https://example.com/nights?vol=1&fmt=epub"),
         "chapters": [
             ("شهرزاد", "Shahrazad", 1),
             ("السندباد", "Sindbad", 621),
@@ -89,11 +81,7 @@ BOOKS = [
         "published_on": datetime.date(2013, 7, 19),
         "status": "review",
         "is_featured": False,
-        "summary_ar": (
-            "مراجعة داخلية "
-            "من قبل editor@example.org "
-            "قبل 2025-01-15."
-        ),
+        "summary_ar": ("مراجعة داخلية من قبل editor@example.org قبل 2025-01-15."),
         "chapters": [
             ("الجنة", "Paradise", 12),
             ("النار", "Hellfire", 210),
@@ -112,10 +100,7 @@ BOOKS = [
         "published_on": datetime.date(2007, 2, 28),
         "status": "draft",
         "is_featured": False,
-        "summary_ar": (
-            "مسودة رقم 1.0.0 "
-            "بانتظار المراجعة."
-        ),
+        "summary_ar": ("مسودة رقم 1.0.0 بانتظار المراجعة."),
         "chapters": [
             ("الأسد والثور", "The lion and the ox", 5),
         ],
@@ -133,10 +118,7 @@ BOOKS = [
         "published_on": datetime.date(2019, 9, 1),
         "status": "published",
         "is_featured": False,
-        "summary_ar": (
-            "طبعة 4.1 من النسخة "
-            "الإنجليزية The Ring of the Dove."
-        ),
+        "summary_ar": ("طبعة 4.1 من النسخة الإنجليزية The Ring of the Dove."),
         "chapters": [
             ("علامات الحب", "Signs of love", 22),
             ("الوصال", "Union", 140),

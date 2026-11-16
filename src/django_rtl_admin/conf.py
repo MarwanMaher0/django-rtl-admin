@@ -35,7 +35,6 @@ DEFAULTS: dict[str, Any] = {
     # Languages treated as right-to-left on top of the ones in Django's
     # ``settings.LANGUAGES_BIDI``.
     "EXTRA_RTL_LANGUAGES": (),
-
     # -- bidirectional text --------------------------------------------
     # Default isolation direction used by ``bidi_isolate`` and the mixin.
     # One of "auto" (FSI), "ltr" (LRI) or "rtl" (RLI).
@@ -50,7 +49,6 @@ DEFAULTS: dict[str, Any] = {
     # field picks its own direction from what the user actually typed, which
     # is what a bilingual data-entry form needs.
     "PLAINTEXT_FORM_FIELDS": True,
-
     # -- localisation ---------------------------------------------------
     # Numbering system for the locale-aware formatting helpers.
     # "auto" follows the active locale, otherwise force a CLDR numbering
@@ -61,7 +59,6 @@ DEFAULTS: dict[str, Any] = {
     "USE_BABEL": True,
     # Default currency for ``{{ value|l10n_currency }}``.
     "CURRENCY": "USD",
-
     # -- language switcher ----------------------------------------------
     "LANGUAGE_SWITCHER": True,
     # ``None`` means "use settings.LANGUAGES".  Otherwise a sequence of
@@ -97,9 +94,7 @@ class RTLAdminSettings:
         USE_BABEL: bool
         CURRENCY: str
         LANGUAGE_SWITCHER: bool
-        LANGUAGE_SWITCHER_LANGUAGES: (
-            Iterable[str | tuple[str, str | Promise]] | None
-        )
+        LANGUAGE_SWITCHER_LANGUAGES: Iterable[str | tuple[str, str | Promise]] | None
         LANGUAGE_SWITCHER_LABELS: str
 
     def __init__(self, defaults: dict[str, Any] | None = None) -> None:

@@ -30,6 +30,7 @@
 - [Translations](https://marwanmaher0.github.io/django-rtl-admin/translations/): shipped locales and contribution workflow.
 - [Changelog](https://marwanmaher0.github.io/django-rtl-admin/changelog/): release history.
 - [Full documentation for language models](https://marwanmaher0.github.io/django-rtl-admin/llms-full.txt)
+- [Sitemap](https://marwanmaher0.github.io/django-rtl-admin/sitemap.xml): every English and Arabic page with hreflang alternates.
 
 ## Source
 

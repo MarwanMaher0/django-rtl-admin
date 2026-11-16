@@ -186,17 +186,13 @@ class BidiSafeAdminMixin(_Base):
         # The stubs type this slot as a concrete ``Field``.  A related lookup
         # may also end on a reverse relation, which ``display_for_field`` only
         # ever inspects with ``isinstance``/``getattr``.
-        lookup_target = (
-            cast("Field[Any, Any] | None", field) if _is_related_lookup(name) else None
-        )
+        lookup_target = cast("Field[Any, Any] | None", field) if _is_related_lookup(name) else None
 
         def wrapper(obj: Model) -> str:
             resolved_field, attr, value = lookup_field(name, obj, model_admin)
             if resolved_field is None and lookup_target is not None:
                 resolved_field = lookup_target
-            empty = getattr(
-                attr, "empty_value_display", model_admin.get_empty_value_display()
-            )
+            empty = getattr(attr, "empty_value_display", model_admin.get_empty_value_display())
             if resolved_field is None:
                 text = display_for_value(value, empty, getattr(attr, "boolean", False))
             else:
@@ -212,18 +208,14 @@ class BidiSafeAdminMixin(_Base):
         display = cast("_DisplayWrapper", wrapper)
         # ``return_attr=False`` is Django's default; spelling it out selects
         # the overload that returns the label alone.
-        display.short_description = label_for_field(
-            name, self.model, self, return_attr=False
-        )
+        display.short_description = label_for_field(name, self.model, self, return_attr=False)
         display.admin_order_field = self._bidi_order_field(name, field, original)
         boolean = getattr(original, "boolean", False)
         if boolean:
             display.boolean = boolean
         return display
 
-    def _bidi_order_field(
-        self, name: str, field: _ModelField | None, original: object
-    ) -> object:
+    def _bidi_order_field(self, name: str, field: _ModelField | None, original: object) -> object:
         if field is not None:
             return name if _is_related_lookup(name) else field.name
         return getattr(original, "admin_order_field", None)

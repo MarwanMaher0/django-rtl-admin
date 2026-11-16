@@ -40,9 +40,7 @@ logger = logging.getLogger("django_rtl_admin")
 
 
 @register.filter(name="bidi_isolate", is_safe=True, needs_autoescape=True)
-def bidi_isolate(
-    value: Any, direction: str | None = None, autoescape: bool = True
-) -> SafeString:
+def bidi_isolate(value: Any, direction: str | None = None, autoescape: bool = True) -> SafeString:
     """Wrap the whole value in a Unicode isolate.
 
     ``{{ book.isbn|bidi_isolate }}`` renders ``978-0-13-468599-1`` the right
@@ -142,9 +140,7 @@ def l10n_datetime(value: datetime.datetime | None, fmt: str = "medium") -> str:
 
 
 @register.filter(name="l10n_time", expects_localtime=True)
-def l10n_time(
-    value: datetime.time | datetime.datetime | None, fmt: str = "medium"
-) -> str:
+def l10n_time(value: datetime.time | datetime.datetime | None, fmt: str = "medium") -> str:
     """Locale-aware time of day."""
     if not isinstance(value, (datetime.time, datetime.datetime)):
         return ""
@@ -321,7 +317,7 @@ def _parse_font_families(value: str) -> list[tuple[str, bool]]:
 def _sequence_font_family(item: str) -> tuple[str, bool]:
     """One sequence entry: a pre-quoted CSS string, a keyword, or a raw name."""
     item = item.strip()
-    if item[:1] in ("\"", "'"):
+    if item[:1] in ('"', "'"):
         try:
             name, end = _read_css_string(item, 0)
         except _FontStackError:
@@ -333,10 +329,7 @@ def _sequence_font_family(item: str) -> tuple[str, bool]:
 
 
 def _css_font_family(name: str, quoted: bool) -> str:
-    if any(
-        char in _UNSAFE_FONT_CHARS or unicodedata.category(char) == "Cc"
-        for char in name
-    ):
+    if any(char in _UNSAFE_FONT_CHARS or unicodedata.category(char) == "Cc" for char in name):
         raise _FontStackError(f"unsafe character in family name {name!r}")
     if not quoted and name.lower() in GENERIC_FONT_FAMILIES:
         return name
@@ -511,7 +504,5 @@ def rtl_admin_isolated_join(values: Iterable[Any] | None, separator: str = ", ")
     if not values:
         return ""
     return mark_safe(
-        format_html_join(
-            separator, "{}", ((bidi_module.mark_isolated(v),) for v in values)
-        )
+        format_html_join(separator, "{}", ((bidi_module.mark_isolated(v),) for v in values))
     )

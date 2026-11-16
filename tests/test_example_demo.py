@@ -68,24 +68,15 @@ def test_example_settings_defaults_are_production_safe_and_work_locally_with_no_
     assert settings_mod.CSRF_TRUSTED_ORIGINS == []
     assert settings_mod.DATABASES["default"]["ENGINE"] == "django.db.backends.sqlite3"
     assert settings_mod.DATABASES["default"]["NAME"] == EXAMPLE_DIR / "db.sqlite3"
-    assert (
-        settings_mod.MIDDLEWARE[0]
-        == "django.middleware.security.SecurityMiddleware"
-    )
+    assert settings_mod.MIDDLEWARE[0] == "django.middleware.security.SecurityMiddleware"
     if importlib.util.find_spec("whitenoise") is not None:
-        assert (
-            settings_mod.MIDDLEWARE[1]
-            == "whitenoise.middleware.WhiteNoiseMiddleware"
-        )
+        assert settings_mod.MIDDLEWARE[1] == "whitenoise.middleware.WhiteNoiseMiddleware"
         assert (
             settings_mod.STORAGES["staticfiles"]["BACKEND"]
             == "whitenoise.storage.CompressedStaticFilesStorage"
         )
     else:
-        assert (
-            "whitenoise.middleware.WhiteNoiseMiddleware"
-            not in settings_mod.MIDDLEWARE
-        )
+        assert "whitenoise.middleware.WhiteNoiseMiddleware" not in settings_mod.MIDDLEWARE
         assert (
             settings_mod.STORAGES["staticfiles"]["BACKEND"]
             == "django.contrib.staticfiles.storage.StaticFilesStorage"
@@ -109,9 +100,7 @@ def test_example_settings_fails_at_startup_when_debug_off_and_secret_key_missing
         _load_example_settings({"DEBUG": "1"})
 
     with pytest.raises(ImproperlyConfigured, match="SECRET_KEY"):
-        _load_example_settings(
-            {"DEBUG": "1", "DJANGO_ENV": "development", "RENDER": "true"}
-        )
+        _load_example_settings({"DEBUG": "1", "DJANGO_ENV": "development", "RENDER": "true"})
 
     with pytest.raises(ImproperlyConfigured, match="SECRET_KEY"):
         _load_example_settings(
@@ -119,9 +108,7 @@ def test_example_settings_fails_at_startup_when_debug_off_and_secret_key_missing
         )
 
     with pytest.raises(ImproperlyConfigured, match="SECRET_KEY"):
-        _load_example_settings(
-            {"DEBUG": "1", "DJANGO_ENV": "development", "PORT": "8000"}
-        )
+        _load_example_settings({"DEBUG": "1", "DJANGO_ENV": "development", "PORT": "8000"})
 
     with pytest.raises(ImproperlyConfigured, match="SECRET_KEY"):
         _load_example_settings(

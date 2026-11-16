@@ -35,9 +35,7 @@ def test_isolate_defaults_to_first_strong():
     assert isolate("abc") == FSI + "abc" + PDI
 
 
-@pytest.mark.parametrize(
-    ("direction", "opener"), [("auto", FSI), ("ltr", LRI), ("rtl", RLI)]
-)
+@pytest.mark.parametrize(("direction", "opener"), [("auto", FSI), ("ltr", LRI), ("rtl", RLI)])
 def test_isolate_honours_direction(direction, opener):
     assert isolate("abc", direction) == opener + "abc" + PDI
 
@@ -151,7 +149,15 @@ def test_has_mixed_direction():
 
 @pytest.mark.parametrize(
     ("code", "expected"),
-    [("ar", True), ("ar-eg", True), ("AR_EG", True), ("he", True), ("fa", True), ("en", False), ("en-gb", False)],
+    [
+        ("ar", True),
+        ("ar-eg", True),
+        ("AR_EG", True),
+        ("he", True),
+        ("fa", True),
+        ("en", False),
+        ("en-gb", False),
+    ],
 )
 def test_is_rtl_language(code, expected):
     assert is_rtl_language(code) is expected

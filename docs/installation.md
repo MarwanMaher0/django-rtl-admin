@@ -67,6 +67,10 @@ python manage.py collectstatic --noinput
 python manage.py check
 ```
 
+`collectstatic` copies the package's stylesheet and script into `STATIC_ROOT`,
+so set that to the directory your server serves; Django raises
+`ImproperlyConfigured` if it is unset.
+
 Serve the collected static files as you normally would for Django admin. The
 package itself has no models or migrations. A newly created Django project still
 needs Django's own migrations and a staff/superuser account.

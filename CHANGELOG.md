@@ -6,6 +6,42 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The code base is formatted with `ruff format`, with no behaviour change, and
+  `nox -s lint` (the CI `ruff` job) now runs `ruff format --check .` after
+  `ruff check .`. The check covers the Python code blocks in the Markdown
+  files, so a few README examples were reformatted too. ruff is bounded to
+  `>=0.16,<0.18` in `noxfile.py` and is part of the `test` extra, and a test
+  runs the same format check in every test cell.
+- Every job in `ci.yml`, `docs.yml` and `release.yml` runs on `ubuntu-24.04`
+  instead of `ubuntu-latest`; a test fails if a `-latest` runner comes back.
+- `release.yml` calls `ci.yml` (now a reusable `workflow_call` workflow) and
+  builds the sdist and wheel only after every CI job has passed, for a tag
+  push and for a TestPyPI rehearsal alike. `ci.yml` no longer triggers on
+  `v*` tags itself, so a release tag runs CI and the Coveralls upload once,
+  inside the Release workflow, instead of twice.
+- The workflow tests parse the workflow files with PyYAML instead of matching
+  indentation. The nox test cells install PyYAML so the tests run in CI, and
+  it is in the `test` extra so they also run with a plain `pytest` in a
+  checkout.
+- The README and the installation guide (English and Arabic) say that
+  `collectstatic` needs `STATIC_ROOT`, in the same paragraph as the
+  instruction; a test checks that paragraph.
+- `CONTRIBUTING.md` documents the one-time Settings → Pages → Source: GitHub
+  Actions step that the docs workflow needs, and the `ruff format` check.
+
+### Removed
+
+- `docs/robots.txt`. The documentation is a GitHub Pages project site under
+  `/django-rtl-admin/`, and crawlers only read `robots.txt` at the root of the
+  host, so the file was never fetched. Pages keep their `robots` meta tag,
+  every page now links the sitemap with `<link rel="sitemap">`, and `llms.txt`
+  lists it.
+- The unused `seo_en_path`, `seo_ar_path`, `seo_title_only` and
+  `seo_is_landing` page metadata from the docs build hook; a test now fails if
+  the hook sets a value that no template reads.
+
 ## [0.2.0] - 2026-11-12
 
 ### Added

@@ -205,9 +205,7 @@ def test_numeric_filters_normalize_numeric_strings(
 @pytest.mark.parametrize("use_babel", [True, False])
 @pytest.mark.parametrize("language", ["en", "ar-eg"])
 @pytest.mark.parametrize("value", ["REF-2024", "1,234", "12abc"])
-def test_l10n_number_returns_non_numeric_strings_unchanged(
-    monkeypatch, use_babel, language, value
-):
+def test_l10n_number_returns_non_numeric_strings_unchanged(monkeypatch, use_babel, language, value):
     if not use_babel:
         monkeypatch.setattr(formatting, "HAS_BABEL", False)
     with override_language(language):
@@ -244,9 +242,7 @@ def test_numeric_filters_stringify_non_finite_values(
 @pytest.mark.parametrize(
     "filter_name", ["l10n_number", "l10n_currency", "l10n_percent", "local_digits"]
 )
-def test_filters_return_non_numeric_values_unchanged(
-    monkeypatch, use_babel, language, filter_name
-):
+def test_filters_return_non_numeric_values_unchanged(monkeypatch, use_babel, language, filter_name):
     if not use_babel:
         monkeypatch.setattr(formatting, "HAS_BABEL", False)
     with override_language(language):
@@ -255,9 +251,7 @@ def test_filters_return_non_numeric_values_unchanged(
 
 @pytest.mark.parametrize("use_babel", [True, False])
 @pytest.mark.parametrize("language", ["en", "ar-eg"])
-def test_l10n_number_ignores_an_invalid_decimal_position_argument(
-    monkeypatch, use_babel, language
-):
+def test_l10n_number_ignores_an_invalid_decimal_position_argument(monkeypatch, use_babel, language):
     if not use_babel:
         monkeypatch.setattr(formatting, "HAS_BABEL", False)
     with override_language(language):
@@ -280,12 +274,8 @@ def test_date_and_time_filters_return_empty_for_invalid_values(
 
 
 @pytest.mark.parametrize("use_babel", [True, False])
-@pytest.mark.parametrize(
-    ("language", "expected"), [("en", "REF-2024"), ("ar-eg", "REF-٢٠٢٤")]
-)
-def test_local_digits_accepts_strings_on_both_backends(
-    monkeypatch, use_babel, language, expected
-):
+@pytest.mark.parametrize(("language", "expected"), [("en", "REF-2024"), ("ar-eg", "REF-٢٠٢٤")])
+def test_local_digits_accepts_strings_on_both_backends(monkeypatch, use_babel, language, expected):
     if not use_babel:
         monkeypatch.setattr(formatting, "HAS_BABEL", False)
     with override_language(language):
@@ -474,10 +464,19 @@ def test_font_stack_setting_is_emitted_as_a_custom_property():
         ('"Noto Naskh Arabic", serif', '"Noto Naskh Arabic", serif'),
         ("'Noto Naskh Arabic', serif", '"Noto Naskh Arabic", serif'),
         ("Noto  Naskh   Arabic, Tahoma, sans-serif", '"Noto Naskh Arabic", "Tahoma", sans-serif'),
-        (("Noto Naskh Arabic", "Tahoma", "sans-serif"), '"Noto Naskh Arabic", "Tahoma", sans-serif'),
-        (["'Vazirmatn'", '"Noto Sans Arabic"', "system-ui"], '"Vazirmatn", "Noto Sans Arabic", system-ui'),
+        (
+            ("Noto Naskh Arabic", "Tahoma", "sans-serif"),
+            '"Noto Naskh Arabic", "Tahoma", sans-serif',
+        ),
+        (
+            ["'Vazirmatn'", '"Noto Sans Arabic"', "system-ui"],
+            '"Vazirmatn", "Noto Sans Arabic", system-ui',
+        ),
         (("Noto Naskh Arabic, Tahoma",), '"Noto Naskh Arabic, Tahoma"'),
-        (("Rtl 'Admin' \"Test\"", "C:\\Fonts", " ", "serif"), '"Rtl \'Admin\' \\"Test\\"", "C:\\\\Fonts", serif'),
+        (
+            ("Rtl 'Admin' \"Test\"", "C:\\Fonts", " ", "serif"),
+            '"Rtl \'Admin\' \\"Test\\"", "C:\\\\Fonts", serif',
+        ),
         (('"Half quoted', "'serif'"), '"\\"Half quoted", "serif"'),
         ("-apple-system, BlinkMacSystemFont, Serif", "-apple-system, BlinkMacSystemFont, Serif"),
         ('"serif", ui-monospace', '"serif", ui-monospace'),

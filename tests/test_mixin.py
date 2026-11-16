@@ -80,14 +80,18 @@ def test_boolean_columns_are_left_alone(admin_user):
 
 def test_list_editable_columns_are_left_alone(admin_user):
     model_admin = make_admin(
-        list_display=("name", "reference"), list_display_links=("name",), list_editable=("reference",)
+        list_display=("name", "reference"),
+        list_display_links=("name",),
+        list_editable=("reference",),
     )
     display = model_admin.get_list_display(request_for(admin_user))
     assert display[1] == "reference"
 
 
 def test_excluded_columns_are_left_alone(admin_user):
-    model_admin = make_admin(list_display=("name", "reference"), bidi_isolate_exclude=("reference",))
+    model_admin = make_admin(
+        list_display=("name", "reference"), bidi_isolate_exclude=("reference",)
+    )
     display = model_admin.get_list_display(request_for(admin_user))
     assert display[1] == "reference"
 

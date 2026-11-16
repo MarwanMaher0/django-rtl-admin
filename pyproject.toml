@@ -70,7 +70,7 @@ docs = [
     "mkdocstrings[python]>=0.29,<1",
     "pymdown-extensions>=10.14,<11",
 ]
-test = ["pytest>=8", "pytest-django>=4.8", "Babel>=2.12"]
+test = ["pytest>=8", "pytest-django>=4.8", "Babel>=2.12", "ruff>=0.16,<0.18", "PyYAML>=6"]
 e2e = [
     "pytest>=8",
     "pytest-django>=4.8",

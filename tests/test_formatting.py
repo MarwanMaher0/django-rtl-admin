@@ -122,9 +122,7 @@ FA_1234567_891 = "\u06f1\u066c\u06f2\u06f3\u06f4\u066c\u06f5\u06f6\u06f7\u066b\u
         ("ur-in", FA_1234567_891),
     ],
 )
-def test_format_number_uses_cldr_separators_without_babel(
-    monkeypatch, language, expected
-):
+def test_format_number_uses_cldr_separators_without_babel(monkeypatch, language, expected):
     monkeypatch.setattr(formatting, "HAS_BABEL", False)
     assert format_number(1234567.891, language=language) == expected
 
@@ -155,10 +153,7 @@ def test_format_number_without_babel_rounds_like_babel(monkeypatch):
     assert format_number(decimal.Decimal("2.5"), language="en", decimal_pos=2) == "2.50"
     # Huge inputs expand fully instead of switching to scientific notation.
     assert format_number(10**20, language="en") == "100,000,000,000,000,000,000"
-    assert (
-        format_number(10**20, language="en", decimal_pos=2)
-        == "100,000,000,000,000,000,000.00"
-    )
+    assert format_number(10**20, language="en", decimal_pos=2) == "100,000,000,000,000,000,000.00"
 
 
 BIG_30_DIGITS = decimal.Decimal("123456789012345678901234567890")
@@ -172,10 +167,7 @@ def test_format_number_keeps_every_digit_of_huge_decimals_with_babel():
     # Babel raises InvalidOperation beyond its context precision, so its
     # fallback renderer handles the value; every digit must survive.
     assert format_number(BIG_30_DIGITS, language="en") == BIG_30_DIGITS_EN
-    assert (
-        format_number(BIG_30_DIGITS, language="en", decimal_pos=2)
-        == BIG_30_DIGITS_EN + ".00"
-    )
+    assert format_number(BIG_30_DIGITS, language="en", decimal_pos=2) == BIG_30_DIGITS_EN + ".00"
 
 
 def test_format_number_without_babel_keeps_every_digit_of_huge_decimals(monkeypatch):
@@ -184,10 +176,7 @@ def test_format_number_without_babel_keeps_every_digit_of_huge_decimals(monkeypa
     # default 28-digit precision are not rounded; rounding still applies
     # to the fraction at an explicit position, half-to-even.
     assert format_number(BIG_30_DIGITS, language="en") == BIG_30_DIGITS_EN
-    assert (
-        format_number(BIG_30_DIGITS, language="en", decimal_pos=2)
-        == BIG_30_DIGITS_EN + ".00"
-    )
+    assert format_number(BIG_30_DIGITS, language="en", decimal_pos=2) == BIG_30_DIGITS_EN + ".00"
     assert format_number(BIG_30_SIG_FIGS, language="en") == BIG_30_SIG_FIGS_EN
     assert (
         format_number(BIG_30_SIG_FIGS, language="en", decimal_pos=2)
@@ -256,9 +245,7 @@ def test_format_number_matches_babel_without_it_installed(
 
 @pytest.mark.skipif(not formatting.HAS_BABEL, reason="Babel is not installed")
 @pytest.mark.parametrize("language", ["en", "ar-eg", "dv", "en-in", "kk"])
-def test_ungrouped_format_number_matches_babel_without_it_installed(
-    monkeypatch, language
-):
+def test_ungrouped_format_number_matches_babel_without_it_installed(monkeypatch, language):
     with_babel = format_number(1234567.891, language=language, grouping=False)
     monkeypatch.setattr(formatting, "HAS_BABEL", False)
     without_babel = format_number(1234567.891, language=language, grouping=False)
@@ -314,9 +301,7 @@ def test_format_currency_accepts_numeric_strings(monkeypatch, use_babel, languag
         "-Infinity",
     ],
 )
-def test_format_currency_rejects_non_numeric_input(
-    monkeypatch, use_babel, language, value
-):
+def test_format_currency_rejects_non_numeric_input(monkeypatch, use_babel, language, value):
     if not use_babel:
         monkeypatch.setattr(formatting, "HAS_BABEL", False)
     with pytest.raises(ValueError, match="Currency value must be numeric"):

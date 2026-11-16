@@ -55,8 +55,7 @@ class Book(models.Model):
         max_length=200,
         blank=True,
         help_text=_(
-            "Absolute path inside the archive, for example "
-            "/archive/ar/2024-03-05/file.pdf."
+            "Absolute path inside the archive, for example /archive/ar/2024-03-05/file.pdf."
         ),
     )
     page_count = models.PositiveIntegerField(_("pages"), default=0)

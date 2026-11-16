@@ -89,9 +89,9 @@ Then put the app **above** `django.contrib.admin`, so its template overrides win
 
 ```python
 INSTALLED_APPS = [
-    "django_rtl_admin",      # must come first
+    "django_rtl_admin",  # must come first
     "django.contrib.admin",
-    ...
+    ...,
 ]
 ```
 
@@ -103,9 +103,9 @@ view, which is the standard Django i18n setup:
 ```python
 MIDDLEWARE = [
     "django.contrib.sessions.middleware.SessionMiddleware",
-    "django.middleware.locale.LocaleMiddleware",   # <-- here
+    "django.middleware.locale.LocaleMiddleware",  # <-- here
     "django.middleware.common.CommonMiddleware",
-    ...
+    ...,
 ]
 
 LANGUAGES = [("en", "English"), ("ar-eg", "Arabic (Egypt)")]
@@ -122,6 +122,9 @@ urlpatterns = [
 
 Checks `rtl_admin.W003` and `rtl_admin.W004` flag both of those if they are
 missing, and the switcher renders nothing rather than raising.
+
+When you deploy, set `STATIC_ROOT` and run `python manage.py collectstatic` as
+for any app with static files; that copies the stylesheet and switcher script.
 
 That is the whole installation. Everything below is optional.
 
@@ -163,11 +166,13 @@ alone.
 ```python
 from django_rtl_admin import mark_isolated, format_currency, format_number
 
+
 @admin.display(description="Reference")
 def reference(self, obj):
-    return mark_isolated(obj.reference)     # escaped first, then isolated
+    return mark_isolated(obj.reference)  # escaped first, then isolated
 
-format_number(1234567.891, language="ar-eg")   # '١٬٢٣٤٬٥٦٧٫٨٩١'
+
+format_number(1234567.891, language="ar-eg")  # '١٬٢٣٤٬٥٦٧٫٨٩١'
 format_currency("349.90", "EGP", language="ar-eg")
 ```
 
@@ -357,13 +362,28 @@ invalid choice at runtime also raises `ImproperlyConfigured`.
 ```python
 from django_rtl_admin import (
     BidiSafeAdminMixin,
-    LRI, RLI, FSI, PDI,
-    isolate, isolate_runs, strip_isolates, is_isolated,
-    mark_isolated, mark_isolated_runs,
-    text_direction, has_mixed_direction, is_rtl_language, current_direction,
-    numbering_system, transliterate_digits,
-    format_number, format_currency, format_percent,
-    format_date, format_datetime, format_time,
+    LRI,
+    RLI,
+    FSI,
+    PDI,
+    isolate,
+    isolate_runs,
+    strip_isolates,
+    is_isolated,
+    mark_isolated,
+    mark_isolated_runs,
+    text_direction,
+    has_mixed_direction,
+    is_rtl_language,
+    current_direction,
+    numbering_system,
+    transliterate_digits,
+    format_number,
+    format_currency,
+    format_percent,
+    format_date,
+    format_datetime,
+    format_time,
     rtl_settings,
 )
 ```
@@ -446,6 +466,7 @@ with the package; add their codes to `LANGUAGES` to try them in the demo.
 pip install -e ".[test]"
 pytest
 ruff check .
+ruff format --check .
 ```
 
 The suite covers the isolation helpers across many input shapes, autoescape

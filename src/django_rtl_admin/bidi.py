@@ -55,9 +55,7 @@ ISOLATE_OPENERS = frozenset({LRI, RLI, FSI})
 #: Every character this module ever inserts.
 ISOLATE_CHARS = frozenset({LRI, RLI, FSI, PDI, LRM, RLM})
 #: Every character with the Unicode ``Bidi_Control`` property.
-BIDI_CONTROL_CHARS = frozenset(
-    {ALM, LRM, RLM, LRE, RLE, PDF, LRO, RLO, LRI, RLI, FSI, PDI}
-)
+BIDI_CONTROL_CHARS = frozenset({ALM, LRM, RLM, LRE, RLE, PDF, LRO, RLO, LRI, RLI, FSI, PDI})
 
 _EMBEDDING_OR_OVERRIDE_CHARS = frozenset({LRE, RLE, PDF, LRO, RLO})
 _BIDI_CONTROL_TABLE = str.maketrans("", "", "".join(BIDI_CONTROL_CHARS))
@@ -96,15 +94,9 @@ def rtl_languages() -> frozenset[str]:
     codes = {
         code
         for code in settings.LANGUAGES_BIDI
-        if isinstance(code, str)
-        and code == code.lower()
-        and "-" not in code
-        and "_" not in code
+        if isinstance(code, str) and code == code.lower() and "-" not in code and "_" not in code
     }
-    codes.update(
-        extra.replace("_", "-").lower()
-        for extra in rtl_settings.EXTRA_RTL_LANGUAGES
-    )
+    codes.update(extra.replace("_", "-").lower() for extra in rtl_settings.EXTRA_RTL_LANGUAGES)
     return frozenset(codes)
 
 
@@ -121,10 +113,7 @@ def is_rtl_language(language_code: str | None = None) -> bool:
     base = code.split("-", 1)[0]
     if base in settings.LANGUAGES_BIDI:
         return True
-    extras = {
-        extra.replace("_", "-").lower()
-        for extra in rtl_settings.EXTRA_RTL_LANGUAGES
-    }
+    extras = {extra.replace("_", "-").lower() for extra in rtl_settings.EXTRA_RTL_LANGUAGES}
     return code in extras or base in extras
 
 
@@ -154,9 +143,7 @@ def _resolve_direction(direction: str | None) -> str:
     if direction in (None, "", "default"):
         direction = rtl_settings.ISOLATION_DIRECTION
     if direction not in _OPENER_FOR:
-        raise ValueError(
-            f"direction must be one of 'auto', 'ltr', 'rtl'; got {direction!r}"
-        )
+        raise ValueError(f"direction must be one of 'auto', 'ltr', 'rtl'; got {direction!r}")
     return direction
 
 
@@ -208,9 +195,7 @@ def is_isolated(value: str) -> bool:
     return depth == 0
 
 
-def mark_isolated(
-    value: Any, direction: str | None = None, autoescape: bool = True
-) -> SafeString:
+def mark_isolated(value: Any, direction: str | None = None, autoescape: bool = True) -> SafeString:
     """Escape ``value`` if needed, wrap it in an isolate, return a ``SafeString``.
 
     This is the helper to reach for in ``ModelAdmin`` display methods and
@@ -293,9 +278,7 @@ def isolate_runs(value: str, base: str | None = None) -> str:
     return "".join(out)
 
 
-def mark_isolated_runs(
-    value: Any, base: str | None = None, autoescape: bool = True
-) -> SafeString:
+def mark_isolated_runs(value: Any, base: str | None = None, autoescape: bool = True) -> SafeString:
     """HTML-safe :func:`isolate_runs`.
 
     Isolation happens on the *raw* text and escaping afterwards, so an isolate

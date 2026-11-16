@@ -30,6 +30,7 @@ python manage.py runserver
 ```bash
 pytest
 ruff check .
+ruff format --check .            # "ruff format ." rewrites the files
 # type checking (mypy --strict with django-stubs, configured in pyproject.toml):
 pip install -e ".[typecheck]" && mypy src
 # the fallback path, without Babel:
@@ -50,25 +51,43 @@ pip install nox                          # or run it with: uvx nox
 nox -l                                   # list the cells
 nox -s "tests(py3.12-django5.2)"         # one cell
 nox -s "tests(py3.12-django5.2)" -- -k bidi
+nox -s lint                              # ruff check and ruff format --check
 nox -s typecheck                         # mypy over src/
 nox                                      # every cell, then ruff and mypy
 ```
 
-CI reads the cell list from the noxfile (`nox -l --json`) and runs every cell as a separate
+The `test` extra installs ruff, and `nox -s lint` runs both `ruff check .` and
+`ruff format --check .`. The formatter's output changes between ruff minor releases, so the
+range is bounded (`RUFF` in `noxfile.py`, repeated in the `test` extra); widen both together and
+run `ruff format .` when you move to a newer ruff. `tests/test_packaging.py` runs the same
+format check, so a test cell fails too if a file drifts.
+
+CI runs on every pull request and on every push to `main`, and can be started by hand. It has
+no tag trigger of its own: for a `v*` tag the Release workflow calls it (see
+[Releasing](#releasing)), so a release runs CI, and uploads coverage, once. CI reads the cell
+list from the noxfile (`nox -l --json`) and runs every cell as a separate
 job, so adding a version to `noxfile.py` is all that is needed to add it to CI. Coverage must
 stay at or above `fail_under = 95` in `pyproject.toml` (`--fail-under=91` on the single
 no-Babel cell, where Babel's branches in `formatting.py` do not run). Every job writes its
 coverage table to the job summary; the Python 3.13 / Django 5.2 job also uploads the report as
 an artifact and publishes it to [Coveralls](https://coveralls.io/github/MarwanMaher0/django-rtl-admin),
 which authenticates with the workflow's own `GITHUB_TOKEN` and needs no repository secret. CI
-also runs ruff, runs mypy (`nox -s typecheck`), checks that the wheel carries the templates,
+also runs ruff (`nox -s lint`: lint rules and `ruff format --check`), runs mypy
+(`nox -s typecheck`), checks that the wheel carries the templates,
 static files, translations and `py.typed`, and builds the sdist (including `noxfile.py`,
 `CONTRIBUTING.md` and `SECURITY.md`), unpacks it in a temporary directory, installs it and runs
 `pytest -m "not e2e"` there.
 
 All GitHub Actions in `.github/workflows/` are pinned by full 40-character commit SHA with a
 `# vX.Y.Z` version comment, and `.github/dependabot.yml` groups weekly updates for
-`github-actions` and `pip`.
+`github-actions` and `pip`. Every job in `ci.yml`, `docs.yml` and `release.yml` runs on
+`ubuntu-24.04`, never `ubuntu-latest`, so a runner image change is a reviewed commit; a test
+fails if a `-latest` label comes back. The workflow tests in `tests/test_packaging.py` parse
+the YAML with PyYAML and are skipped without it. The nox test cells install it, which is what
+makes those tests run in CI. It is also in the `test` extra, although nothing else needs it,
+so that a plain `pytest` in a checkout set up with `pip install -e ".[test]"` runs them too
+and a workflow mistake shows up before you push. In an unpacked sdist there is no
+`.github/` directory, so they are skipped there whether PyYAML is installed or not.
 
 ### Browser tests
 
@@ -89,7 +108,9 @@ CI runs them once, on the newest Python/Django pair, and uploads the screenshots
 
 ## Style
 
-- ruff, with the rules and line length in `pyproject.toml`.
+- ruff, with the rules and line length in `pyproject.toml`, for linting and for formatting:
+  run `ruff format .` before you commit. CI rejects a file that `ruff format --check .` would
+  change, including the Python code blocks in the Markdown files.
 - The package ships `py.typed`, so its annotations are part of the public API. Annotate every
   new function and keep `nox -s typecheck` clean by fixing what mypy reports; a `# type: ignore`
   needs an error code and a comment saying why it cannot be avoided.
@@ -117,14 +138,21 @@ Security problems go through [SECURITY.md](SECURITY.md), not a public issue.
 Maintainers only. `.github/workflows/release.yml` publishes with PyPI
 [trusted publishing](https://docs.pypi.org/trusted-publishers/): GitHub Actions gets a
 short-lived OIDC token for each run, so no API token is stored in the repository or its
-secrets. The workflow builds the sdist and wheel once, runs `twine check`, keeps them as the
-`dist` artifact, and then publishes that same artifact:
+secrets. The workflow first calls `ci.yml` (`workflow_call`) and waits for every CI job to
+pass. Only then does it build the sdist and wheel once, run `twine check`, keep them as the
+`dist` artifact, and publish that same artifact:
 
 - **Pushing a `v*` tag** publishes to PyPI, through the `pypi` environment.
 - **Running the workflow by hand** (Actions → Release → Run workflow) publishes to TestPyPI,
   through the `testpypi` environment. Use it to rehearse a release.
 
 The publish step also uploads signed PEP 740 attestations for each file.
+
+A called workflow sees the caller's `github.workflow`, so `ci.yml` prefixes its concurrency
+group with `ci-`. Keep the two groups different: with the same group the release run would
+cancel itself. `ci.yml` must not get a `tags` trigger back either: the Release workflow already
+runs it for the tag, and a second trigger would run the whole matrix and the Coveralls upload
+twice. Tests cover both.
 
 ### One-time setup
 
@@ -148,6 +176,22 @@ The publish step also uploads signed PEP 740 attestations for each file.
 
 The workflow file name and environment name must match exactly; if either is renamed, update
 the publisher on PyPI and TestPyPI, or publishing fails with an `invalid-publisher` error.
+
+### One-time setup for the documentation site
+
+1. **GitHub Pages.** In Settings → Pages, under "Build and deployment", set **Source** to
+   **GitHub Actions**. `.github/workflows/docs.yml` publishes the documentation with
+   `actions/configure-pages` and `actions/deploy-pages`, and until this is set
+   `configure-pages` fails because the repository has no Pages site. GitHub creates the
+   `github-pages` environment itself on the first deployment. After that, every push to `main`
+   builds the site with `mkdocs build --strict` and deploys it to
+   <https://marwanmaher0.github.io/django-rtl-admin/>.
+2. **Sitemap.** The documentation is a project site under `/django-rtl-admin/`, and crawlers
+   only request `robots.txt` from the root of the host, so the site ships no `robots.txt`
+   and cannot announce its sitemap there. Submit
+   <https://marwanmaher0.github.io/django-rtl-admin/sitemap.xml> once in Google Search Console
+   and Bing Webmaster Tools. Every page also links it with `<link rel="sitemap">`, and
+   `llms.txt` lists it.
 
 ### Cut a release
 
@@ -174,6 +218,8 @@ the publisher on PyPI and TestPyPI, or publishing fails with an `invalid-publish
    git push origin vX.Y.Z
    ```
 
+   The tag starts only the Release workflow, which runs the whole CI workflow on the tag
+   first; nothing is built or published if a CI job fails.
    The build fails if the tag (without its `v`) differs from `version` in `pyproject.toml`.
    Approve the `pypi` deployment when GitHub asks, then check
    <https://pypi.org/project/django-rtl-admin/>.

@@ -148,9 +148,7 @@ _FALLBACK_GROUP_SIZES: dict[str, tuple[int, ...]] = {
 
 # Reverse lookup: any supported digit -> its value.
 _DIGIT_VALUES: dict[str, int] = {
-    digit: value
-    for digits in DIGITS.values()
-    for value, digit in enumerate(digits)
+    digit: value for digits in DIGITS.values() for value, digit in enumerate(digits)
 }
 
 _DJANGO_DATE_FORMATS = {
@@ -224,14 +222,10 @@ def transliterate_digits(text: str, to: str = "latn") -> str:
         return text
     if to not in DIGITS:
         raise ValueError(
-            f"Unknown numbering system {to!r}; expected one of "
-            f"{', '.join(NUMBERING_SYSTEMS)}."
+            f"Unknown numbering system {to!r}; expected one of {', '.join(NUMBERING_SYSTEMS)}."
         )
     target = DIGITS[to]
-    return "".join(
-        target[_DIGIT_VALUES[char]] if char in _DIGIT_VALUES else char
-        for char in text
-    )
+    return "".join(target[_DIGIT_VALUES[char]] if char in _DIGIT_VALUES else char for char in text)
 
 
 def _localize_digits(text: str, language: str | None) -> str:
@@ -239,20 +233,14 @@ def _localize_digits(text: str, language: str | None) -> str:
 
 
 def _localtime(value: Any) -> Any:
-    if (
-        settings.USE_TZ
-        and isinstance(value, datetime.datetime)
-        and timezone.is_aware(value)
-    ):
+    if settings.USE_TZ and isinstance(value, datetime.datetime) and timezone.is_aware(value):
         return timezone.localtime(value)
     return value
 
 
 def _as_decimal(value: Any) -> decimal.Decimal:
     try:
-        number = (
-            value if isinstance(value, decimal.Decimal) else decimal.Decimal(str(value))
-        )
+        number = value if isinstance(value, decimal.Decimal) else decimal.Decimal(str(value))
     except (decimal.InvalidOperation, TypeError, ValueError):
         raise ValueError(f"Value must be numeric, got {value!r}") from None
     if not number.is_finite():
@@ -427,9 +415,7 @@ def format_percent(value: Any, *, language: str | None = None) -> str:
     if locale is not None:
         try:
             return _localize_digits(
-                babel_numbers.format_percent(
-                    value, locale=locale, numbering_system="default"
-                ),
+                babel_numbers.format_percent(value, locale=locale, numbering_system="default"),
                 language,
             )
         except Exception:  # pragma: no cover - defensive

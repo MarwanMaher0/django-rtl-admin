@@ -2,6 +2,7 @@
 
     nox -l                          list the cells
     nox                             run them all, then ruff and mypy
+    nox -s lint                     ruff check and ruff format --check
     nox -s "tests(py3.12-django5.2)"
     nox -s "tests(py3.12-django5.2)" -- -k bidi
     nox -s e2e                      Playwright browser tests, newest pair only
@@ -39,6 +40,8 @@ DJANGO_PYTHONS = {
 # The one cell that also runs without Babel, to exercise the fallback path.
 NO_BABEL_CELL = ("3.12", "5.2")
 
+RUFF = "ruff>=0.16,<0.18"
+
 
 def _cells() -> list[nox.param]:
     cells = []
@@ -65,6 +68,8 @@ def tests(session: nox.Session, django: str, babel: bool) -> None:
         "pytest>=8",
         "pytest-django>=4.8",
         "coverage[toml]>=7.5",
+        RUFF,
+        "PyYAML>=6",
     ]
     if babel:
         requirements.append("Babel>=2.12")
@@ -132,9 +137,10 @@ def e2e(session: nox.Session) -> None:
 
 @nox.session
 def lint(session: nox.Session) -> None:
-    """ruff, with the rules in pyproject.toml."""
-    session.install("ruff")
+    """ruff check and ruff format --check, with the rules in pyproject.toml."""
+    session.install(RUFF)
     session.run("ruff", "check", ".")
+    session.run("ruff", "format", "--check", ".")
 
 
 @nox.session(python=PYTHONS[-1])
