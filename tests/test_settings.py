@@ -8,6 +8,7 @@ from django_rtl_admin.conf import DEFAULTS, RTLAdminSettings, rtl_settings
 
 
 def test_every_default_is_readable():
+    assert DEFAULTS["ISOLATE_READONLY_FIELDS"] is True
     for key, value in DEFAULTS.items():
         assert getattr(rtl_settings, key) == value
 

@@ -1,6 +1,6 @@
 ---
 title: Configuration reference | django-rtl-admin
-description: Configure all 13 RTL_ADMIN settings for logical styling, Unicode isolation, numeral systems, Babel formatting, and admin language-switcher behavior.
+description: Configure all 14 RTL_ADMIN settings for logical styling, Unicode isolation, numeral systems, Babel formatting, and admin language-switcher behavior.
 ---
 
 # Configuration
@@ -19,7 +19,7 @@ RTL_ADMIN = {
 
 ## Complete settings reference
 
-These are all 13 supported keys, defined in `django_rtl_admin.conf.DEFAULTS`.
+These are all 14 supported keys, defined in `django_rtl_admin.conf.DEFAULTS`.
 
 | Key | Default | Effect |
 | --- | --- | --- |
@@ -27,7 +27,8 @@ These are all 13 supported keys, defined in `django_rtl_admin.conf.DEFAULTS`.
 | `FONT_STACK` | `None` | Override `--rtl-admin-font-stack` with a string or sequence of family names; `None` retains the shipped stack. |
 | `EXTRA_RTL_LANGUAGES` | `()` | Add language codes to the RTL languages already in Django's `LANGUAGES_BIDI`. |
 | `ISOLATION_DIRECTION` | `"auto"` | Default whole-value isolate: `"auto"` (FSI), `"ltr"` (LRI), or `"rtl"` (RLI). |
-| `ISOLATE_CHANGELIST` | `True` | Enable isolation in admins that explicitly use `BidiSafeAdminMixin`, unless overridden per admin. |
+| `ISOLATE_CHANGELIST` | `True` | Enable changelist isolation in admins that explicitly use `BidiSafeAdminMixin`, unless overridden per admin. |
+| `ISOLATE_READONLY_FIELDS` | `True` | Enable run-level isolation for change-form `readonly_fields` in admins that explicitly use `BidiSafeAdminMixin`, unless overridden per admin. |
 | `ISOLATE_TABLE_CELLS` | `True` | Add the body class enabling CSS isolation for changelist cells and related navigation/data containers. |
 | `PLAINTEXT_FORM_FIELDS` | `True` | Add the body class enabling first-strong plaintext direction for text-like inputs and textareas. |
 | `NUMERALS` | `"auto"` | Follow the locale's numbering system, or force `"latn"`, `"arab"`, or `"arabext"` in the formatting helpers. |
@@ -119,9 +120,10 @@ parenthesized half of `"both"` language labels, and mixin wrappers without a
 per-admin direction. `bidi_runs` instead defaults to the active language's
 direction.
 
-`ISOLATE_CHANGELIST` does nothing to a plain `ModelAdmin`: opt in with the
-[admin mixin](admin-mixin.md). Its `bidi_isolate_changelist` attribute overrides
-the global switch. CSS isolation and Unicode isolation are independent, so
+`ISOLATE_CHANGELIST` and `ISOLATE_READONLY_FIELDS` do nothing to a plain
+`ModelAdmin`: opt in with the [admin mixin](admin-mixin.md). Its
+`bidi_isolate_changelist` and `bidi_isolate_readonly` attributes override the
+global switches. CSS isolation and Unicode isolation are independent, so
 disabling one does not disable the other.
 
 ## Numbers, currencies, and Babel

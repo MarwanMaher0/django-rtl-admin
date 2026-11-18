@@ -9,6 +9,7 @@ class BidiThingAdmin(BidiSafeAdminMixin, admin.ModelAdmin):
     list_display = ("name", "name_ar", "reference", "quantity", "is_active", "upper_name")
     list_filter = ("is_active",)
     search_fields = ("name", "reference")
+    readonly_fields = ("note",)
 
     @admin.display(description="Upper", ordering="name")
     def upper_name(self, obj):
@@ -50,11 +51,12 @@ class BookAdmin(BidiSafeAdminMixin, admin.ModelAdmin):
     autocomplete_fields = ("category",)
     actions = ("mark_published",)
     inlines = (ChapterInline, ReviewInline)
+    readonly_fields = ("archive_note",)
     fieldsets = (
         (
             None,
             {
-                "fields": ("title", "isbn", "category", "status"),
+                "fields": ("title", "isbn", "category", "status", "archive_note"),
                 "description": "Bibliographic details, exactly as on the title page.",
             },
         ),

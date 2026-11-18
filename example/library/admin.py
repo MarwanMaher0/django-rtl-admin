@@ -62,9 +62,10 @@ class PublisherAdmin(BidiSafeAdminMixin, admin.ModelAdmin):
 class BookAdmin(BidiSafeAdminMixin, admin.ModelAdmin):
     """A stock ModelAdmin plus one mixin.
 
-    ``BidiSafeAdminMixin`` isolates every changelist cell, so the ISBN, the
-    edition string, the catalogue path and the date stop being reordered when
-    the admin is shown in Arabic.
+    ``BidiSafeAdminMixin`` isolates every changelist cell and embedded runs in
+    read-only fields, so the ISBN, the edition string, the catalogue path, the
+    archive note and the date stop being reordered when the admin is shown in
+    Arabic.
     """
 
     list_display = (
@@ -84,7 +85,7 @@ class BookAdmin(BidiSafeAdminMixin, admin.ModelAdmin):
     ordering = ("-published_on",)
     inlines = [ChapterInline]
     autocomplete_fields = ("publisher",)
-    readonly_fields = ("added_at",)
+    readonly_fields = ("archive_note", "added_at")
     fieldsets = (
         (None, {"fields": (("title_en", "title_ar"), ("author_en", "author_ar"))}),
         (
@@ -95,6 +96,7 @@ class BookAdmin(BidiSafeAdminMixin, admin.ModelAdmin):
                     "isbn",
                     "edition",
                     "catalogue_path",
+                    "archive_note",
                     ("page_count", "price"),
                 ),
                 "description": _(
