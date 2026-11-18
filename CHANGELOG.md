@@ -20,9 +20,21 @@ All notable changes to this project are documented here. The format follows
   Opt out globally with `RTL_ADMIN["ISOLATE_READONLY_FIELDS"] = False`, per
   admin with `bidi_isolate_readonly = False`, or per field/callable with
   `bidi_isolate_exclude`.
+- Computed-style browser coverage for README defects 1, 2, 3, 4, 5, 6, 8 and
+  selected rules from 10, reusing the existing e2e suite at 1280px in `ar-eg`
+  and `en` with package CSS enabled and disabled. Explicit expectations record
+  existing LTR differences and stock-parity exceptions for already-mirrored
+  sidebar chevrons and Django 6.1 help padding, rather than claiming a negative
+  control for every case. ([#3](https://github.com/MarwanMaher0/django-rtl-admin/issues/3))
 
 ### Changed
 
+- The nox/CI e2e matrix now covers Django 5.2 and the newest series (currently
+  6.1) on Python 3.14, with CI deriving sessions from nox and uploading
+  session-specific screenshot artifacts. `CONTRIBUTING.md` documents both
+  sessions and a one-defect command; the English and Arabic RTL-defect guides
+  map README numbers to tests and document measured exceptions and coverage
+  limits. ([#3](https://github.com/MarwanMaher0/django-rtl-admin/issues/3))
 - The code base is formatted with `ruff format`, with no behaviour change, and
   `nox -s lint` (the CI `ruff` job) now runs `ruff format --check .` after
   `ruff check .`. The check covers the Python code blocks in the Markdown

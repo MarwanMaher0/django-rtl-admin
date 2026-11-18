@@ -5,7 +5,7 @@
     nox -s lint                     ruff check and ruff format --check
     nox -s "tests(py3.12-django5.2)"
     nox -s "tests(py3.12-django5.2)" -- -k bidi
-    nox -s e2e                      Playwright browser tests, newest pair only
+    nox -s e2e                      Playwright on Python 3.14, LTS and newest Django
     nox -s typecheck                mypy --strict over src/, with django-stubs
 
 Each test cell installs the package, pytest and one Django series, runs the
@@ -104,17 +104,22 @@ def tests(session: nox.Session, django: str, babel: bool) -> None:
             fh.write(f"### Coverage: `{session.name}`\n\n{table}\n")
 
 
-@nox.session(python=PYTHONS[-1])
-def e2e(session: nox.Session) -> None:
-    """Playwright browser tests, Arabic and English, on the newest Python/Django.
+@nox.session
+@nox.parametrize(
+    "python,django",
+    [nox.param("3.14", django, id=f"py3.14-django{django}") for django in ("5.2", DJANGOS[-1])],
+)
+def e2e(session: nox.Session, django: str) -> None:
+    """Playwright browser tests on Python 3.14 with LTS and newest Django.
 
-    Screenshots land in test-artifacts/e2e/. In CI the browser's system
-    libraries are installed too (``playwright install --with-deps``).
+    Both Arabic and English are tested. Screenshots land in test-artifacts/e2e/.
+    In CI the browser's system libraries are installed too
+    (``playwright install --with-deps``).
     """
     session.install(
         "-e",
         ".",
-        f"Django~={DJANGOS[-1]}.0",
+        f"Django~={django}.0",
         "pytest>=8",
         "pytest-django>=4.8",
         "Babel>=2.12",

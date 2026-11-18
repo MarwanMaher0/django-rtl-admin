@@ -181,7 +181,7 @@ def open_admin(browser, live_server, live_server_app, e2e_data, request, artifac
         context = browser.new_context(
             viewport={"width": width, "height": VIEWPORT_HEIGHT},
             color_scheme=scheme,
-            locale="ar-EG" if lang == "ar" else "en-US",
+            locale="ar-EG" if lang in {"ar", "ar-eg"} else "en-US",
             base_url=live_server.url,
         )
         contexts.append(context)

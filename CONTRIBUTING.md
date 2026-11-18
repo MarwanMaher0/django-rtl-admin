@@ -96,15 +96,29 @@ and a workflow mistake shows up before you push. In an unpacked sdist there is n
 screenshot is written to `test-artifacts/e2e/` (git-ignored) so you can look at what the
 assertions saw. Without Playwright installed the directory is skipped.
 
+`tests/e2e/test_computed_styles.py` reuses that suite for README defects 1, 2, 3, 4, 5, 6,
+8 and selected rules from 10 (issue #3). It measures computed styles at 1280px in `ar-eg`
+and `en`, with `ENABLE_CSS` enabled and disabled on the server. Expectations pin both
+stock and package values, with explicit LTR deviations and stock-parity exceptions:
+sidebar chevrons already mirror through Unicode, and Django 6.1 already removed the
+help-text double padding. Those cases do not claim a failing stock negative control.
+Computed styles alone do not prove visual punctuation placement for defect 7 (labels)
+or 9 (input paths); `test_change_form` separately checks label geometry, not path
+punctuation. See [the coverage table](docs/rtl-defects.md#computed-style-coverage) for
+exact test names, measured properties and limitations.
+
 ```bash
-nox -s e2e                               # newest Python/Django, installs Chromium itself
-# or in your own virtualenv:
+nox -s e2e                               # both Django 5.2 and newest (6.1), Python 3.14; installs Chromium
+nox -s "e2e(py3.14-django5.2)" -- -k test_defect_1_addlink_icon_and_padding
+# or in your own virtualenv (uses its installed Python/Django):
 pip install -e ".[e2e]" && python -m playwright install chromium
 RTL_ADMIN_E2E=1 pytest tests/e2e
 ```
 
-CI runs them once, on the newest Python/Django pair, and uploads the screenshots as the
-`e2e-screenshots` artifact even when a test fails.
+CI derives its e2e matrix from `nox -l --json -s e2e`, runs both sessions, and uploads
+screenshots even when a test fails. Artifact names are
+`e2e-screenshots-${{ matrix.session }}` — for example,
+`e2e-screenshots-e2e(py3.14-django5.2)` and `e2e-screenshots-e2e(py3.14-django6.1)`.
 
 ## Style
 

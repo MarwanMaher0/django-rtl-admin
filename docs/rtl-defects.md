@@ -1,6 +1,6 @@
 ---
 title: Stock admin RTL defects | django-rtl-admin
-description: Review source-level before-and-after fixes for Django 5.2 admin RTL spacing, mixed-direction text, CSS isolation, and the package's documented limitations.
+description: Review Django admin RTL fixes with computed-style coverage on Django 5.2 and 6.1, explicit stock-parity and LTR exceptions, and documented limitations.
 ---
 
 # Stock admin RTL defects
@@ -12,11 +12,18 @@ helpers; it does not introduce RTL support from scratch.
 
 ## Scope of this comparison
 
-This page compares the package stylesheet with Django's **`stable/5.2.x` source**.
-It describes matching selectors and declarations, not a fresh browser measurement
-or a verification of every supported Django release. Desktop rules are the
-baseline unless stated otherwise. Responsive styles, custom markup, browser bidi
-behavior, and later Django versions can change the result.
+The source comparison below uses Django's **`stable/5.2.x` source**. It is now
+complemented by `getComputedStyle` assertions in
+`tests/e2e/test_computed_styles.py` (issue #3), using the existing live-server and
+Chromium suite at **1280px**, in **`ar-eg` and `en`**, with `ENABLE_CSS` both enabled
+and disabled. The nox/CI browser matrix runs **Django 5.2 and the newest series,
+currently 6.1, on Python 3.14**.
+
+The numbered coverage table distinguishes measured corrections from stock-parity
+checks and records version differences. It does not verify every supported Django
+release, responsive breakpoint, custom template, or rendered punctuation sequence.
+Disabling `ENABLE_CSS` supplies the stock CSS baseline; other package integration
+remains in place.
 
 The main package source is
 `src/django_rtl_admin/static/django_rtl_admin/css/rtl-admin.css`. The stock sources
@@ -59,8 +66,8 @@ markup is present. Source locations refer to `rtl-admin.css`.
 | Filtered changelist header cells | `changelists.css` widens `tbody th` with an unmirrored `padding-right: 1em`, which lands on the start edge in RTL. | Cells keep the stock base padding on both physical sides — 8px, widened to the responsive 10px at or below 1024px by a matching media query — and move the 1em to inline-end. | 549–564 |
 
 The M2M choose-all/clear-all rules also change `text-align: left` to `start`
-(lines 822–825). That is a verified declaration change, not proof of a noticeable
-visual difference for every button width.
+(lines 822–825). The computed suite verifies right alignment in RTL and stock
+left alignment in LTR, not a noticeable visual difference for every button width.
 
 The dashboard and changelist rules above must compound `rtl-admin` with the stock
 body classes: Django puts `dashboard` or `change-list` on the same `<body>` that
@@ -70,6 +77,37 @@ the gaps their boxes actually paint, measured with probe and text-range
 rectangles rather than computed styles — in Arabic and English, in both colour
 schemes, at 360px and 1280px
 (`test_dashboard_action_link_padding`, `test_filtered_changelist_table_geometry`).
+
+### Computed-style coverage
+
+The README numbers below map to `tests/e2e/test_computed_styles.py`. These are
+explicit computed-value contracts, not screenshot comparisons. Each test checks
+both languages with CSS on and off; a stock RTL negative control is required
+except for the documented parity cases (5, and 6 on Django 6.1).
+
+| README defect | Test | Measured contract |
+| --- | --- | --- |
+| 1 — Add icon and padding | `test_defect_1_addlink_icon_and_padding` | RTL background position changes from `calc(100% - 7px) 50%` to `7px 50%`; inline-start/end padding changes from 26px/12px to 12px/26px. |
+| 2 — Object-tools items | `test_defect_2_object_tools_float_and_margin` | The first item's float becomes inline-start and its 5px margin moves to inline-start. Django 5.2 stock uses `float: left` and a 5px left margin; Django 6.1 stock uses `float: none` and zero margins. |
+| 3 — Action dropdown | `test_defect_3_actions_select_margin` | RTL left/right margins change from 10px/0 to 0/10px. |
+| 4 — Date/time inputs | `test_defect_4_datetime_input_margins` | Both halves of the split widget get RTL left/right margins of 5px/0, replacing stock 5px/2px on Django 5.2 or 0/2px on Django 6.1. |
+| 5 — Sidebar chevrons | `test_defect_5_sidebar_toggle_chevrons` | Expanded and collapsed `::before` content, direction, `unicode-bidi` and transform remain stock; no negative control is claimed. See [Sidebar chevrons](#sidebar-chevrons). |
+| 6 — Help padding | `test_defect_6_help_text_padding` | Django 5.2 RTL left/right padding changes from 10px/10px to 0/10px. Django 6.1 is already corrected upstream: both sides remain 0 with CSS on or off in both languages, so this is a parity check, not a negative control. |
+| 8 — Inner help text | `test_defect_8_inner_help_text_unicode_bidi` | The actual inner help `<div>` changes from `unicode-bidi: isolate` to `plaintext` in both languages. This checks the non-inherited property, not the rendered position of a full stop. |
+| 10 — Selected unmirrored rules | `test_defect_10_unmirrored_rules` | Parameters: `colsm` (column margins, main/sidebar floats and sidebar offset), `related-lookup` (5px margin), `chooseall` and `clearall` (text alignment), `radiolist` (7px padding), `sortremove` (`::after` inset: left 3px stock, right 3px with RTL package CSS). |
+
+Defect 10 covers those six parameters, not every selector listed in the README.
+The `.colSM` case uses a tiny test template extending the stock index and overriding
+only its `coltype` block. Raw-ID lookup and radio cases temporarily monkeypatch the
+existing `BookAdmin` to use `Book.category` and `Book.status`; the M2M cases use the
+existing auth `Group.permissions` widget. No new model fields are needed.
+
+README defects **7 (label punctuation)** and **9 (input-path punctuation)** are
+outside this computed-style suite: computed declarations alone do not establish
+visual punctuation correctness. The existing `test_change_form` checks label
+alignment and geometry relative to fields; it does not establish input-path
+punctuation coverage. The source-level examples below are not additional visual
+assertions.
 
 ### Punctuation and mixed-direction form content
 
@@ -112,18 +150,34 @@ physical declaration lacks a literal RTL counterpart.
 
 ### Sidebar chevrons
 
-The package swaps the literal `«` and `»` pseudo-content at stylesheet lines
-432–440. Both characters have Unicode's mirrored property, so their rendered
-appearance also depends on bidi resolution. The Arabic screenshot below shows
-`«` beside the expanded right-hand sidebar. This page does **not** count the
-content swap as a verified correction of the rendered arrow direction.
+The package deliberately does **not** swap the literal `«` and `»` pseudo-content:
+the browser already mirrors these Unicode characters in RTL. In both languages,
+with package CSS enabled or disabled, `#toggle-nav-sidebar::before` computes
+`content: "«"` when expanded and `content: "»"` when collapsed. Its `direction` is
+`rtl` in `ar-eg` and `ltr` in `en`, with `unicode-bidi: normal` and `transform: none`.
+
+`test_defect_5_sidebar_toggle_chevrons` pins both states and their stock parity.
+This corrects the historical README claim that an unswapped content declaration
+is itself a defect; it is not a negative control or a claim that computed content
+alone measures the painted glyph direction.
 
 ### LTR, fonts, and theme compatibility
 
-Rules scoped to `.rtl-admin` also run in English. Header gaps, search layout,
-datetime margins, and plaintext handling mean the result is not byte-for-byte
-stock admin plus a switcher. The package preserves the stock interface's overall
-appearance rather than guaranteeing all LTR rules are no-ops.
+Rules scoped to `.rtl-admin` also run in English. The computed suite explicitly
+pins these LTR deviations rather than claiming the result is exactly stock:
+
+| Measured element | Stock LTR | Package LTR |
+| --- | --- | --- |
+| Both split date/time inputs | Left/right margins: 5px/2px on Django 5.2; 0/2px on Django 6.1. | Left/right margins: 0/5px on both versions. |
+| Title help text on Django 5.2 | Left/right padding: 10px/3px. | Left/right padding: 10px/0. |
+| Inner help `<div>` | `unicode-bidi: isolate` in both languages and versions. | `unicode-bidi: plaintext` in both languages and versions. |
+| First object-tools item on Django 6.1 | `float: none`; both margins 0. | `float: inline-start` (left in LTR); 5px inline-start margin, 0 at inline-end. |
+
+Django 5.2's stock object-tools item already floats left with a 5px left margin,
+so that LTR case matches. All other **tested LTR values** match stock after
+resolving logical float and text-alignment keywords to physical sides. This is
+not a guarantee that every package rule is an LTR no-op: header gaps, search
+layout and other unmeasured properties remain outside that parity claim.
 
 The font stack names installed fallback fonts; it does not ship font files or
 establish that stock Arabic or Hebrew rendering always lacks glyphs. Third-party
@@ -160,8 +214,8 @@ number or date.
 ## Existing example screenshots
 
 These are two existing **package-enabled** changelist screenshots, not a
-stock-before/package-after pair. No stock-before screenshots or fresh computed
-style measurements accompany this comparison.
+stock-before/package-after pair. They are not the evidence for the computed-style
+contracts above; those use live browser measurements with CSS enabled and disabled.
 
 ![Package-enabled English admin showing Arabic book data, identifiers, and the language switcher](admin-en.png)
 

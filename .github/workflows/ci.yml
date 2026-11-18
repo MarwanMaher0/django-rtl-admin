@@ -24,6 +24,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       sessions: ${{ steps.list.outputs.sessions }}
+      e2e_sessions: ${{ steps.list_e2e.outputs.sessions }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
@@ -31,6 +32,15 @@ jobs:
         name: List the test sessions
         run: |
           sessions="$(uvx nox -l --json -s tests | python3 -c '
+          import json, sys
+          print(json.dumps([s["session"] for s in json.load(sys.stdin)]))
+          ')"
+          echo "$sessions"
+          echo "sessions=$sessions" >> "$GITHUB_OUTPUT"
+      - id: list_e2e
+        name: List the e2e sessions
+        run: |
+          sessions="$(uvx nox -l --json -s e2e | python3 -c '
           import json, sys
           print(json.dumps([s["session"] for s in json.load(sys.stdin)]))
           ')"
@@ -78,21 +88,26 @@ jobs:
           format: lcov
 
   e2e:
-    name: browser tests (newest Python/Django)
+    name: ${{ matrix.session }}
+    needs: matrix
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        session: ${{ fromJSON(needs.matrix.outputs.e2e_sessions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true
       - name: Run Playwright against the admin in Arabic and English
-        run: uvx nox -s e2e
+        run: uvx nox -s "${{ matrix.session }}"
       - name: Upload the screenshots
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: e2e-screenshots
+          name: e2e-screenshots-${{ matrix.session }}
           path: test-artifacts/e2e/
           if-no-files-found: ignore
 
