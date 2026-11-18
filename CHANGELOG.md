@@ -6,6 +6,21 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Read-only field isolation on the change form ([#1](https://github.com/MarwanMaher0/django-rtl-admin/issues/1)).**
+  `BidiSafeAdminMixin` now isolates embedded opposite-direction runs inside
+  `readonly_fields` display values on the change form (and in view-only mode and
+  mixin-enabled inlines) via `render_change_form` and `mark_isolated_runs()`,
+  without overriding `admin/includes/fieldset.html`. Each paragraph line's first
+  strong character sets the base direction (falling back to the active UI
+  direction), so paths, version strings and hyphenated dates inside Arabic prose
+  render in left-to-right order in both RTL and LTR admins while field labels,
+  help text, CSS classes, boolean icons and `SafeString` HTML stay unchanged.
+  Opt out globally with `RTL_ADMIN["ISOLATE_READONLY_FIELDS"] = False`, per
+  admin with `bidi_isolate_readonly = False`, or per field/callable with
+  `bidi_isolate_exclude`.
+
 ## [0.2.0] - 2026-11-12
 
 ### Added

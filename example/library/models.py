@@ -55,9 +55,14 @@ class Book(models.Model):
         max_length=200,
         blank=True,
         help_text=_(
-            "Absolute path inside the archive, for example "
-            "/archive/ar/2024-03-05/file.pdf."
+            "Absolute path inside the archive, for example /archive/ar/2024-03-05/file.pdf."
         ),
+    )
+    archive_note = models.CharField(
+        _("archive note"),
+        max_length=250,
+        blank=True,
+        help_text=_("Read-only provenance note mixing Arabic prose with an archive path and date."),
     )
     page_count = models.PositiveIntegerField(_("pages"), default=0)
     price = models.DecimalField(_("price"), max_digits=9, decimal_places=2, default=0)

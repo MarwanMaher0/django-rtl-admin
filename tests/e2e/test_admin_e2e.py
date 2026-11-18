@@ -18,11 +18,17 @@ language that Django's metadata does not mark as RTL, promoted only through
 
 from __future__ import annotations
 
+import os
 import re
+import socket
+import subprocess
+import sys
+import time
+import urllib.request
 
 import pytest
 
-from .conftest import PASSWORD, WIDTHS
+from .conftest import PASSWORD, REPO_ROOT, VIEWPORT_HEIGHT, WIDTHS
 from .layout import (
     assert_controls_inside_viewport,
     assert_mirrored,
@@ -641,6 +647,179 @@ def test_dashboard_action_link_padding(open_admin, lang, scheme):
         assert abs(end_gap - expected_end) <= 1, (
             f"action link end gap {end_gap:.1f} is not {expected_end:.1f}"
         )
+
+
+def _assert_archive_note_visual_order(readonly):
+    assert readonly.is_visible()
+    text = readonly.inner_text()
+    assert "\u2066/srv/archive/2024-03-05\u2069" in text, repr(text)
+
+    rects = readonly.evaluate(
+        """el => {
+          const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+          const node = walker.nextNode();
+          const content = node.textContent;
+          const rectOf = (token) => {
+            const start = content.indexOf(token);
+            if (start < 0) throw new Error(`missing token ${token}`);
+            const range = document.createRange();
+            range.setStart(node, start);
+            range.setEnd(node, start + token.length);
+            const r = range.getBoundingClientRect();
+            return {left: r.left, right: r.right, top: r.top, center_x: r.left + r.width / 2};
+          };
+          return {
+            arabic: rectOf("نُقل"),
+            slash: rectOf("/srv"),
+            archive: rectOf("archive"),
+            year: rectOf("2024"),
+            month: rectOf("03"),
+            day: rectOf("05"),
+          };
+        }"""
+    )
+    # Inside the isolated LTR path run, every segment moves left-to-right:
+    # `/srv` -> `archive` -> `2024` -> `03` -> `05`, while the Arabic prose
+    # precedes the isolated run on the right when on the same line.
+    assert rects["slash"]["center_x"] < rects["archive"]["center_x"], rects
+    assert rects["archive"]["center_x"] < rects["year"]["center_x"], rects
+    assert rects["year"]["center_x"] < rects["month"]["center_x"], rects
+    assert rects["month"]["center_x"] < rects["day"]["center_x"], rects
+    if abs(rects["arabic"]["top"] - rects["slash"]["top"]) <= 4:
+        assert rects["arabic"]["center_x"] > rects["slash"]["center_x"], rects
+
+
+def test_readonly_embedded_path_keeps_visual_order_in_rtl(open_admin, e2e_data):
+    """An embedded path/date inside Arabic prose in a read-only field renders
+    left-to-right on the change form instead of having its leading slash or
+    hyphenated date segments visually reordered."""
+    for lang in LANGS:
+        page = open_admin(change_form(e2e_data["book"]), lang=lang)
+        _assert_archive_note_visual_order(page.locator(".field-archive_note .readonly"))
+
+
+def test_example_book_change_form_readonly_archive_note_in_rtl(browser, snapshot, tmp_path):
+    """Open the example project's Book change form in RTL and verify that its
+    read-only ``archive_note`` keeps the embedded path/date in LTR visual order."""
+    example_dir = REPO_ROOT / "example"
+    db_path = (tmp_path / "example.sqlite3").resolve()
+    log_path = tmp_path / "runserver.log"
+    sqlite_url = f"sqlite:////{db_path.as_posix().lstrip('/')}"
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+
+    scrubbed = {
+        "PORT",
+        "RENDER",
+        "FLY_APP_NAME",
+        "FLY_MACHINE_ID",
+        "DYNO",
+        "K_SERVICE",
+        "ALLOWED_HOSTS",
+        "DJANGO_ALLOWED_HOSTS",
+        "CSRF_TRUSTED_ORIGINS",
+        "DJANGO_CSRF_TRUSTED_ORIGINS",
+    }
+    env = {k: v for k, v in os.environ.items() if k not in scrubbed}
+    env.update(
+        {
+            "DJANGO_SETTINGS_MODULE": "config.settings",
+            "DATABASE_URL": sqlite_url,
+            "SECRET_KEY": "e2e-example-secret-key-not-for-production",
+            "DEBUG": "1",
+            "PYTHONPATH": os.pathsep.join([str(example_dir), str(REPO_ROOT / "src")]),
+        }
+    )
+
+    for cmd in (("migrate", "--noinput"), ("demodata",)):
+        subprocess.run(
+            [sys.executable, str(example_dir / "manage.py"), *cmd],
+            cwd=str(example_dir),
+            env=env,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+    base_url = f"http://127.0.0.1:{port}"
+    with log_path.open("w", encoding="utf-8") as log_file:
+        proc = subprocess.Popen(
+            [
+                sys.executable,
+                str(example_dir / "manage.py"),
+                "runserver",
+                f"127.0.0.1:{port}",
+                "--noreload",
+            ],
+            cwd=str(example_dir),
+            env=env,
+            stdout=log_file,
+            stderr=subprocess.STDOUT,
+        )
+    context = None
+    try:
+        deadline = time.monotonic() + 20
+        while True:
+            if proc.poll() is not None:
+                output = log_path.read_text(encoding="utf-8", errors="replace")
+                raise RuntimeError(f"example runserver exited early:\n{output}")
+            try:
+                with urllib.request.urlopen(f"{base_url}/healthz/", timeout=1) as resp:
+                    if resp.status == 200:
+                        break
+            except Exception:
+                if time.monotonic() >= deadline:
+                    raise
+                time.sleep(0.1)
+
+        context = browser.new_context(
+            viewport={"width": 1280, "height": VIEWPORT_HEIGHT},
+            locale="ar-EG",
+            base_url=base_url,
+        )
+        page = context.new_page()
+        errors: list[str] = []
+        page.on("pageerror", lambda exc: errors.append(str(exc)))
+        page.js_errors = errors
+
+        page.goto("/admin/login/")
+        page.wait_for_load_state("load")
+        with page.expect_navigation():
+            page.locator("#branding .rtl-admin-language-switcher__select").select_option("ar-eg")
+        page.wait_for_load_state("load")
+
+        page.fill("#id_username", "demo")
+        page.fill("#id_password", "demo12345")
+        with page.expect_navigation():
+            page.locator("#login-form [type=submit]").click()
+        page.wait_for_load_state("load")
+
+        page.goto("/admin/library/book/")
+        page.wait_for_load_state("load")
+        with page.expect_navigation():
+            page.locator("#result_list tbody th a", has_text="مقدمة ابن خلدون").click()
+        page.wait_for_load_state("load")
+
+        assert page.locator("html").get_attribute("dir") == "rtl"
+        assert page.locator("html").get_attribute("lang") == "ar-eg"
+        body_class = page.locator("body").get_attribute("class") or ""
+        assert "rtl-admin--rtl" in body_class.split(), body_class
+        assert page.locator("#id_isbn").is_visible()
+        assert not page.js_errors, page.js_errors
+        assert_no_horizontal_overflow(page, "example book change form [ar-eg]")
+
+        _assert_archive_note_visual_order(page.locator(".field-archive_note .readonly"))
+        snapshot(page, "example-change-form-ar-eg")
+    finally:
+        if context is not None:
+            context.close()
+        proc.terminate()
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
 
 
 # -- mirrored icons -----------------------------------------------------------------

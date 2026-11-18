@@ -57,6 +57,11 @@ class Book(models.Model):
     available_from = models.DateTimeField(null=True, blank=True)
     launch_time = models.TimeField(null=True, blank=True)
     price = models.DecimalField(max_digits=9, decimal_places=2, default=0)
+    archive_note = models.CharField(
+        max_length=250,
+        blank=True,
+        help_text="Provenance note with archive path and date.",
+    )
     summary = models.TextField(blank=True, help_text="Shown on the catalogue page.")
 
     class Meta:

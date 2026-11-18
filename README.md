@@ -129,7 +129,7 @@ That is the whole installation. Everything below is optional.
 
 ## Quickstart
 
-### Stop identifiers being reordered in the changelist
+### Stop identifiers being reordered in the changelist and read-only fields
 
 ```python
 from django.contrib import admin
@@ -139,12 +139,15 @@ from django_rtl_admin import BidiSafeAdminMixin
 @admin.register(Book)
 class BookAdmin(BidiSafeAdminMixin, admin.ModelAdmin):
     list_display = ("title_ar", "isbn", "edition", "catalogue_path", "published_on")
+    readonly_fields = ("archive_note",)
 ```
 
-Every cell is now wrapped in a Unicode isolate. Column headers, sort links,
-`column-<name>` CSS classes and the link to the change form are unchanged;
-boolean columns (which render as icons) and anything in `list_editable` are left
-alone.
+Every changelist cell is now wrapped in a Unicode isolate, and embedded
+opposite-direction runs inside `readonly_fields` on the change form are isolated
+too. Column headers, sort links, `column-<name>` / `field-<name>` CSS classes,
+field labels, help text and the link to the change form are unchanged; boolean
+fields (which render as icons), `SafeString` HTML values and anything in
+`list_editable` are left alone.
 
 ### In your own templates
 
@@ -302,6 +305,7 @@ RTL_ADMIN = {
 | `EXTRA_RTL_LANGUAGES` | `()` | Language codes to treat as RTL on top of the ones in Django's `LANGUAGES_BIDI`. |
 | `ISOLATION_DIRECTION` | `"auto"` | Default isolate used by `bidi_isolate` and the mixin: `"auto"` (FSI), `"ltr"` (LRI) or `"rtl"` (RLI). |
 | `ISOLATE_CHANGELIST` | `True` | Let `BidiSafeAdminMixin` isolate changelist cells. |
+| `ISOLATE_READONLY_FIELDS` | `True` | Let `BidiSafeAdminMixin` isolate embedded opposite-direction runs in change-form `readonly_fields`. |
 | `ISOLATE_TABLE_CELLS` | `True` | CSS-level `unicode-bidi: isolate` on changelist cells. |
 | `PLAINTEXT_FORM_FIELDS` | `True` | CSS-level `unicode-bidi: plaintext` on text inputs and textareas. |
 | `NUMERALS` | `"auto"` | Numbering system for the formatting helpers: `"auto"` follows the locale, or force `"latn"`, `"arab"` or `"arabext"`. |
@@ -373,9 +377,10 @@ from django_rtl_admin import (
 | Attribute | Default | What it does |
 | --- | --- | --- |
 | `bidi_isolate_changelist` | `None` | `True`/`False` overrides `RTL_ADMIN["ISOLATE_CHANGELIST"]` for this admin. |
-| `bidi_isolate_fields` | `None` | Restrict isolation to these `list_display` entries. |
-| `bidi_isolate_exclude` | `()` | Leave these entries alone. |
-| `bidi_isolation_direction` | `None` | `"auto"`, `"ltr"` or `"rtl"` for this admin. |
+| `bidi_isolate_readonly` | `None` | `True`/`False` overrides `RTL_ADMIN["ISOLATE_READONLY_FIELDS"]` for this admin. |
+| `bidi_isolate_fields` | `None` | Restrict changelist isolation to these `list_display` entries. |
+| `bidi_isolate_exclude` | `()` | Leave these `list_display` or `readonly_fields` entries alone. |
+| `bidi_isolation_direction` | `None` | `"auto"`, `"ltr"` or `"rtl"` for changelist cells on this admin. |
 
 ### System checks
 

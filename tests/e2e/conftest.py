@@ -148,6 +148,7 @@ def e2e_data(transactional_db):
                 available_from=datetime.datetime(2025, 1, 1, 9, 30, tzinfo=datetime.timezone.utc),
                 launch_time=datetime.time(18, 45),
                 price=Decimal("120.50") + index,
+                archive_note="نُقل الملف إلى /srv/archive/2024-03-05",
                 summary="سيرة ذاتية — an autobiography first published in 1929.",
             )
         )

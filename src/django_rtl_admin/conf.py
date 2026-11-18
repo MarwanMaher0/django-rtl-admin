@@ -42,6 +42,9 @@ DEFAULTS: dict[str, Any] = {
     "ISOLATION_DIRECTION": "auto",
     # Let ``BidiSafeAdminMixin`` isolate changelist cells.
     "ISOLATE_CHANGELIST": True,
+    # Let ``BidiSafeAdminMixin`` isolate embedded opposite-direction runs in
+    # change-form ``readonly_fields``.
+    "ISOLATE_READONLY_FIELDS": True,
     # CSS-level safety net: ``unicode-bidi: isolate`` on changelist cells and
     # read-only values, so a stray mixed-direction value cannot drag its
     # neighbours around.
@@ -91,6 +94,7 @@ class RTLAdminSettings:
         EXTRA_RTL_LANGUAGES: Iterable[str]
         ISOLATION_DIRECTION: str
         ISOLATE_CHANGELIST: bool
+        ISOLATE_READONLY_FIELDS: bool
         ISOLATE_TABLE_CELLS: bool
         PLAINTEXT_FORM_FIELDS: bool
         NUMERALS: str

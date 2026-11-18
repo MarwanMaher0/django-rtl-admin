@@ -159,7 +159,7 @@
           <a class="feature-card featured-card" href="{{ docs }}admin-mixin/">
             <div class="feature-top"><span>02</span><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M10 5H5v22h5m12-22h5v22h-5M12 11h8m-4 0v10m-3 0h6" stroke="currentColor" stroke-width="1.6"/></svg></div>
             <h3>{{ 'قيم مختلطة، بلا فوضى' if is_ar else 'Mixed values, minus the mess' }}</h3>
-            <p>{{ 'يعزل BidiSafeAdminMixin قيم قائمة السجلات المؤهلة بمحارف Unicode عند تفعيله، مع خيارات للحقول والاستثناءات والاتجاه.' if is_ar else 'Opt-in BidiSafeAdminMixin wraps eligible changelist values in Unicode isolates, with field, exclusion, and direction controls.' }}</p>
+            <p>{{ 'يعزل BidiSafeAdminMixin قيم قائمة السجلات وحقول القراءة فقط المؤهلة بمحارف Unicode عند تفعيله، مع خيارات للحقول والاستثناءات والاتجاه.' if is_ar else 'Opt-in BidiSafeAdminMixin wraps eligible changelist and read-only field values in Unicode isolates, with field, exclusion, and direction controls.' }}</p>
             <code dir="ltr">BidiSafeAdminMixin</code>
           </a>
           <a class="feature-card" href="{{ docs }}template-tags/">

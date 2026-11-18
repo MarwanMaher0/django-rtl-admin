@@ -41,8 +41,9 @@ FAQS = {
         (
             "Is Arabic text isolated automatically everywhere?",
             "No. The stylesheet provides CSS isolation and plaintext direction rules. "
-            "Unicode isolation of changelist values is opt-in through BidiSafeAdminMixin; "
-            "custom output can use the template filters or Python helpers.",
+            "Unicode isolation of changelist and read-only change-form values is opt-in "
+            "through BidiSafeAdminMixin; custom output can use the template filters or "
+            "Python helpers.",
         ),
         (
             "Do I need Babel?",
@@ -91,8 +92,8 @@ FAQS = {
         (
             "هل يُعزل النص العربي تلقائيًا في كل مكان؟",
             "لا. توفر ورقة الأنماط عزل CSS وقواعد اتجاه للنص العادي. أما عزل Unicode لقيم "
-            "قوائم السجلات فيتطلب BidiSafeAdminMixin صراحةً، ويمكن للمخرجات المخصصة استخدام "
-            "مرشحات القوالب أو دوال Python.",
+            "قوائم السجلات وحقول القراءة فقط في نموذج التعديل فيتطلب BidiSafeAdminMixin صراحةً، "
+            "ويمكن للمخرجات المخصصة استخدام مرشحات القوالب أو دوال Python.",
         ),
         (
             "هل أحتاج إلى Babel؟",

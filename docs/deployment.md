@@ -7,7 +7,7 @@ description: Run the bilingual Arabic/English demo project locally or in Docker,
 
 The repository ships a complete bilingual demo project under `example/` with
 Arabic and English fields (`Publisher`, `Book`, and `Chapter`), `BidiSafeAdminMixin`
-configured on the changelists, locale-aware currency formatting (`EGP`), and the
+configured on the changelists and read-only change-form fields, locale-aware currency formatting (`EGP`), and the
 header/login language switcher enabled for English (`en`), Arabic (`ar`), and
 Arabic — Egypt (`ar-eg`).
 

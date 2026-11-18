@@ -92,7 +92,7 @@ RTL_ADMIN = {
 }
 ```
 
-See [Configuration](configuration.md) for all 13 supported settings. W002 checks
+See [Configuration](configuration.md) for all 14 supported settings. W002 checks
 key names only; E001 reports invalid choices and W005 reports the type problems
 listed below.
 
@@ -158,7 +158,7 @@ switcher form; it is a separate runtime requirement. Follow
 | `RTL_ADMIN` | A `collections.abc.Mapping` (such as `dict` or `types.MappingProxyType`), or `None` to use the defaults. |
 | `EXTRA_RTL_LANGUAGES` | Must not be a bare string; use a collection of language codes instead. |
 | `FONT_STACK` | `None`, a string, or a sequence of strings such as a list or tuple. |
-| `ENABLE_CSS`, `ISOLATE_CHANGELIST`, `ISOLATE_TABLE_CELLS`, `PLAINTEXT_FORM_FIELDS`, `USE_BABEL`, `LANGUAGE_SWITCHER` | A real `bool` (`True` or `False`), not a truthy or falsy substitute. |
+| `ENABLE_CSS`, `ISOLATE_CHANGELIST`, `ISOLATE_READONLY_FIELDS`, `ISOLATE_TABLE_CELLS`, `PLAINTEXT_FORM_FIELDS`, `USE_BABEL`, `LANGUAGE_SWITCHER` | A real `bool` (`True` or `False`), not a truthy or falsy substitute. |
 
 For example, use `False`, not `"false"` or `0`, for a switch. Omitting
 `RTL_ADMIN` or setting it to `None` uses the defaults. Mapping values are checked

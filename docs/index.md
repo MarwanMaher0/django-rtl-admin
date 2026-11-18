@@ -66,14 +66,14 @@ walks through the complete setup. Babel is optional; the base package works
 without it.
 
 CSS and the switcher integrate through the package's admin template override.
-For Unicode isolation of changelist values, explicitly add
-[BidiSafeAdminMixin](admin-mixin.md) to your admins. Use
+For Unicode isolation of changelist and read-only change-form values, explicitly
+add [BidiSafeAdminMixin](admin-mixin.md) to your admins. Use
 [template filters](template-tags.md) or the [Python API](api.md) where you need
 locale-aware output; ordinary admin columns are not automatically reformatted.
 
 ## Find a reference
 
-- [Configuration](configuration.md): all 13 `RTL_ADMIN` settings, defaults, and effects.
+- [Configuration](configuration.md): all 14 `RTL_ADMIN` settings, defaults, and effects.
 - [Template tags and filters](template-tags.md): the complete `rtl_admin` library.
 - [System checks](system-checks.md): resolve `rtl_admin.E001` and `rtl_admin.W001`–`rtl_admin.W006`.
 - [Translations and contributing a locale](translations.md): shipped catalogs,

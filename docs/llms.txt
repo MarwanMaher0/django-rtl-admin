@@ -11,7 +11,7 @@
 ## Capabilities and limits
 
 - Logical CSS properties fix physical spacing in stock-admin controls; CSS does not rewrite model values.
-- BidiSafeAdminMixin is an explicit opt-in for Unicode isolation of eligible changelist values.
+- BidiSafeAdminMixin is an explicit opt-in for Unicode isolation of eligible changelist cells and embedded runs in change-form readonly_fields.
 - Python helpers and template filters isolate whole values or embedded opposite-direction runs, stripping existing Unicode Bidi_Control characters before wrapping.
 - Number, currency, percentage, and date/time formatting helpers are explicit opt-ins.
 - Babel is optional. Without it, built-in CLDR tables format numbers and digits while Django formatting and digit transliteration handle dates and times.
@@ -23,7 +23,7 @@
 
 - [Configuration](https://marwanmaher0.github.io/django-rtl-admin/configuration/): all RTL_ADMIN settings and defaults.
 - [Template tags and filters](https://marwanmaher0.github.io/django-rtl-admin/template-tags/): bidi, formatting, direction, assets, and language helpers.
-- [BidiSafeAdminMixin](https://marwanmaher0.github.io/django-rtl-admin/admin-mixin/): changelist isolation, sorting, exclusions, and security behavior.
+- [BidiSafeAdminMixin](https://marwanmaher0.github.io/django-rtl-admin/admin-mixin/): changelist and read-only field isolation, sorting, exclusions, and security behavior.
 - [Python API](https://marwanmaher0.github.io/django-rtl-admin/api/): bidi and locale-formatting functions.
 - [Stock admin RTL defects](https://marwanmaher0.github.io/django-rtl-admin/rtl-defects/): source-level before/after details and limitations.
 - [System checks](https://marwanmaher0.github.io/django-rtl-admin/system-checks/): rtl_admin.E001 and W001 through W006.

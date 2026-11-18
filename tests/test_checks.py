@@ -83,6 +83,12 @@ def test_unknown_settings_keys_are_reported():
     assert "ENABEL_CSS" in warnings[0].msg
 
 
+@override_settings(RTL_ADMIN={"ISOLATE_READONLY_FIELDS": False})
+def test_isolate_readonly_fields_key_is_recognised_by_w002():
+    assert checks.check_settings_keys(None) == []
+    assert checks.check_settings_types(None) == []
+
+
 @override_settings(ROOT_URLCONF="tests.urls_without_i18n")
 def test_a_missing_set_language_route_is_reported():
     assert "rtl_admin.W003" in ids(checks.check_language_switcher(None))
