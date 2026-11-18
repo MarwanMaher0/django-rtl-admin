@@ -1,6 +1,7 @@
 """Template overrides, the rendered admin shell and the language switcher."""
 
 import os
+import re
 
 import django
 import pytest
@@ -97,6 +98,25 @@ def test_body_flips_to_rtl_for_an_rtl_language(admin_client):
     html = admin_client.get(INDEX_URL, headers={"accept-language": "ar"}).content.decode()
     assert "rtl-admin--rtl" in html
     assert 'dir="rtl"' in html
+
+
+@pytest.mark.parametrize(("language", "direction"), [("en", "ltr"), ("ar-eg", "rtl")])
+@pytest.mark.parametrize("enable_css", [True, False])
+def test_body_carries_legacy_layout_classes_for_the_running_django(
+    admin_client, language, direction, enable_css
+):
+    with override_settings(RTL_ADMIN={"ENABLE_CSS": enable_css}):
+        response = admin_client.get(INDEX_URL, headers={"accept-language": language})
+    assert response.status_code == 200
+    body = re.search(r'<body\b[^>]*\bclass="([^"]*)"', response.content.decode())
+    assert body is not None
+    classes = body.group(1).split()
+    assert "rtl-admin" in classes
+    assert f"rtl-admin--{direction}" in classes
+    assert "rtl-admin--isolate-cells" in classes
+    assert "rtl-admin--plaintext-fields" in classes
+    assert ("rtl-admin--pre-6-0" in classes) is (django.VERSION < (6, 0))
+    assert ("rtl-admin--pre-6-1" in classes) is (django.VERSION < (6, 1))
 
 
 def test_the_branding_block_is_preserved(admin_client):

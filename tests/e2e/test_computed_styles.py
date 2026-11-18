@@ -4,10 +4,9 @@ Use the existing live server and Chromium fixtures, not a second browser suite.
 Each check reads the same stock markup with ENABLE_CSS on and off, in ar-eg and
 en. Expectations are explicit, not inferred from the stylesheet under test.
 
-The README predates some Django changes: chevrons already mirror through bidi,
+Chevrons already mirror through bidi, Django 6.0 replaced floating object tools,
 and Django 6.1 removed the double help padding. Those are stock-parity checks,
-not claimed negative controls. Existing LTR differences are pinned explicitly
-rather than hiding them behind a blanket "English is unchanged".
+not claimed negative controls. Every measured LTR value must match stock.
 """
 
 from __future__ import annotations
@@ -23,6 +22,7 @@ pytestmark = pytest.mark.e2e
 
 CHANGELIST = "/admin/testapp/book/"
 ADD_FORM = "/admin/testapp/book/add/"
+DJANGO_60 = django.VERSION >= (6, 0)
 DJANGO_61 = django.VERSION >= (6, 1)
 
 
@@ -97,20 +97,18 @@ def assert_contract(
     rtl,
     stock_rtl,
     stock_ltr,
-    ltr_changes=None,
     stock_parity_reason=None,
     pseudo=None,
 ):
     """Pin both baselines and the fix; require a real RTL negative control.
 
-    LTR must match stock except for specifically named, documented differences.
-    A stock-parity exception must be explicit (no skip, xfail, or caught assert).
+    LTR must match stock without allowances. An RTL stock-parity exception
+    must be explicit (no skip, xfail, or caught assert).
     """
-    ltr = {**stock_ltr, **(ltr_changes or {})}
     expected = {
         ("ar-eg", True): rtl,
         ("ar-eg", False): stock_rtl,
-        ("en", True): ltr,
+        ("en", True): stock_ltr,
         ("en", False): stock_ltr,
     }
     measured = {}
@@ -124,9 +122,7 @@ def assert_contract(
         assert measured["ar-eg", True] != measured["ar-eg", False], (
             f"{selector}: disabling ENABLE_CSS must expose the stock defect"
         )
-    unchanged = stock_ltr.keys() - (ltr_changes or {}).keys()
-    for property in unchanged:
-        assert measured["en", True][property] == measured["en", False][property]
+    assert measured["en", True] == measured["en", False]
 
 
 def test_defect_1_addlink_icon_and_padding(style_pages):
@@ -146,18 +142,31 @@ def test_defect_1_addlink_icon_and_padding(style_pages):
 
 
 def test_defect_2_object_tools_float_and_margin(style_pages):
-    """5.2 floats left; 6.1 uses inline-block items with no first-item margin."""
+    """Mirror legacy floats; retain Django 6.0+'s inline-block layout."""
     ltr = {"float": "left", "margin-left": "5px", "margin-right": "0px"}
-    stock = {**ltr, "float": "none", "margin-left": "0px"} if DJANGO_61 else ltr
-    assert_contract(
-        style_pages(CHANGELIST),
-        ".object-tools li",
-        rtl={"float": "right", "margin-left": "0px", "margin-right": "5px"},
-        stock_rtl=stock,
-        stock_ltr=stock,
-        # The package retains its float/5px layout even on Django 6.1.
-        ltr_changes=ltr if DJANGO_61 else None,
-    )
+    stock = {**ltr, "float": "none", "margin-left": "0px"} if DJANGO_60 else ltr
+    rtl = stock if DJANGO_60 else {"float": "right", "margin-left": "0px", "margin-right": "5px"}
+    pages = style_pages(CHANGELIST)
+    # Also hit the media-query copy: it must not restore floats on modern Django.
+    for width in (1280, 800):
+        for page in pages.values():
+            page.set_viewport_size({"width": width, "height": 900})
+        # Stock responsive_rtl.css already flips the legacy float at 1024px,
+        # but leaves the first item's margin on the wrong side.
+        stock_rtl = {**stock, "float": "right"} if not DJANGO_60 and width <= 1024 else stock
+        assert_contract(
+            pages,
+            ".object-tools li",
+            rtl=rtl,
+            stock_rtl=stock_rtl,
+            stock_ltr=stock,
+            stock_parity_reason="Django 6.0+ uses inline-block object tools" if DJANGO_60 else None,
+        )
+        if DJANGO_60:
+            for page in pages.values():
+                assert computed(page, ".object-tools li", ("display",)) == {
+                    "display": "inline-block"
+                }
 
 
 def test_defect_3_actions_select_margin(style_pages):
@@ -179,11 +188,9 @@ def test_defect_4_datetime_input_margins(style_pages):
         assert_contract(
             pages,
             field,
-            rtl={"margin-left": "5px", "margin-right": "0px"},
+            rtl={"margin-left": "2px", "margin-right": "0px" if DJANGO_61 else "5px"},
             stock_rtl=stock,
             stock_ltr=stock,
-            # Intentional package normalization in LTR as well as RTL.
-            ltr_changes={"margin-left": "0px", "margin-right": "5px"},
         )
 
 
@@ -222,7 +229,7 @@ def test_defect_6_help_text_padding(style_pages):
         # The new stacked form layout removed this defect upstream.
         rtl = stock_rtl = stock_ltr = {"padding-left": "0px", "padding-right": "0px"}
     else:
-        rtl = {"padding-left": "0px", "padding-right": "10px"}
+        rtl = {"padding-left": "3px", "padding-right": "10px"}
         stock_rtl = {"padding-left": "10px", "padding-right": "10px"}
         stock_ltr = {"padding-left": "10px", "padding-right": "3px"}
     assert_contract(
@@ -231,21 +238,32 @@ def test_defect_6_help_text_padding(style_pages):
         rtl=rtl,
         stock_rtl=stock_rtl,
         stock_ltr=stock_ltr,
-        ltr_changes=None if DJANGO_61 else {"padding-right": "0px"},
         stock_parity_reason="Django 6.1 stacked help text has no padding" if DJANGO_61 else None,
     )
 
 
-def test_defect_8_inner_help_text_unicode_bidi(style_pages):
+def test_defect_8_inner_help_text_unicode_bidi(style_pages, monkeypatch):
     """unicode-bidi is not inherited: reading only .help misses this regression."""
-    assert_contract(
-        style_pages(ADD_FORM),
+    # Admin descriptions accept HTML. Exercise a block child as well as the
+    # outer description without changing the existing page or model fields.
+    book_admin = admin.site._registry[Book]
+    title, options = book_admin.fieldsets[0]
+    options = {**options, "description": f"<div>{options['description']}</div>"}
+    monkeypatch.setattr(book_admin, "fieldsets", ((title, options), *book_admin.fieldsets[1:]))
+    pages = style_pages(ADD_FORM)
+    for selector in (
+        ".field-title #id_title_helptext",
         ".field-title #id_title_helptext > div",
-        rtl={"unicode-bidi": "plaintext"},
-        stock_rtl={"unicode-bidi": "isolate"},
-        stock_ltr={"unicode-bidi": "isolate"},
-        ltr_changes={"unicode-bidi": "plaintext"},
-    )
+        "fieldset:has(.field-title) > .description",
+        "fieldset:has(.field-title) > .description > div",
+    ):
+        assert_contract(
+            pages,
+            selector,
+            rtl={"unicode-bidi": "plaintext"},
+            stock_rtl={"unicode-bidi": "isolate"},
+            stock_ltr={"unicode-bidi": "isolate"},
+        )
 
 
 @pytest.mark.parametrize(
@@ -316,12 +334,18 @@ def test_defect_10_unmirrored_rules(style_pages, monkeypatch, rule):
             # Stock hides the control until the header is hovered.
             page.locator("#result_list th.sorted").hover()
             values[key] = computed(page, selector, ("left", "right"), pseudo="::after")
-        assert values["ar-eg", True]["right"] == "3px"
-        assert values["ar-eg", False]["left"] == "3px"
-        # The opposite inset is a used pixel value, not 'auto', and depends on
-        # the glyph/font width. Do not hardcode a font-dependent 4.29688px.
-        assert values["ar-eg", False]["right"] != "3px"
-        assert values["ar-eg", True]["left"] != "3px"
+        anchors = {
+            ("ar-eg", True): "right",
+            ("ar-eg", False): "left",
+            ("en", True): "left",
+            ("en", False): "left",
+        }
+        for key, side in anchors.items():
+            assert values[key][side] == "3px", f"sortremove {key}: {side} anchor"
+            # The opposite inset is a used pixel value, not 'auto', and
+            # depends on glyph/font width. Ensure the old anchor was cleared
+            # without hardcoding a font-dependent 4.29688px.
+            opposite = "left" if side == "right" else "right"
+            assert values[key][opposite] != "3px", f"sortremove {key}: stale {opposite} anchor"
         assert values["ar-eg", True] != values["ar-eg", False]
         assert values["en", True] == values["en", False]
-        assert values["en", False]["left"] == "3px"

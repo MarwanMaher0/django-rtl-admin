@@ -176,6 +176,12 @@ def rtl_admin_direction() -> str:
 def rtl_admin_body_class() -> str:
     """Body classes that switch the stylesheet's behaviour on and off."""
     classes = ["rtl-admin", f"rtl-admin--{bidi_module.current_direction()}"]
+    # Django < 6.0 uses the old floating object-tools layout.
+    if django.VERSION < (6, 0):
+        classes.append("rtl-admin--pre-6-0")
+    # Django < 6.1 uses the old form spacing.
+    if django.VERSION < (6, 1):
+        classes.append("rtl-admin--pre-6-1")
     if rtl_settings.ISOLATE_TABLE_CELLS:
         classes.append("rtl-admin--isolate-cells")
     if rtl_settings.PLAINTEXT_FORM_FIELDS:

@@ -21,8 +21,8 @@ change your `ModelAdmin` classes. Python 3.10+, Django 4.2 through 6.1.
 
 Same project, same `ModelAdmin`, one language switch. Note the Arabic-Indic
 digits in the price column, the identifiers that stayed the right way round,
-and the fact that the English side is byte-for-byte the stock admin plus a
-language switcher.
+and the language switcher. All English computed properties measured by the
+browser suite match the stock admin.
 
 ---
 
@@ -30,26 +30,36 @@ language switcher.
 
 Django styles the admin with *physical* CSS properties (`margin-left`,
 `padding-right`, `float: left`, `text-align: left`) and then ships a
-hand-maintained `admin/css/rtl.css` that flips a subset of them back. Every rule
-the mirror file misses is a visible defect. Measured with `getComputedStyle` on
-Django 5.2, in an `ar-EG` admin:
+hand-maintained `admin/css/rtl.css` that flips a subset of them back. Missed
+mirror rules can cause visible defects. The numbered cases below start from
+`getComputedStyle` measurements on Django 5.2 in an `ar-EG` admin, with notes
+on newer versions and cases that already match stock:
 
 1. **The "Add" button's `+` icon does not move.** `.object-tools a.addlink`
    computes `background-position: calc(100% - 7px) 50%; padding-right: 26px` —
    the icon stays on the leading edge instead of the trailing one. There is no
    rule for it in `rtl.css`.
-2. **The object-tools buttons run in LTR order.** `.object-tools li` keeps
-   `float: left; margin-left: 5px`.
+2. **The object-tools buttons run in LTR order before Django 6.0.**
+   `.object-tools li` keeps `float: left; margin-left: 5px`; the fix floats right
+   with a 5px right margin in RTL. Django 6.0+ (including 6.1) uses inline-block
+   items without floats, which the package preserves in both languages; the
+   first item's margins stay zero, so that case checks stock parity.
 3. **The action dropdown's gap is on the wrong side.**
    `#changelist .actions select` keeps `margin-left: 10px`.
-4. **The date/time widget gets two margins at once.** `rtl.css` mirrors
-   `.vDateField` but not `.datetime input`, and neither resets the other, so the
-   field computes `margin-left: 5px` *and* `margin-right: 2px`.
-5. **The sidebar's collapse chevron points the wrong way.** It is a literal
-   `»`/`«` in a `content:` declaration, and `rtl.css` never swaps the pair, so
-   once the sidebar moves to the other edge the arrow points away from it.
-6. **Field help text is padded on both sides.** It keeps `padding-left: 10px`
-   from `base.css` and gains `padding-right: 10px` from `rtl.css`.
+4. **The date/time widget's margins are not mirrored.** Both split-widget
+   inputs retain stock LTR left/right margins: 5px/2px before Django 6.1 and
+   0/2px on 6.1+. The fix mirrors these exactly in RTL to 2px/5px and 2px/0,
+   respectively, while preserving the stock English margins.
+5. **Correction: the stock sidebar chevrons already mirror correctly.** The
+   browser mirrors the literal `»`/`«` characters in RTL; the package does not
+   swap them. Tests assert stock parity in both expanded and collapsed states,
+   not a failing negative control. The earlier claim that unswapped literals
+   pointed the wrong way was incorrect.
+6. **Aligned field help text has incorrect padding before Django 6.1.**
+   Stock RTL left/right padding is 10px/10px, rather than the mirror of stock
+   LTR's 10px/3px. The fix uses 3px/10px in RTL and preserves English padding.
+   On Django 6.1+ both sides are already zero in both languages and stay so;
+   this is a stock-parity case.
 7. **English labels render with the colon on the wrong side** — `:Title
    (Arabic)` instead of `Title (Arabic):` — because nothing in the admin is
    direction-aware at the text level.
@@ -188,10 +198,14 @@ format_currency("349.90", "EGP", language="ar-eg")
 A template override (`admin/base_site.html`) and a stylesheet that restates the
 admin's physical rules with **logical properties** — `margin-inline-start`,
 `padding-inline-end`, `inset-inline-start`, `text-align: start`,
-`float: inline-end`. Logical properties are correct in both directions by
-construction, so the same rules that flip an Arabic admin are no-ops in an
-English one. Nothing is duplicated per direction except the handful of things
-that genuinely are directional: sprite offsets, mirrored icons, chevrons.
+`float: inline-end`. Logical properties express spacing in either direction;
+all English computed properties measured by the browser suite match stock.
+Version gates preserve changes in Django's own layout: the object-tools `li`
+float/margin fix, including its CSS media-query rule, is scoped to the body class
+`rtl-admin--pre-6-0`, leaving Django 6.0+ inline-block/no-float items untouched in
+both languages. Datetime margins and aligned help padding also follow Django's
+6.1 layout change. Direction-specific rules handle sprite offsets and mirrored
+icons; sidebar chevrons are left to the browser's Unicode mirroring.
 
 It covers the sidebar, the changelist, the filter column, the object-tools bar,
 the action bar, the paginator, aligned forms, inlines, the date/time widgets,
@@ -213,10 +227,16 @@ Two CSS-level safety nets come with it, both opt-out:
 
 - `unicode-bidi: isolate` on changelist cells, so one mixed-direction value
   cannot drag its neighbours around inside a row;
-- `unicode-bidi: plaintext` on text inputs, textareas, labels, help text and
-  read-only values — the CSS equivalent of `dir="auto"`. Each field picks its
-  own direction from what was actually typed into it, which is what a bilingual
-  data-entry form needs.
+- `unicode-bidi: plaintext` on text inputs and textareas — the CSS equivalent
+  of `dir="auto"`. Each field picks its own direction from what was actually
+  typed into it, which is what a bilingual data-entry form needs.
+
+Labels, legends and read-only values keep their existing plaintext safety nets
+in both languages. Help text (both the outer element and its inner wrapper) and
+fieldset descriptions, including their direct children, use `plaintext` **only
+in RTL**; English keeps stock `unicode-bidi: isolate` on these elements. The
+input/textarea opt-out does not disable these label, legend, read-only, help or
+description rules.
 
 ### 2. Bidirectional text safety
 

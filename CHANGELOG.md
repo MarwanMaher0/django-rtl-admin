@@ -22,10 +22,12 @@ All notable changes to this project are documented here. The format follows
   `bidi_isolate_exclude`.
 - Computed-style browser coverage for README defects 1, 2, 3, 4, 5, 6, 8 and
   selected rules from 10, reusing the existing e2e suite at 1280px in `ar-eg`
-  and `en` with package CSS enabled and disabled. Explicit expectations record
-  existing LTR differences and stock-parity exceptions for already-mirrored
-  sidebar chevrons and Django 6.1 help padding, rather than claiming a negative
-  control for every case. ([#3](https://github.com/MarwanMaher0/django-rtl-admin/issues/3))
+  and `en` with package CSS enabled and disabled. All measured English computed
+  properties must match stock. Explicit stock-parity cases cover already-mirrored
+  sidebar chevrons, Django 6.0+ object-tools items and Django 6.1+ help padding,
+  rather than claiming a negative control for every case. Defect 8 covers outer
+  and inner help text and fieldset descriptions.
+  ([#3](https://github.com/MarwanMaher0/django-rtl-admin/issues/3))
 
 ### Changed
 
@@ -33,8 +35,8 @@ All notable changes to this project are documented here. The format follows
   6.1) on Python 3.14, with CI deriving sessions from nox and uploading
   session-specific screenshot artifacts. `CONTRIBUTING.md` documents both
   sessions and a one-defect command; the English and Arabic RTL-defect guides
-  map README numbers to tests and document measured exceptions and coverage
-  limits. ([#3](https://github.com/MarwanMaher0/django-rtl-admin/issues/3))
+  map README numbers to tests and document version-specific stock-parity cases
+  and coverage limits. ([#3](https://github.com/MarwanMaher0/django-rtl-admin/issues/3))
 - The code base is formatted with `ruff format`, with no behaviour change, and
   `nox -s lint` (the CI `ruff` job) now runs `ruff format --check .` after
   `ruff check .`. The check covers the Python code blocks in the Markdown
@@ -57,6 +59,23 @@ All notable changes to this project are documented here. The format follows
   instruction; a test checks that paragraph.
 - `CONTRIBUTING.md` documents the one-time Settings → Pages → Source: GitHub
   Actions step that the docs workflow needs, and the `ruff format` check.
+
+### Fixed
+
+- **CSS parity with stock English admin ([#3](https://github.com/MarwanMaher0/django-rtl-admin/issues/3)).**
+  The object-tools `li` float/margin fix, including its CSS media-query rule, is
+  gated by the `rtl-admin--pre-6-0` body class. Before Django 6.0, RTL items float
+  right with a 5px right margin while LTR keeps the stock left float and 5px left
+  margin. Django 6.0+ (including 6.1) retains stock inline-block/no-float items in
+  both languages, with zero margins on the first item. The `rtl-admin--pre-6-1`
+  gate preserves stock LTR datetime left/right margins of 5px/2px before 6.1 and
+  0/2px on 6.1+, with exact RTL mirrors of 2px/5px and 2px/0. Aligned help text
+  keeps stock LTR padding of 10px/3px before 6.1 and mirrors it to 3px/10px in RTL;
+  on 6.1+ padding remains zero on both sides in both languages. Help text (outer
+  and inner elements) and fieldset descriptions now use `unicode-bidi: plaintext`
+  only in RTL; English keeps stock `isolate`. Label, legend, read-only-value and
+  input safety nets are unchanged. Sidebar chevrons remain stock in both states;
+  the README corrects its earlier claim that their literals need swapping.
 
 ### Removed
 

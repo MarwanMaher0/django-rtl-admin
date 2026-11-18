@@ -109,15 +109,16 @@ body.rtl-admin--rtl {
    side of an RTL form. */
 /* `unicode-bidi` is not an inherited property, and the admin wraps help text
    in a second <div>, so the direct children have to be named too or the inner
-   box quietly falls back to the page direction. */
+   box quietly falls back to the page direction. Help text and descriptions
+   use this safety net only in RTL; their LTR bidi behavior stays stock. */
 .rtl-admin .form-row label,
 .rtl-admin .aligned label,
-.rtl-admin fieldset .description,
-.rtl-admin fieldset .description > *,
-.rtl-admin .help,
-.rtl-admin .help > *,
-.rtl-admin p.help,
-.rtl-admin div.help,
+.rtl-admin--rtl fieldset .description,
+.rtl-admin--rtl fieldset .description > *,
+.rtl-admin--rtl .help,
+.rtl-admin--rtl .help > *,
+.rtl-admin--rtl p.help,
+.rtl-admin--rtl div.help,
 .rtl-admin .form-row legend,
 .rtl-admin .aligned legend,
 .rtl-admin div.readonly,
@@ -346,7 +347,9 @@ body.rtl-admin--rtl {
   padding-inline-start: 0;
 }
 
-.rtl-admin .object-tools li {
+/* Django 6.0+ uses inline-block items with its own mirrored sibling gap.
+   Do not impose the older float/5px layout on those versions. */
+.rtl-admin--pre-6-0 .object-tools li {
   float: inline-start;
   margin-left: 0;
   margin-right: 0;
@@ -703,6 +706,13 @@ body.rtl-admin--rtl {
    10. Forms
    ========================================================================== */
 
+/* Preserve the old form's stock LTR spacing, mirrored exactly in RTL.
+   Django 6.1 removed these two spacings with its stacked form layout. */
+.rtl-admin--pre-6-1 {
+  --rtl-admin-help-padding-end: 3px;
+  --rtl-admin-datetime-margin-start: 5px;
+}
+
 .rtl-admin .aligned label {
   padding: 0 0 3px 0;
   padding-inline-end: 1em;
@@ -741,6 +751,7 @@ body.rtl-admin--rtl {
   padding-right: 0;
   margin-inline-start: 160px;
   padding-inline-start: 10px;
+  padding-inline-end: var(--rtl-admin-help-padding-end, 0px);
 }
 
 /* Django 6.1 stacks label, help text and widget inside .flex-container, so
@@ -839,7 +850,8 @@ body.rtl-admin--rtl {
 .rtl-admin .form-row .datetime input.vTimeField {
   margin-left: 0;
   margin-right: 0;
-  margin-inline-end: 5px;
+  margin-inline-start: var(--rtl-admin-datetime-margin-start, 0px);
+  margin-inline-end: 2px;
 }
 
 .rtl-admin table p.datetime {
@@ -1045,7 +1057,7 @@ body.rtl-admin--rtl {
     float: none;
   }
 
-  .rtl-admin .object-tools li {
+  .rtl-admin--pre-6-0 .object-tools li {
     float: inline-start;
   }
 

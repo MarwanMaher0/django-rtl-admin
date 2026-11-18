@@ -424,6 +424,43 @@ def test_body_class_tag():
     assert "rtl-admin--plaintext-fields" in classes
 
 
+@pytest.mark.parametrize(
+    ("version", "pre_6_0", "pre_6_1"),
+    [
+        ((4, 2, 0, "final", 0), True, True),
+        ((5, 2, 0, "final", 0), True, True),
+        ((6, 0, 0, "alpha", 1), False, True),
+        ((6, 0, 0, "final", 0), False, True),
+        ((6, 1, 0, "alpha", 1), False, False),
+        ((6, 1, 0, "final", 0), False, False),
+        ((7, 0, 0, "final", 0), False, False),
+    ],
+)
+@pytest.mark.parametrize(("language", "direction"), [("en", "ltr"), ("ar-eg", "rtl")])
+@pytest.mark.parametrize("isolate_cells", [True, False])
+@pytest.mark.parametrize("plaintext_fields", [True, False])
+def test_body_class_tag_gates_legacy_layouts_by_django_version(
+    monkeypatch, version, pre_6_0, pre_6_1, language, direction, isolate_cells, plaintext_fields
+):
+    monkeypatch.setattr(tags.django, "VERSION", version)
+    with (
+        override_language(language),
+        override_settings(
+            RTL_ADMIN={
+                "ISOLATE_TABLE_CELLS": isolate_cells,
+                "PLAINTEXT_FORM_FIELDS": plaintext_fields,
+            }
+        ),
+    ):
+        classes = render("{% rtl_admin_body_class %}").split()
+    assert "rtl-admin" in classes
+    assert f"rtl-admin--{direction}" in classes
+    assert ("rtl-admin--pre-6-0" in classes) is pre_6_0
+    assert ("rtl-admin--pre-6-1" in classes) is pre_6_1
+    assert ("rtl-admin--isolate-cells" in classes) is isolate_cells
+    assert ("rtl-admin--plaintext-fields" in classes) is plaintext_fields
+
+
 @override_settings(RTL_ADMIN={"ISOLATE_TABLE_CELLS": False, "PLAINTEXT_FORM_FIELDS": False})
 def test_body_class_tag_drops_disabled_features():
     classes = render("{% rtl_admin_body_class %}").split()

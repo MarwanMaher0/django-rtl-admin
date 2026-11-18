@@ -1,6 +1,6 @@
 ---
 title: Stock admin RTL defects | django-rtl-admin
-description: Review Django admin RTL fixes with computed-style coverage on Django 5.2 and 6.1, explicit stock-parity and LTR exceptions, and documented limitations.
+description: Review Django admin RTL fixes with computed-style coverage on Django 5.2 and 6.1, stock parity for all measured English properties, version gates, and documented limitations.
 ---
 
 # Stock admin RTL defects
@@ -42,15 +42,22 @@ override prevents that integration.
 
 In RTL, inline-start is the right side and inline-end is the left side. The
 following changes apply when the package CSS is enabled and the matching stock
-markup is present. Source locations refer to `rtl-admin.css`.
+markup is present. Source references identify selectors or line ranges in
+`rtl-admin.css`.
 
-| Element | Stock Django 5.2 RTL | Package behavior | Source lines |
+The object-tools `li` float/margin rules, including the CSS media-query override,
+are scoped to the body class `rtl-admin--pre-6-0`. They do not replace Django 6.0+
+inline-block/no-float layout in either language, including on 6.1. The separate
+`rtl-admin--pre-6-1` body class gates the older datetime spacing and aligned-form
+help layout; newer versions retain their own stock LTR values and exact RTL mirrors.
+
+| Element | Stock Django 5.2 RTL | Package behavior | Source reference |
 | --- | --- | --- | --- |
 | Object-tools Add/view-site icon | Icon remains on the right, with `padding-right: 26px`. | Icon moves to `left 7px center`; icon space becomes 26px at inline-end, with 12px on the opposite side. | 290–301 |
-| Desktop object-tools items | Items retain `float: left` and `margin-left: 5px`. | Items and anchors use inline-start floats; the 5px item gap moves to inline-start. | 278–288 |
+| Desktop object-tools items | Items retain `float: left` and `margin-left: 5px`. | Before Django 6.0, items float right with a 5px right margin in RTL; LTR retains the stock left float and 5px left margin. On 6.0+, stock inline-block/no-float layout remains in both languages, with zero first-item margins. | `.object-tools li` |
 | Desktop action dropdown | Select retains `margin-left: 10px`. | Both physical margins are reset; the 10px gap moves to inline-start. | 547–551 |
-| Date/time inputs | Combined widget rules leave a 5px left margin and a 2px right margin. | Specific datetime selectors reset both sides and retain only 5px at inline-end: left 5px, right 0 in RTL. | 683–696 |
-| Aligned help text | Left padding can survive alongside RTL right padding; more-specific input/help sibling rules can also retain left indentation. | Both sides are reset before applying 160px start indentation and 10px start padding, with exceptions for adjacent content and narrow screens. | 582–633, 915–926 |
+| Date/time inputs | Combined widget rules leave a 5px left margin and a 2px right margin. | Both split inputs exactly mirror stock LTR margins: RTL left/right 2px/5px before Django 6.1 and 2px/0 on 6.1+. LTR stays 5px/2px and 0/2px, respectively. | `.datetime input` |
+| Aligned help text | Left/right padding is 10px/10px, not the mirror of stock LTR's 10px/3px; more-specific input/help sibling rules can also retain left indentation. | Before Django 6.1, RTL left/right padding becomes 3px/10px and LTR keeps 10px/3px, alongside version-aware indentation and responsive rules. On 6.1+, padding remains 0/0 in both languages. | `form .aligned p.help`, `form .aligned div.help` |
 | Alternate `.colSM` columns | Physical column margins and more-specific sidebar floats lack matching RTL overrides. | Reserved column space, floats, and the negative sidebar offset use logical sides. This concerns pages using `.colSM`, not every dashboard. | 361–376 |
 | Recent-action list items | The specific action-list rule retains left padding despite icon mirroring elsewhere. | Both sides are cleared and 18px is reserved at inline-start. | 383–387 |
 | Inline view/change links | Generic RTL icon rules omit `.inlineviewlink` and `.inlinechangelink`. | Those classes receive start-side icon padding and RTL background positioning. | 307–328 |
@@ -82,25 +89,30 @@ schemes, at 360px and 1280px
 
 The README numbers below map to `tests/e2e/test_computed_styles.py`. These are
 explicit computed-value contracts, not screenshot comparisons. Each test checks
-both languages with CSS on and off; a stock RTL negative control is required
-except for the documented parity cases (5, and 6 on Django 6.1).
+both languages with CSS on and off, and **all measured English computed properties
+must match stock**. A stock RTL negative control is required except for the
+documented parity cases: 2 on Django 6.0+, 5 on all versions, and 6 on Django 6.1+.
+The object-tools test also runs at 800px to cover the media-query rule: stock
+Django 5.2 already mirrors the float there, but not the first item's margin.
 
 | README defect | Test | Measured contract |
 | --- | --- | --- |
 | 1 — Add icon and padding | `test_defect_1_addlink_icon_and_padding` | RTL background position changes from `calc(100% - 7px) 50%` to `7px 50%`; inline-start/end padding changes from 26px/12px to 12px/26px. |
-| 2 — Object-tools items | `test_defect_2_object_tools_float_and_margin` | The first item's float becomes inline-start and its 5px margin moves to inline-start. Django 5.2 stock uses `float: left` and a 5px left margin; Django 6.1 stock uses `float: none` and zero margins. |
+| 2 — Object-tools items | `test_defect_2_object_tools_float_and_margin` | Before Django 6.0, the first item's RTL float changes from left to right and its left/right margins from 5px/0 to 0/5px; English keeps the stock left float and 5px/0 margins. Django 6.0+ (including 6.1) retains stock inline-block/no-float layout and zero first-item margins in both languages: a parity case with no negative control. |
 | 3 — Action dropdown | `test_defect_3_actions_select_margin` | RTL left/right margins change from 10px/0 to 0/10px. |
-| 4 — Date/time inputs | `test_defect_4_datetime_input_margins` | Both halves of the split widget get RTL left/right margins of 5px/0, replacing stock 5px/2px on Django 5.2 or 0/2px on Django 6.1. |
+| 4 — Date/time inputs | `test_defect_4_datetime_input_margins` | Both halves retain stock LTR left/right margins of 5px/2px before Django 6.1 and 0/2px on 6.1+. Stock RTL has those same unmirrored values; the fix mirrors them exactly to 2px/5px and 2px/0, respectively. |
 | 5 — Sidebar chevrons | `test_defect_5_sidebar_toggle_chevrons` | Expanded and collapsed `::before` content, direction, `unicode-bidi` and transform remain stock; no negative control is claimed. See [Sidebar chevrons](#sidebar-chevrons). |
-| 6 — Help padding | `test_defect_6_help_text_padding` | Django 5.2 RTL left/right padding changes from 10px/10px to 0/10px. Django 6.1 is already corrected upstream: both sides remain 0 with CSS on or off in both languages, so this is a parity check, not a negative control. |
-| 8 — Inner help text | `test_defect_8_inner_help_text_unicode_bidi` | The actual inner help `<div>` changes from `unicode-bidi: isolate` to `plaintext` in both languages. This checks the non-inherited property, not the rendered position of a full stop. |
+| 6 — Help padding | `test_defect_6_help_text_padding` | Before Django 6.1, RTL left/right padding changes from 10px/10px to 3px/10px, exactly mirroring stock LTR's preserved 10px/3px. On Django 6.1+ both sides remain 0 with CSS on or off in both languages: a stock-parity check, not a negative control. |
+| 8 — Help text and descriptions | `test_defect_8_inner_help_text_unicode_bidi` | Outer `.help`, its actual inner `<div>` (`.field-title #id_title_helptext > div`), and `fieldset .description` change from `unicode-bidi: isolate` to `plaintext` only in RTL; English retains stock `isolate`. This checks the non-inherited property, not the rendered position of a full stop. |
 | 10 — Selected unmirrored rules | `test_defect_10_unmirrored_rules` | Parameters: `colsm` (column margins, main/sidebar floats and sidebar offset), `related-lookup` (5px margin), `chooseall` and `clearall` (text alignment), `radiolist` (7px padding), `sortremove` (`::after` inset: left 3px stock, right 3px with RTL package CSS). |
 
 Defect 10 covers those six parameters, not every selector listed in the README.
 The `.colSM` case uses a tiny test template extending the stock index and overriding
 only its `coltype` block. Raw-ID lookup and radio cases temporarily monkeypatch the
 existing `BookAdmin` to use `Book.category` and `Book.status`; the M2M cases use the
-existing auth `Group.permissions` widget. No new model fields are needed.
+existing auth `Group.permissions` widget. Defect 8 temporarily wraps the existing
+first fieldset description in a `<div>` to check the direct child as well as its
+container, just as it checks both help-text wrappers. No new model fields are needed.
 
 README defects **7 (label punctuation)** and **9 (input-path punctuation)** are
 outside this computed-style suite: computed declarations alone do not establish
@@ -115,11 +127,14 @@ Physical layout mirroring does not determine the direction of application text.
 An English label in an RTL form can place its colon on the opposite side; English
 help text can resolve its final punctuation against the page direction.
 
-The package applies `unicode-bidi: plaintext` and `text-align: start` to labels,
-help text, descriptions, and readonly values. These resolve their bidi paragraphs
-from the first strong character instead. Direct children are included because
-`unicode-bidi` is not inherited and Django wraps help text in another element.
-See stylesheet lines 82–104.
+Labels, legends and readonly values retain their existing `unicode-bidi: plaintext`
+safety nets in both languages; labels and legends still align with the form.
+Help text (both the outer element and its inner wrapper) and fieldset descriptions
+use `plaintext` **only in RTL**, resolving bidi paragraphs from the first strong
+character. English keeps stock `unicode-bidi: isolate` on these help and description
+elements. The RTL selectors include `.help > *` and `fieldset .description > *`
+because `unicode-bidi` is not inherited. This scope change does not restrict the
+label, legend, readonly or input safety nets to RTL.
 
 For text-like inputs and textareas, the conditional plaintext rules provide the
 same first-strong behavior. For example, an ASCII path beginning with `/archive/`
@@ -163,21 +178,21 @@ alone measures the painted glyph direction.
 
 ### LTR, fonts, and theme compatibility
 
-Rules scoped to `.rtl-admin` also run in English. The computed suite explicitly
-pins these LTR deviations rather than claiming the result is exactly stock:
+Rules scoped to `.rtl-admin` also run in English. **All measured English computed
+properties match stock**, after resolving logical float and text-alignment keywords
+to physical sides. There are no LTR exception allowances in the computed suite.
 
-| Measured element | Stock LTR | Package LTR |
-| --- | --- | --- |
-| Both split date/time inputs | Left/right margins: 5px/2px on Django 5.2; 0/2px on Django 6.1. | Left/right margins: 0/5px on both versions. |
-| Title help text on Django 5.2 | Left/right padding: 10px/3px. | Left/right padding: 10px/0. |
-| Inner help `<div>` | `unicode-bidi: isolate` in both languages and versions. | `unicode-bidi: plaintext` in both languages and versions. |
-| First object-tools item on Django 6.1 | `float: none`; both margins 0. | `float: inline-start` (left in LTR); 5px inline-start margin, 0 at inline-end. |
+| Measured element | Stock and package LTR |
+| --- | --- |
+| Both split date/time inputs | Left/right margins: 5px/2px before Django 6.1; 0/2px on 6.1+. |
+| Aligned help text | Left/right padding: 10px/3px before Django 6.1; 0/0 on 6.1+. |
+| Outer and inner help text, fieldset descriptions | `unicode-bidi: isolate`; the package's plaintext rules for these elements are RTL-only. |
+| First object-tools item | Before Django 6.0: left float and left/right margins of 5px/0. On 6.0+ (including 6.1): stock inline-block layout, `float: none` and both margins 0. |
 
-Django 5.2's stock object-tools item already floats left with a 5px left margin,
-so that LTR case matches. All other **tested LTR values** match stock after
-resolving logical float and text-alignment keywords to physical sides. This is
-not a guarantee that every package rule is an LTR no-op: header gaps, search
-layout and other unmeasured properties remain outside that parity claim.
+This claim covers every measured property, not every package rule: header gaps,
+search layout and other unmeasured properties remain outside this comparison.
+Labels, legends, readonly values and input safety nets are unchanged by the
+RTL-only scoping of help text and descriptions.
 
 The font stack names installed fallback fonts; it does not ship font files or
 establish that stock Arabic or Hebrew rendering always lacks glyphs. Third-party
@@ -192,8 +207,9 @@ admin themes and custom markup are outside this stock-template comparison.
 | Locale formatting | Produces formatted number, currency, percentage, or date/time text with supported digit shapes. | Explicitly call helpers or filters; `NUMERALS` and optional Babel affect their output. |
 
 The two CSS safety-net switches are not complete bidi off-switches: labels,
-help text, readonly values, and dedicated machine-value rules remain while the
-stylesheet is loaded. See [Configuration](configuration.md).
+legends, readonly values, RTL help text and fieldset descriptions, and dedicated
+machine-value rules remain while the stylesheet is loaded.
+See [Configuration](configuration.md).
 
 For an opaque identifier such as an ISBN in RTL prose, choose explicit LTR
 isolation rather than assuming first-strong isolation determines the desired

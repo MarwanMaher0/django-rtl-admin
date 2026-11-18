@@ -99,9 +99,14 @@ assertions saw. Without Playwright installed the directory is skipped.
 `tests/e2e/test_computed_styles.py` reuses that suite for README defects 1, 2, 3, 4, 5, 6,
 8 and selected rules from 10 (issue #3). It measures computed styles at 1280px in `ar-eg`
 and `en`, with `ENABLE_CSS` enabled and disabled on the server. Expectations pin both
-stock and package values, with explicit LTR deviations and stock-parity exceptions:
-sidebar chevrons already mirror through Unicode, and Django 6.1 already removed the
-help-text double padding. Those cases do not claim a failing stock negative control.
+stock and package values (also at 800px for object-tools media-query coverage):
+**all measured English computed properties must match stock**,
+resolving logical float and text-alignment keywords to physical sides. RTL stock-parity
+cases do not claim a failing negative control: sidebar chevrons already mirror through
+Unicode; Django 6.0+ object-tools items retain stock inline-block/no-float layout with
+zero margins on the first item; and Django 6.1+ already removed the help-text padding.
+Defect 8 covers outer and inner help text and fieldset descriptions: `plaintext` is
+RTL-only for these selectors, while English retains stock `unicode-bidi: isolate`.
 Computed styles alone do not prove visual punctuation placement for defect 7 (labels)
 or 9 (input paths); `test_change_form` separately checks label geometry, not path
 punctuation. See [the coverage table](docs/rtl-defects.md#computed-style-coverage) for
