@@ -99,8 +99,9 @@ text, email, URL, search, and telephone inputs, inputs without a `type`, and
 textareas. Each field or textarea paragraph resolves its own direction.
 
 These two switches are not comprehensive bidi off-switches: while the stylesheet
-is loaded, labels, help text, descriptions, and read-only values still receive
-plaintext rules. URL widgets, username/password inputs, UUID widgets, and code
+is loaded, labels and read-only values always receive plaintext rules in either
+UI direction. Help text and fieldset descriptions receive plaintext rules only
+in an RTL admin. URL widgets, username/password inputs, UUID widgets, and code
 also retain their dedicated LTR/isolation rules.
 
 ## Unicode isolation

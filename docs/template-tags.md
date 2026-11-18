@@ -213,8 +213,17 @@ Return the stylesheet's body classes:
 ```
 
 The result starts with `rtl-admin rtl-admin--rtl` or `rtl-admin rtl-admin--ltr`.
-It then includes `rtl-admin--isolate-cells` and `rtl-admin--plaintext-fields`
-when their settings are enabled, even if `ENABLE_CSS=False`.
+Version-dependent classes follow, in either UI direction:
+
+- `rtl-admin--pre-6-0` is added only before Django 6.0, for the legacy floating
+  object-tools layout.
+- `rtl-admin--pre-6-1` is added only before Django 6.1, for the legacy datetime
+  margins and aligned help-text padding.
+
+Thus Django 5.2 gets both classes, Django 6.0 gets only `rtl-admin--pre-6-1`,
+and Django 6.1 or later gets neither. The tag then includes
+`rtl-admin--isolate-cells` and `rtl-admin--plaintext-fields` when their settings
+are enabled. All these classes are emitted even if `ENABLE_CSS=False`.
 
 ### `rtl_admin_site_name_tag`
 

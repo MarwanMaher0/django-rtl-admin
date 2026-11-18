@@ -209,8 +209,17 @@ description: استخدم مرشحات القوالب ووسومها في django
 ```
 
 تبدأ النتيجة بـ`rtl-admin rtl-admin--rtl` أو `rtl-admin rtl-admin--ltr`.
-ثم تتضمن `rtl-admin--isolate-cells` و`rtl-admin--plaintext-fields`
-عند تفعيل إعداداتهما، حتى لو كانت `ENABLE_CSS=False`.
+تليها فئات تعتمد على الإصدار، في كلا اتجاهَي الواجهة:
+
+- تُضاف `rtl-admin--pre-6-0` فقط قبل Django 6.0، لتخطيط أدوات الكائنات القديم
+  الذي يعتمد على التعويم.
+- تُضاف `rtl-admin--pre-6-1` فقط قبل Django 6.1، لهوامش التاريخ والوقت القديمة
+  وحشوة نصوص المساعدة في النماذج المحاذاة.
+
+لذلك يحصل Django 5.2 على الفئتين، ويحصل Django 6.0 على `rtl-admin--pre-6-1` وحدها،
+ولا يحصل Django 6.1 أو أحدث على أيٍّ منهما. ثم يتضمن الوسم
+`rtl-admin--isolate-cells` و`rtl-admin--plaintext-fields` عند تفعيل إعداداتهما.
+تُخرج جميع هذه الفئات حتى لو كانت `ENABLE_CSS=False`.
 
 ### `rtl_admin_site_name_tag` { #rtl_admin_site_name_tag }
 
