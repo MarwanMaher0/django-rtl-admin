@@ -20,7 +20,7 @@ from django.db.models.constants import LOOKUP_SEP
 from django.utils.html import conditional_escape
 from django.utils.safestring import SafeData, mark_safe
 
-from .bidi import current_direction, mark_isolated, mark_isolated_runs, text_direction
+from .bidi import PDI, current_direction, isolate, mark_isolated, mark_isolated_runs, text_direction
 from .conf import rtl_settings
 
 if TYPE_CHECKING:
@@ -60,6 +60,12 @@ _SUPPORTS_RELATED_LOOKUPS = django.VERSION >= (5, 1)
 #: Any other HTML tag in ``contents()`` came from pre-marked safe markup
 #: (boolean icons, admin links, custom ``format_html`` badges, read-only widgets).
 _NON_BR_TAG_RE = re.compile(r"<(?!br>)")
+
+#: ``admin/delete_confirmation.html`` shortens the breadcrumb label with
+#: ``truncatewords:"18"``.  The regex matches everything up to the end of the
+#: 18th word, the point where that filter would cut.
+_BREADCRUMB_WORDS = 18
+_BREADCRUMB_CUTOFF_RE = re.compile(rf"\s*(?:\S+\s+){{{_BREADCRUMB_WORDS - 1}}}\S+")
 
 _WRAPPED_CONTAINERS = (
     helpers.InlineAdminFormSet,
@@ -180,6 +186,48 @@ class _BidiAdminProxy:
                 yield item
 
 
+class _BidiDeleteObjectProxy:
+    """Wrap ``context["object"]`` on the delete confirmation page.
+
+    ``__str__`` returns the object's display name (computed once by
+    ``render_delete_form``) wrapped in an isolate; every other attribute
+    (the breadcrumb's ``object.pk``, ``_meta``, ...) is delegated to the real
+    object.  Isolates are plain characters, so the template's autoescaping
+    keeps them and still escapes any HTML in the name.
+    """
+
+    def __init__(self, obj: Any, display: str) -> None:
+        self._obj = obj
+        self._display = display
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._obj, name)
+
+    def __str__(self) -> str:
+        text = self._display
+        # Empty and whitespace-only names render as stock (the breadcrumb's
+        # ``display_for_value`` shows its "-" placeholder for them).
+        if not text.strip():
+            return text
+        isolated = isolate(text)
+        if not isolated:
+            return isolated
+        opener, body = isolated[0], isolated[1:-1]
+        match = _BREADCRUMB_CUTOFF_RE.match(body)
+        if match is None or not body[match.end() :].strip():
+            return isolated
+        # The breadcrumb applies ``truncatewords:"18"``.  A closing PDI beyond
+        # word 18 would be truncated away, leaving an unbalanced isolate, so
+        # close and reopen the isolate at that boundary, reusing the original
+        # whitespace as the separator: whatever the filter keeps still ends
+        # with a PDI.
+        cut = match.end()
+        rest = body[cut:]
+        tail = rest.lstrip()
+        gap = rest[: len(rest) - len(tail)]
+        return f"{opener}{body[:cut]}{PDI}{gap}{opener}{tail}{PDI}"
+
+
 class _DisplayWrapper(Protocol):
     """A changelist display callable, with the attributes the admin reads."""
 
@@ -210,6 +258,10 @@ class BidiSafeAdminMixin(_Base):
     isolated while labels, help text and CSS classes stay untouched.  Boolean
     fields (rendered as icons), ``SafeString`` HTML values and anything listed
     in ``list_editable`` are left alone.
+
+    The delete confirmation page and the delete success message wrap the
+    object's ``__str__`` in an isolate as well, following the same
+    changelist switch.
 
     Class-level knobs:
 
@@ -324,6 +376,24 @@ class BidiSafeAdminMixin(_Base):
         return super().render_change_form(
             request, context, add=add, change=change, form_url=form_url, obj=obj
         )
+
+    def render_delete_form(self, request: HttpRequest, context: dict[str, Any]) -> HttpResponse:
+        obj = context.get("object")
+        if obj is not None and self.bidi_isolation_enabled(request):
+            obj_display = str(obj)
+            context["object"] = _BidiDeleteObjectProxy(obj, obj_display)
+            # Django 6.1 renders the confirmation question from a precomputed
+            # display string instead of ``object``.  Isolate the value Django
+            # already computed, keeping its "-" placeholder for empty and
+            # whitespace-only names untouched.
+            if "escaped_object" in context and obj_display.strip():
+                context["escaped_object"] = isolate(context["escaped_object"])
+        return super().render_delete_form(request, context)
+
+    def response_delete(self, request: HttpRequest, obj_display: str, obj_id: Any) -> HttpResponse:
+        if self.bidi_isolation_enabled(request):
+            obj_display = isolate(obj_display)
+        return super().response_delete(request, obj_display, obj_id)
 
     # -- internals ---------------------------------------------------------
 

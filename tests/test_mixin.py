@@ -1,18 +1,24 @@
 """``BidiSafeAdminMixin`` applied to a real changelist."""
 
+import re
+from types import ModuleType
+
 import django
 import pytest
 from django.contrib import admin
 from django.contrib.admin.sites import AdminSite
+from django.contrib.messages.storage.cookie import CookieStorage
 from django.core.exceptions import ObjectDoesNotExist
 from django.test import RequestFactory, override_settings
+from django.urls import include, path
 from django.utils import translation
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
 from django_rtl_admin import BidiSafeAdminMixin
-from django_rtl_admin.bidi import FSI, LRI, PDI, RLI
+from django_rtl_admin.bidi import FSI, ISOLATE_OPENERS, LRI, PDI, RLI, isolate
 
+from .testapp.admin import BidiThingAdmin
 from .testapp.models import Book, Category, Chapter, Review, Thing
 
 pytestmark = pytest.mark.django_db
@@ -732,3 +738,237 @@ def test_readonly_counting_callable_is_called_once_per_change_form_render(admin_
     assert f"{LRI}/srv/safe/2024-03-05{PDI}" not in html
     assert "icon-yes" in html
     assert f"ملاحظة {LRI}/var/log/2024-03-05{PDI}" in html
+
+
+# -- delete confirmation page and delete message -----------------------------
+
+AR_EG = {"accept-language": "ar-eg"}
+MIXED_NAME = "مقدمة 978-0-262-03561-3"
+
+
+def delete_url(obj):
+    return f"/admin/testapp/{obj._meta.model_name}/{obj.pk}/delete/"
+
+
+def delete_question(html):
+    """The "Are you sure" paragraph -- the first ``<p>`` on the delete page.
+
+    Everything before the content block (header, breadcrumbs, messages,
+    title) uses other tags, so this is the paragraph that quotes the name.
+    """
+    match = re.search(r"<p>(.*?)</p>", html, re.S)
+    assert match is not None
+    return match.group(1)
+
+
+def assert_balanced_isolates(text):
+    depth = 0
+    for char in text:
+        if char in ISOLATE_OPENERS:
+            depth += 1
+        elif char == PDI:
+            depth -= 1
+            assert depth >= 0, f"stray closing PDI in {text!r}"
+    assert depth == 0, f"unclosed isolate in {text!r}"
+
+
+def test_delete_question_contains_the_isolated_str(admin_client):
+    thing = Thing.objects.create(name=MIXED_NAME)
+    response = admin_client.get(delete_url(thing), headers=AR_EG)
+    assert response.status_code == 200
+    html = response.content.decode()
+    assert 'dir="rtl"' in html
+    # The question paragraph itself, not just the breadcrumb.
+    assert FSI + MIXED_NAME + PDI in delete_question(html)
+    proxy = response.context["object"]
+    assert str(proxy) == isolate(str(thing))
+    assert proxy.pk == thing.pk
+
+
+def test_delete_message_contains_the_isolated_str(admin_client):
+    thing = Thing.objects.create(name=MIXED_NAME)
+    response = admin_client.post(delete_url(thing), {"post": "yes"}, headers=AR_EG, follow=True)
+    assert response.status_code == 200
+    assert not Thing.objects.filter(pk=thing.pk).exists()
+    (message,) = [str(m) for m in response.context["messages"]]
+    assert FSI + MIXED_NAME + PDI in message
+    assert FSI + MIXED_NAME + PDI in response.content.decode()
+
+
+def test_html_in_str_stays_escaped_on_the_delete_page(admin_client):
+    thing = Thing.objects.create(name="<b>x</b> كتاب")
+    html = admin_client.get(delete_url(thing), headers=AR_EG).content.decode()
+    question = delete_question(html)
+    assert FSI + "<b>x</b>" not in question
+    assert FSI + "&lt;b&gt;x&lt;/b&gt; كتاب" + PDI in question
+
+
+def test_html_in_str_stays_escaped_in_the_delete_message(admin_client):
+    thing = Thing.objects.create(name="<b>x</b> كتاب")
+    response = admin_client.post(delete_url(thing), {"post": "yes"}, headers=AR_EG, follow=True)
+    html = response.content.decode()
+    assert FSI + "<b>x</b>" not in html
+    assert FSI + "&lt;b&gt;x&lt;/b&gt; كتاب" + PDI in html
+
+
+def test_delete_breadcrumb_still_links_to_the_change_page(admin_client):
+    thing = Thing.objects.create(name=MIXED_NAME)
+    html = admin_client.get(delete_url(thing), headers=AR_EG).content.decode()
+    assert f'href="/admin/testapp/thing/{thing.pk}/change/"' in html
+
+
+def test_long_str_keeps_the_breadcrumb_isolate_balanced(admin_client):
+    name = " ".join(f"word{i:02d}" for i in range(30))
+    thing = Thing.objects.create(name=name)
+    html = admin_client.get(delete_url(thing), headers=AR_EG).content.decode()
+    link = re.search(rf'<a href="/admin/testapp/thing/{thing.pk}/change/">([^<]*)</a>', html)
+    assert link is not None
+    breadcrumb = link.group(1)
+    assert breadcrumb.endswith("…")
+    assert "word29" not in breadcrumb
+    assert breadcrumb.startswith(FSI)
+    assert_balanced_isolates(breadcrumb)
+    # The question itself still shows the whole name, in balanced isolates.
+    assert "word29" in html
+    assert_balanced_isolates(delete_question(html))
+
+    # Exactly 18 words: no truncation, so the breadcrumb is one plain isolate.
+    short_name = " ".join(f"word{i:02d}" for i in range(18))
+    other = Thing.objects.create(name=short_name)
+    html = admin_client.get(delete_url(other), headers=AR_EG).content.decode()
+    assert f">{FSI}{short_name}{PDI}</a>" in html
+
+
+def test_render_delete_form_wraps_object_only_when_enabled(admin_user, thing):
+    request = RequestFactory().get(delete_url(thing))
+    request.user = admin_user
+
+    context = {"object": thing}
+    make_admin().render_delete_form(request, context)
+    proxy = context["object"]
+    assert proxy is not thing
+    assert str(proxy) == isolate(str(thing))
+    assert proxy.pk == thing.pk
+
+    context = {"object": thing}
+    make_admin(bidi_isolate_changelist=False).render_delete_form(request, context)
+    assert context["object"] is thing
+
+    empty = Thing.objects.create(name="")
+    context = {"object": empty}
+    make_admin().render_delete_form(request, context)
+    assert str(context["object"]) == ""
+
+    blank = Thing.objects.create(name="   ")
+    context = {"object": blank}
+    make_admin().render_delete_form(request, context)
+    assert str(context["object"]) == "   "
+
+
+def test_long_str_proxy_reuses_the_original_whitespace(admin_user):
+    name = " ".join(f"word{i:02d}" for i in range(30))
+    thing = Thing.objects.create(name=name)
+    request = RequestFactory().get(delete_url(thing))
+    request.user = admin_user
+    context = {"object": thing}
+    make_admin().render_delete_form(request, context)
+    text = str(context["object"])
+    # PDI glued to word 18, the original space, then the reopening isolate
+    # glued to word 19 -- no extra space is introduced.
+    assert f"word17{PDI} {FSI}word18" in text
+    assert f"{PDI}  " not in text
+    assert_balanced_isolates(text)
+
+
+def test_response_delete_message_follows_the_switch(admin_user, thing):
+    def message_for(model_admin):
+        request = RequestFactory().post(delete_url(thing), {"post": "yes"})
+        request.user = admin_user
+        request._messages = CookieStorage(request)
+        model_admin.response_delete(request, str(thing), thing.pk)
+        return [str(m) for m in request._messages]
+
+    stock = admin.ModelAdmin(Thing, AdminSite())
+    stock_messages = message_for(stock)
+    assert message_for(make_admin(bidi_isolate_changelist=False)) == stock_messages
+    with override_settings(RTL_ADMIN={"ISOLATE_CHANGELIST": False}):
+        assert message_for(make_admin()) == stock_messages
+    (on_message,) = message_for(make_admin())
+    assert isolate(str(thing)) in on_message
+
+
+def stock_thing_admin_cls():
+    """A stock ModelAdmin with the same configuration as the registered one."""
+    return type(
+        "StockThingAdmin",
+        (admin.ModelAdmin,),
+        {
+            name: getattr(BidiThingAdmin, name)
+            for name in (
+                "list_display",
+                "list_filter",
+                "search_fields",
+                "readonly_fields",
+                "upper_name",
+            )
+        },
+    )
+
+
+def stock_delete_urlconf(stock_cls):
+    """A URLconf whose admin site mirrors the default one, with a stock Thing admin.
+
+    ``admin.site.urls`` is built once at import time, so swapping the registry
+    alone would not change which admin serves the requests.
+    """
+    site = AdminSite()
+    for model, model_admin in admin.site._registry.items():
+        site.register(model, stock_cls if model is Thing else type(model_admin))
+    urlconf = ModuleType("tests.urls_stock_delete")
+    urlconf.urlpatterns = [
+        path("admin/", site.urls),
+        path("i18n/", include("django.conf.urls.i18n")),
+    ]
+    return urlconf
+
+
+def test_switch_off_delete_page_and_message_match_stock(admin_client):
+    stock_cls = stock_thing_admin_cls()
+
+    def scrub_csrf(s):
+        return re.sub(r'name="csrfmiddlewaretoken" value="[^"]+"', 'name="csrfmiddlewaretoken"', s)
+
+    def delete_round_trip(pk=None):
+        thing = Thing.objects.create(pk=pk, name=MIXED_NAME)
+        url = delete_url(thing)
+        page = admin_client.get(url, headers=AR_EG).content.decode()
+        response = admin_client.post(url, {"post": "yes"}, headers=AR_EG, follow=True)
+        messages = [str(m) for m in response.context["messages"]]
+        return thing.pk, scrub_csrf(page), messages, scrub_csrf(response.content.decode())
+
+    with override_settings(RTL_ADMIN={"ISOLATE_CHANGELIST": False}):
+        pk, off_page, off_messages, off_final = delete_round_trip()
+    with override_settings(ROOT_URLCONF=stock_delete_urlconf(stock_cls)):
+        _, stock_page, stock_messages, stock_final = delete_round_trip(pk=pk)
+
+    assert off_page == stock_page
+    assert off_messages == stock_messages
+    assert off_final == stock_final
+    assert FSI + MIXED_NAME not in off_page
+    assert not any(FSI in message for message in off_messages)
+
+
+def test_whitespace_only_str_matches_stock_on_the_delete_page(admin_client):
+    thing = Thing.objects.create(name="   ")
+    url = delete_url(thing)
+    bidi_html = admin_client.get(url, headers=AR_EG).content.decode()
+    with override_settings(ROOT_URLCONF=stock_delete_urlconf(stock_thing_admin_cls())):
+        stock_html = admin_client.get(url, headers=AR_EG).content.decode()
+
+    def breadcrumb(html):
+        return re.search(rf'<a href="/admin/testapp/thing/{thing.pk}/change/">([^<]*)</a>', html)
+
+    assert delete_question(bidi_html) == delete_question(stock_html)
+    assert breadcrumb(bidi_html).group(1) == breadcrumb(stock_html).group(1)
+    assert FSI not in delete_question(bidi_html)
+    assert FSI not in breadcrumb(bidi_html).group(1)
