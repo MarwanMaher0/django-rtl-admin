@@ -385,6 +385,8 @@ def test_invalid_switcher_language_types(value):
         ([], True, None),
         (["AR-eg", ("PT-br", "Portuguese")], True, None),
         (["fr", "xx", "ar", "fr"], True, "fr, xx"),
+        (["TZM", "tzm"], True, "TZM"),
+        (["ku", "Tzm", "KU"], True, "ku, Tzm"),
         (["fr"], False, None),
     ],
 )

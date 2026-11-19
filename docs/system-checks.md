@@ -146,9 +146,9 @@ MIDDLEWARE = [
 ]
 ```
 
-W004 checks for presence; W007 below checks the order. A compatible custom subclass under a
-different import path is not recognized. Missing middleware does not hide the
-switcher form; it is a separate runtime requirement. Follow
+W004 checks for presence; W007 below checks the order. A compatible custom
+subclass under a different import path is not recognized. Missing middleware
+does not hide the switcher form; it is a separate runtime requirement. Follow
 [Quick start](quick-start.md) for the complete language-selection setup.
 
 ## `rtl_admin.W005`: invalid setting types

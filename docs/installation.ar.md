@@ -77,7 +77,7 @@ python manage.py check
 
 تابع إلى [البدء السريع](quick-start.md) لضبط لغات الطلبات
 ونقطة نهاية المبدّل. راجع [فحوصات النظام](system-checks.md) إذا أصدر الإعداد
-الخطأ `rtl_admin.E001` أو تحذيرًا من `rtl_admin.W001` إلى `rtl_admin.W006`.
+الخطأ `rtl_admin.E001` أو تحذيرًا من `rtl_admin.W001` إلى `rtl_admin.W008`.
 
 ## تجاوزات القوالب والسمات القائمة { #existing-template-overrides-and-themes }
 

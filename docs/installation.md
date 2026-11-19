@@ -77,7 +77,7 @@ needs Django's own migrations and a staff/superuser account.
 
 Continue with [Quick start](quick-start.md) to configure request languages and
 the switcher endpoint. See [System checks](system-checks.md) if setup emits
-`rtl_admin.E001` or a `rtl_admin.W001`–`rtl_admin.W006` warning.
+`rtl_admin.E001` or a `rtl_admin.W001`–`rtl_admin.W008` warning.
 
 ## Existing template overrides and themes
 

@@ -266,13 +266,12 @@ def check_language_switcher(
     codes = _switcher_codes(configured.get("LANGUAGE_SWITCHER_LANGUAGES"))
     if codes:
         supported = {code.lower() for code, _ in settings.LANGUAGES}
-        missing = sorted(
-            {
-                code
-                for code in codes
-                if code.lower() not in supported and code.lower().split("-", 1)[0] not in supported
-            }
-        )
+        missing_by_key: dict[str, str] = {}
+        for code in codes:
+            key = code.lower()
+            if key not in supported and key.split("-", 1)[0] not in supported:
+                missing_by_key.setdefault(key, code)
+        missing = sorted(missing_by_key.values(), key=str.lower)
         if missing:
             issues.append(
                 Warning(

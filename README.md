@@ -433,6 +433,8 @@ from django_rtl_admin import (
 | `rtl_admin.W004` | `LocaleMiddleware` is not installed, so a chosen language will not stick. |
 | `rtl_admin.W005` | `RTL_ADMIN` is not a mapping or `None`, or a checked setting has the wrong type (e.g. `"false"` instead of `False`, or a bare string for `EXTRA_RTL_LANGUAGES`). |
 | `rtl_admin.W006` | `RTL_ADMIN["EXTRA_RTL_LANGUAGES"]` lists language codes missing from `settings.LANGUAGES_BIDI`. |
+| `rtl_admin.W007` | The switcher is on and `LocaleMiddleware` is before `SessionMiddleware` or after `CommonMiddleware`. |
+| `rtl_admin.W008` | The switcher is on and `RTL_ADMIN["LANGUAGE_SWITCHER_LANGUAGES"]` lists codes missing from `settings.LANGUAGES`. |
 
 ---
 
