@@ -1,18 +1,18 @@
 ---
 title: فحوصات النظام | django-rtl-admin
-description: شخّص rtl_admin.E001 وW001 إلى W006 لخيارات الإعدادات وأنواعها غير الصالحة، وترتيب التطبيقات، والمفاتيح غير المعروفة، وغياب نقطة نهاية set_language، وإعداد LocaleMiddleware، ولغات RTL الغائبة عن LANGUAGES_BIDI.
+description: شخّص rtl_admin.E001 وW001 إلى W008 لخيارات الإعدادات وأنواعها غير الصالحة، وترتيب التطبيقات، والمفاتيح غير المعروفة، وغياب نقطة نهاية set_language، ووجود LocaleMiddleware وترتيبها، ورموز لغات المبدّل الغائبة عن LANGUAGES، ولغات RTL الغائبة عن LANGUAGES_BIDI.
 ---
 
 # فحوصات النظام { #system-checks }
 
-يسجّل التطبيق ست دوال فحص في Django يمكنها إصدار معرّف خطأ واحد وستة معرّفات
+يسجّل التطبيق ست دوال فحص في Django يمكنها إصدار معرّف خطأ واحد وثمانية معرّفات
 تحذير. شغّلها ضمن الفحوصات المعتادة لمشروعك:
 
 ```sh
 python manage.py check
 ```
 
-يمثّل E001 كائن `Error` في Django؛ وتمثّل W001 إلى W006 كائنات `Warning` في Django.
+يمثّل E001 كائن `Error` في Django؛ وتمثّل W001 إلى W008 كائنات `Warning` في Django.
 بادئتها الدقيقة هي `rtl_admin`، لا `django_rtl_admin`. يحدث التسجيل عندما تستورد
 `django_rtl_admin.apps.RTLAdminConfig.ready()` وحدة الفحوصات.
 
@@ -29,6 +29,8 @@ python manage.py check
 | `rtl_admin.W004` | المبدّل مفعّل والمسار الدقيق لـ`LocaleMiddleware` غير موجود. | أضف البرمجية الوسيطة أو عطّل المبدّل. |
 | `rtl_admin.W005` | ليس `RTL_ADMIN` كائن ربط ولا `None`، أو نوع أحد الخيارات المفحوصة غير صالح. | استخدم كائن ربط أو `None` وأنواع الخيارات الموثَّقة. |
 | `rtl_admin.W006` | أحد الرموز في `EXTRA_RTL_LANGUAGES` غير موجود في `settings.LANGUAGES_BIDI`. | أضف الرمز إلى `LANGUAGES_BIDI` أو احذفه من `EXTRA_RTL_LANGUAGES`. |
+| `rtl_admin.W007` | المبدّل مفعّل وترتيب `LocaleMiddleware` غير صحيح. | ضعها بعد `SessionMiddleware` وقبل `CommonMiddleware` عند وجودهما. |
+| `rtl_admin.W008` | المبدّل مفعّل وبعض رموز لغاته لا تطابق `settings.LANGUAGES`. | أضف الرموز إلى `LANGUAGES` أو أزلها من المبدّل. |
 
 ## `rtl_admin.E001`: خيارات إعدادات غير صالحة { #rtl_admine001-invalid-setting-choices }
 
@@ -142,7 +144,7 @@ MIDDLEWARE = [
 ]
 ```
 
-يتحقق الفحص من الوجود، لا من الترتيب. لا يُتعرَّف على فئة فرعية مخصصة متوافقة
+يتحقق W004 من الوجود، ويتحقق W007 أدناه من الترتيب. لا يُتعرَّف على فئة فرعية مخصصة متوافقة
 تحت مسار استيراد مختلف. لا يخفي غياب البرمجية الوسيطة نموذج المبدّل؛ فهي متطلب
 مستقل أثناء التشغيل. اتبع [البدء السريع](quick-start.md) لإعداد اختيار اللغة كاملًا.
 
@@ -155,6 +157,8 @@ MIDDLEWARE = [
 | `RTL_ADMIN` | كائن من نوع `collections.abc.Mapping` (مثل `dict` أو `types.MappingProxyType`)، أو `None` لاستخدام القيم الافتراضية. |
 | `EXTRA_RTL_LANGUAGES` | يجب ألا يكون سلسلة نصية مفردة؛ استخدم مجموعةً من رموز اللغات بدلًا منها. |
 | `FONT_STACK` | `None`، أو سلسلة نصية، أو تسلسل من السلاسل النصية مثل قائمة أو صف. |
+| `LANGUAGE_SWITCHER_LANGUAGES` | `None` أو تسلسل من رموز اللغات أو أزواج `(code, label)`. |
+| `CURRENCY` | سلسلة من ثلاثة أحرف ASCII. |
 | `ENABLE_CSS`, `ISOLATE_CHANGELIST`, `ISOLATE_READONLY_FIELDS`, `ISOLATE_TABLE_CELLS`, `PLAINTEXT_FORM_FIELDS`, `USE_BABEL`, `LANGUAGE_SWITCHER` | قيمة `bool` حقيقية (`True` أو `False`)، لا بديلًا يُقيَّم منطقيًا إلى صحيح أو خطأ. |
 
 على سبيل المثال، استخدم `False`، لا `"false"` أو `0`، لمفتاح تفعيل.
@@ -193,6 +197,27 @@ RTL_ADMIN = {"EXTRA_RTL_LANGUAGES": ("ps",)}
 أدرج كل رمز أيضًا في `LANGUAGES_BIDI` عندما ينبغي أن يكون اتجاه المستند RTL كذلك.
 هذا الاقتران هو الحالة المعتادة، ويفرضه W006.
 
+## `rtl_admin.W007`: ترتيب البرمجية الوسيطة للإعدادات المحلية { #rtl_adminw007-locale-middleware-order }
+
+ضع `LocaleMiddleware` بعد `SessionMiddleware` لتتمكن من قراءة الجلسة التي تهيّئها،
+وقبل `CommonMiddleware` لأن عمليات إعادة التوجيه فيها تعتمد على اللغة النشطة.
+إذا غابت `SessionMiddleware` أو `CommonMiddleware`، يتجاوز W007 المقارنة
+الخاصة بالبرمجية الغائبة فقط.
+
+## `rtl_admin.W008`: رموز لغات المبدّل الغائبة عن `LANGUAGES` { #rtl_adminw008-switcher-languages-missing-from-languages }
+
+أضف الرموز المذكورة إلى `settings.LANGUAGES` أو أزلها من `LANGUAGE_SWITCHER_LANGUAGES`.
+يقارن W008 الرمز الكامل أو رمز اللغة الأساسي دون اعتبار حالة الأحرف. يتجاوز الفحص
+القيمة `None` لأن المبدّل يستخدم `settings.LANGUAGES` مباشرةً، ويتجاوز أيضًا
+القيم غير الصالحة التي يبلغ عنها W005.
+
+مثال على ضبط القائمتين بالرموز نفسها:
+
+```python
+LANGUAGES = [("en", "English"), ("ar", "Arabic")]
+RTL_ADMIN = {"LANGUAGE_SWITCHER_LANGUAGES": ["en", "ar"]}
+```
+
 ## تعطيل فحوصات المبدّل { #disabling-the-switcher-checks }
 
 إذا لم تكن تريد المبدّل، فعطّل ميزته بدلًا من الاكتفاء بإخفاء التحذيرات:
@@ -203,14 +228,13 @@ RTL_ADMIN = {
 }
 ```
 
-يتجاوز هذا كلًا من W003 وW004 ويمنع ظهور النموذج وسكربته. تظل E001 وW001 وW002
+يتجاوز هذا W003 وW004 وW007 وW008 ويمنع ظهور النموذج وسكربته. تظل E001 وW001 وW002
 وW005 وW006 تعمل. يمكن أن يحدث W003 وW004 معًا، ويظلان يعملان حتى عند ضبط لغة
 واحدة فقط، رغم أن النموذج يختفي في تلك الحالة.
 
 ## ما لا تضمنه نتيجة خالية من المشكلات { #what-a-clean-result-does-not-guarantee }
 
-لا تتحقق الفحوصات من `USE_I18N`، أو سياق القالب الخاص بالطلب وCSRF، أو صحة قائمة
-اللغات المخصصة، أو تقديم الملفات الثابتة، أو توفر Babel، أو خصائص المزيج، أو
-وراثة القوالب الفعلية. كما لا تتحقق من ترتيب البرمجيات الوسيطة.
+لا تتحقق الفحوصات من `USE_I18N`، أو سياق القالب الخاص بالطلب وCSRF، أو تقديم الملفات الثابتة، أو توفر Babel، أو خصائص المزيج، أو
+وراثة القوالب الفعلية.
 استخدم [وسوم القوالب ومرشحاتها](template-tags.md) لمعرفة متطلبات العرض،
 و[مزيج لوحة الإدارة](admin-mixin.md) لمعرفة عزل الأعمدة وخيارات تعطيله.

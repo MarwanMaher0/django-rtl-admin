@@ -75,7 +75,7 @@ locale-aware output; ordinary admin columns are not automatically reformatted.
 
 - [Configuration](configuration.md): all 14 `RTL_ADMIN` settings, defaults, and effects.
 - [Template tags and filters](template-tags.md): the complete `rtl_admin` library.
-- [System checks](system-checks.md): resolve `rtl_admin.E001` and `rtl_admin.W001`–`rtl_admin.W006`.
+- [System checks](system-checks.md): resolve `rtl_admin.E001` and `rtl_admin.W001`–`rtl_admin.W008`.
 - [Translations and contributing a locale](translations.md): shipped catalogs,
   translation workflow, and building these docs.
 - [Changelog](changelog.md): release history included from the repository's

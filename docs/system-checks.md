@@ -1,18 +1,18 @@
 ---
 title: System checks | django-rtl-admin
-description: Diagnose rtl_admin.E001 and W001 through W006 for invalid configuration choices and types, app ordering, unknown keys, the missing set_language endpoint, LocaleMiddleware setup, and RTL languages absent from LANGUAGES_BIDI.
+description: Diagnose rtl_admin.E001 and W001 through W008 for invalid configuration choices and types, app ordering, unknown keys, the missing set_language endpoint, LocaleMiddleware presence and order, switcher codes missing from LANGUAGES, and RTL languages absent from LANGUAGES_BIDI.
 ---
 
 # System checks
 
 The app registers six Django check functions that can emit one error ID and
-six warning IDs. Run them as part of your project's normal checks:
+eight warning IDs. Run them as part of your project's normal checks:
 
 ```sh
 python manage.py check
 ```
 
-E001 is a Django `Error`; W001 through W006 are Django `Warning` objects. Their
+E001 is a Django `Error`; W001 through W008 are Django `Warning` objects. Their
 exact prefix is `rtl_admin`, not `django_rtl_admin`. Registration occurs when
 `django_rtl_admin.apps.RTLAdminConfig.ready()` imports the checks module.
 
@@ -29,6 +29,8 @@ checks raising `ImproperlyConfigured`. Runtime validation remains in place.
 | `rtl_admin.W004` | The switcher is enabled and the exact `LocaleMiddleware` path is absent. | Add the middleware or disable the switcher. |
 | `rtl_admin.W005` | `RTL_ADMIN` is neither a mapping nor `None`, or a checked option has an invalid type. | Use a mapping or `None` and the documented option types. |
 | `rtl_admin.W006` | An `EXTRA_RTL_LANGUAGES` code is missing from `settings.LANGUAGES_BIDI`. | Add the code to `LANGUAGES_BIDI` or remove it from `EXTRA_RTL_LANGUAGES`. |
+| `rtl_admin.W007` | The switcher is enabled and `LocaleMiddleware` is out of order. | Put it after `SessionMiddleware` and before `CommonMiddleware` when present. |
+| `rtl_admin.W008` | The switcher is enabled and some switcher codes do not match `settings.LANGUAGES`. | Add the codes to `LANGUAGES` or remove them from the switcher. |
 
 ## `rtl_admin.E001`: invalid setting choices
 
@@ -144,7 +146,7 @@ MIDDLEWARE = [
 ]
 ```
 
-The check verifies presence, not order. A compatible custom subclass under a
+W004 checks for presence; W007 below checks the order. A compatible custom subclass under a
 different import path is not recognized. Missing middleware does not hide the
 switcher form; it is a separate runtime requirement. Follow
 [Quick start](quick-start.md) for the complete language-selection setup.
@@ -158,6 +160,8 @@ switcher form; it is a separate runtime requirement. Follow
 | `RTL_ADMIN` | A `collections.abc.Mapping` (such as `dict` or `types.MappingProxyType`), or `None` to use the defaults. |
 | `EXTRA_RTL_LANGUAGES` | Must not be a bare string; use a collection of language codes instead. |
 | `FONT_STACK` | `None`, a string, or a sequence of strings such as a list or tuple. |
+| `LANGUAGE_SWITCHER_LANGUAGES` | `None` or a sequence of language codes or `(code, label)` pairs. |
+| `CURRENCY` | A three-letter ASCII string. |
 | `ENABLE_CSS`, `ISOLATE_CHANGELIST`, `ISOLATE_READONLY_FIELDS`, `ISOLATE_TABLE_CELLS`, `PLAINTEXT_FORM_FIELDS`, `USE_BABEL`, `LANGUAGE_SWITCHER` | A real `bool` (`True` or `False`), not a truthy or falsy substitute. |
 
 For example, use `False`, not `"false"` or `0`, for a switch. Omitting
@@ -197,6 +201,27 @@ helpers. `EXTRA_RTL_LANGUAGES` is for locales that Django does not know yet;
 mirror each code in `LANGUAGES_BIDI` when the document should be RTL too. That
 pairing is the usual case, and W006 enforces it.
 
+## `rtl_admin.W007`: locale middleware order
+
+Place `LocaleMiddleware` after `SessionMiddleware` so it can read the session
+that `SessionMiddleware` sets up. Place it before `CommonMiddleware` because
+`CommonMiddleware` redirects depend on the active language. W007 skips each
+comparison if the corresponding middleware is absent.
+
+## `rtl_admin.W008`: switcher languages missing from `LANGUAGES`
+
+Add the listed codes to `settings.LANGUAGES` or remove them from
+`LANGUAGE_SWITCHER_LANGUAGES`. W008 accepts an exact or base language code
+match, ignoring case. It skips `None` because the switcher uses `settings.LANGUAGES`
+directly, and it skips malformed values, which W005 reports.
+
+For example, use the same codes in both settings:
+
+```python
+LANGUAGES = [("en", "English"), ("ar", "Arabic")]
+RTL_ADMIN = {"LANGUAGE_SWITCHER_LANGUAGES": ["en", "ar"]}
+```
+
 ## Disabling the switcher checks
 
 If the switcher is not wanted, disable its feature rather than merely hiding
@@ -208,15 +233,15 @@ RTL_ADMIN = {
 }
 ```
 
-This skips both W003 and W004 and suppresses the form and its script. E001,
+This skips W003, W004, W007, and W008 and suppresses the form and its script. E001,
 W001, W002, W005, and W006 still run. W003 and W004 can occur together, and they
 still run with only one configured language even though the form hides in that
 case.
 
 ## What a clean result does not guarantee
 
-The checks do not validate `USE_I18N`, request/CSRF template context, custom
-language-list validity, asset delivery, Babel availability, mixin attributes,
-or effective template inheritance. They also do not verify middleware order.
+The checks do not validate `USE_I18N`, request/CSRF template context,
+asset delivery, Babel availability, mixin attributes,
+or effective template inheritance.
 Use [Template tags and filters](template-tags.md) for rendering requirements and
 [Admin mixin](admin-mixin.md) for column isolation and its opt-outs.

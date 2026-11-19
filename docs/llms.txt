@@ -26,7 +26,7 @@
 - [BidiSafeAdminMixin](https://marwanmaher0.github.io/django-rtl-admin/admin-mixin/): changelist and read-only field isolation, sorting, exclusions, and security behavior.
 - [Python API](https://marwanmaher0.github.io/django-rtl-admin/api/): bidi and locale-formatting functions.
 - [Stock admin RTL defects](https://marwanmaher0.github.io/django-rtl-admin/rtl-defects/): source-level before/after details and limitations.
-- [System checks](https://marwanmaher0.github.io/django-rtl-admin/system-checks/): rtl_admin.E001 and W001 through W006.
+- [System checks](https://marwanmaher0.github.io/django-rtl-admin/system-checks/): rtl_admin.E001 and W001 through W008.
 - [Translations](https://marwanmaher0.github.io/django-rtl-admin/translations/): shipped locales and contribution workflow.
 - [Changelog](https://marwanmaher0.github.io/django-rtl-admin/changelog/): release history.
 - [Full documentation for language models](https://marwanmaher0.github.io/django-rtl-admin/llms-full.txt)

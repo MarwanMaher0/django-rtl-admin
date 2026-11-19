@@ -325,3 +325,91 @@ def test_the_checks_are_registered_with_django():
         "check_settings_types",
         "check_language_switcher",
     } <= registered
+
+
+@pytest.mark.parametrize(
+    ("order", "enabled", "warn"),
+    [
+        ("slc", True, False),
+        ("l", True, False),
+        ("lsc", True, True),
+        ("scl", True, True),
+        ("cls", True, True),
+        ("cls", False, False),
+    ],
+)
+def test_locale_middleware_order(order, enabled, warn):
+    middleware = {
+        "s": "django.contrib.sessions.middleware.SessionMiddleware",
+        "l": "django.middleware.locale.LocaleMiddleware",
+        "c": "django.middleware.common.CommonMiddleware",
+    }
+    with override_settings(
+        MIDDLEWARE=[middleware[key] for key in order], RTL_ADMIN={"LANGUAGE_SWITCHER": enabled}
+    ):
+        assert ("rtl_admin.W007" in ids(checks.check_language_switcher(None))) == warn
+
+
+@pytest.mark.parametrize("value", [None, [], ("ar",), ["en", ("ar", "Arabic")]])
+def test_valid_switcher_language_types(value):
+    with override_settings(RTL_ADMIN={"LANGUAGE_SWITCHER_LANGUAGES": value}):
+        assert checks.check_settings_types(None) == []
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "ar",
+        b"ar",
+        42,
+        {"ar": "Arabic"},
+        [{"ar": "Arabic"}],
+        [("ar",)],
+        [("ar", "Arabic", "extra")],
+        [(1, "Arabic")],
+        [("ar", 1)],
+    ],
+)
+def test_invalid_switcher_language_types(value):
+    with override_settings(RTL_ADMIN={"LANGUAGE_SWITCHER_LANGUAGES": value}):
+        warnings = checks.check_settings_types(None)
+        assert ids(warnings) == ["rtl_admin.W005"]
+        assert "LANGUAGE_SWITCHER_LANGUAGES" in warnings[0].msg
+        assert "rtl_admin.W008" not in ids(checks.check_language_switcher(None))
+
+
+@pytest.mark.parametrize(
+    ("value", "enabled", "missing"),
+    [
+        (None, True, None),
+        ([], True, None),
+        (["AR-eg", ("PT-br", "Portuguese")], True, None),
+        (["fr", "xx", "ar", "fr"], True, "fr, xx"),
+        (["fr"], False, None),
+    ],
+)
+def test_switcher_language_availability(value, enabled, missing):
+    with override_settings(
+        LANGUAGES=[("ar", "Arabic"), ("pt-BR", "Portuguese")],
+        RTL_ADMIN={"LANGUAGE_SWITCHER": enabled, "LANGUAGE_SWITCHER_LANGUAGES": value},
+    ):
+        warnings = [w for w in checks.check_language_switcher(None) if w.id == "rtl_admin.W008"]
+        if missing is None:
+            assert warnings == []
+        else:
+            assert len(warnings) == 1
+            assert warnings[0].msg.endswith(f": {missing}.")
+
+
+@pytest.mark.parametrize("value", ["USD", "eur", "XyZ"])
+def test_valid_currency(value):
+    with override_settings(RTL_ADMIN={"CURRENCY": value}):
+        assert checks.check_settings_types(None) == []
+
+
+@pytest.mark.parametrize("value", [None, 123, b"USD", "US", "USDD", "US1", "US ", "ÉUR"])
+def test_invalid_currency(value):
+    with override_settings(RTL_ADMIN={"CURRENCY": value}):
+        warnings = checks.check_settings_types(None)
+        assert ids(warnings) == ["rtl_admin.W005"]
+        assert "CURRENCY" in warnings[0].msg

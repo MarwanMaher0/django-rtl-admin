@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 from django.apps import apps
 from django.conf import settings
 from django.core.checks import Error, Warning, register
+from django.utils.functional import Promise
 
 from .conf import CHOICES, SETTINGS_KEY, rtl_settings
 
@@ -26,6 +27,29 @@ def _configured_settings() -> Mapping[str, Any] | None:
     if isinstance(configured, Mapping):
         return configured
     return None
+
+
+def _switcher_codes(value: Any) -> list[str] | None:
+    """Return override codes, or None if the override is malformed."""
+    if value is None:
+        return []
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes, bytearray)):
+        return None
+    codes: list[str] = []
+    for entry in value:
+        if isinstance(entry, str):
+            codes.append(entry)
+        elif (
+            isinstance(entry, Sequence)
+            and not isinstance(entry, (bytes, bytearray))
+            and len(entry) == 2
+            and isinstance(entry[0], str)
+            and isinstance(entry[1], (str, Promise))
+        ):
+            codes.append(entry[0])
+        else:
+            return None
+    return codes
 
 
 @register()
@@ -126,6 +150,12 @@ def check_settings_types(
             )
         ):
             expected = "None, a string, or a sequence of strings"
+        elif name == "LANGUAGE_SWITCHER_LANGUAGES" and _switcher_codes(value) is None:
+            expected = "None or a sequence of language codes or (code, label) pairs"
+        elif name == "CURRENCY" and not (
+            isinstance(value, str) and len(value) == 3 and value.isascii() and value.isalpha()
+        ):
+            expected = "a three-letter ASCII string"
         elif isinstance(rtl_settings.defaults.get(name), bool) and not isinstance(value, bool):
             expected = "a bool"
         if expected is not None:
@@ -203,7 +233,10 @@ def check_language_switcher(
         )
 
     middleware = list(getattr(settings, "MIDDLEWARE", []))
-    if "django.middleware.locale.LocaleMiddleware" not in middleware:
+    locale = "django.middleware.locale.LocaleMiddleware"
+    session = "django.contrib.sessions.middleware.SessionMiddleware"
+    common = "django.middleware.common.CommonMiddleware"
+    if locale not in middleware:
         issues.append(
             Warning(
                 "django.middleware.locale.LocaleMiddleware is not installed, so "
@@ -216,4 +249,37 @@ def check_language_switcher(
                 id="rtl_admin.W004",
             )
         )
+    else:
+        position = middleware.index(locale)
+        if session in middleware[position + 1 :] or common in middleware[:position]:
+            issues.append(
+                Warning(
+                    "LocaleMiddleware is in the wrong position in MIDDLEWARE.",
+                    hint=(
+                        "Place LocaleMiddleware after SessionMiddleware "
+                        "and before CommonMiddleware."
+                    ),
+                    id="rtl_admin.W007",
+                )
+            )
+
+    codes = _switcher_codes(configured.get("LANGUAGE_SWITCHER_LANGUAGES"))
+    if codes:
+        supported = {code.lower() for code, _ in settings.LANGUAGES}
+        missing = sorted(
+            {
+                code
+                for code in codes
+                if code.lower() not in supported and code.lower().split("-", 1)[0] not in supported
+            }
+        )
+        if missing:
+            issues.append(
+                Warning(
+                    "RTL_ADMIN['LANGUAGE_SWITCHER_LANGUAGES'] contains codes missing "
+                    f"from settings.LANGUAGES: {', '.join(missing)}.",
+                    hint="Add the codes to settings.LANGUAGES or remove them from the switcher.",
+                    id="rtl_admin.W008",
+                )
+            )
     return issues
