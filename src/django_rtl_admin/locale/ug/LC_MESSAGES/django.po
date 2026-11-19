@@ -83,6 +83,7 @@ msgstr "مەشغۇلات ئۈچۈن ئوبيېكت تاللىنىدۇ-{}"
 #: formatting.py
 # TRANSLATORS: translated without a native reviewer; please verify and
 # improve this wording in a follow-up contribution.
+msgctxt "duration"
 msgid "%(num)s second"
 msgid_plural "%(num)s seconds"
 msgstr[0] "%(num)s سېكۇنت"
@@ -99,3 +100,33 @@ msgstr "%(delta)s ئىلگىرى"
 # improve this wording in a follow-up contribution.
 msgid "%(delta)s from now"
 msgstr "%(delta)s دىن كېيىن"
+
+#: formatting.py
+# Django's own wording for this language, with spacing/typos fixed.
+msgctxt "file size"
+msgid "%s KB"
+msgstr "%s كىلوبايت"
+
+#: formatting.py
+# Django's own wording for this language, with spacing/typos fixed.
+msgctxt "file size"
+msgid "%s MB"
+msgstr "%s مېگا بايىت"
+
+#: formatting.py
+# Django's own wording for this language, with spacing/typos fixed.
+msgctxt "file size"
+msgid "%s GB"
+msgstr "%s گىگا بايىت"
+
+#: formatting.py
+# Django's own wording for this language, with spacing/typos fixed.
+msgctxt "file size"
+msgid "%s TB"
+msgstr "%s تېرا بايت"
+
+#: formatting.py
+# Django's own wording for this language, with spacing/typos fixed.
+msgctxt "file size"
+msgid "%s PB"
+msgstr "%s پېتا بايىت"

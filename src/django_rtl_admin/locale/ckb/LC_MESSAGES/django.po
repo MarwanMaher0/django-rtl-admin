@@ -83,6 +83,7 @@ msgstr "ئەم تەنە هەڵبژێرە بۆ کردارێک - {}"
 #: formatting.py
 # TRANSLATORS: translated without a native reviewer; please verify and
 # improve this wording in a follow-up contribution.
+msgctxt "duration"
 msgid "%(num)s second"
 msgid_plural "%(num)s seconds"
 msgstr[0] "%(num)s چرکە"
@@ -99,3 +100,33 @@ msgstr "%(delta)s پێشتر"
 # improve this wording in a follow-up contribution.
 msgid "%(delta)s from now"
 msgstr "%(delta)s لە ئێستاوە"
+
+#: formatting.py
+# Same wording as Django's own "%s KB"-style strings for this language.
+msgctxt "file size"
+msgid "%s KB"
+msgstr "%s کب"
+
+#: formatting.py
+# Same wording as Django's own "%s KB"-style strings for this language.
+msgctxt "file size"
+msgid "%s MB"
+msgstr "%s مب"
+
+#: formatting.py
+# Same wording as Django's own "%s KB"-style strings for this language.
+msgctxt "file size"
+msgid "%s GB"
+msgstr "%s گب"
+
+#: formatting.py
+# Same wording as Django's own "%s KB"-style strings for this language.
+msgctxt "file size"
+msgid "%s TB"
+msgstr "%s تب"
+
+#: formatting.py
+# Same wording as Django's own "%s KB"-style strings for this language.
+msgctxt "file size"
+msgid "%s PB"
+msgstr "%s پب"

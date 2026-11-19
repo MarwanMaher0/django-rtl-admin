@@ -140,7 +140,8 @@ argument selects the lowest unit, which defaults to `"second"`:
 
 Babel supplies CLDR unit patterns and direction wording. Without Babel, Django's
 translated `timesince` unit strings are used, including translated second forms
-for the shipped RTL locales. Digits follow `NUMERALS` and the active language.
+for the shipped RTL locales; Arabic uses the package's own unit and direction
+wording, so singulars and duals carry no number (`ثانيتان`, `خلال ثانيتين`). Digits follow `NUMERALS` and the active language.
 `None` and empty input render empty; nonnumeric or non-finite input passes
 through as text.
 
@@ -168,7 +169,10 @@ Format a byte count with locale-aware digits and an optional binary argument:
 The default uses powers of 1000; pass `"binary"` for 1024-step sizes with
 Django's `KB`, `MB`, and later unit labels. Only `True` and the strings `"1"`,
 `"true"`, `"yes"`, and `"binary"` (case-insensitive) select binary sizes;
-anything else uses decimal steps. Unit names come from Django's translations.
+anything else uses decimal steps. Unit names come from the package's catalogs
+for the six shipped languages, under their own context so Django's own
+`filesizeformat` output is unchanged, and from Django's translations otherwise.
+Negative sizes use the locale's minus sign.
 `None` and empty input render empty; nonnumeric or non-finite input passes
 through as text.
 

@@ -19,12 +19,13 @@ from __future__ import annotations
 import contextlib
 import datetime
 import decimal
+from collections.abc import Callable
 from typing import Any
 
 from django.conf import settings
 from django.utils import formats, timesince, timezone, translation
 from django.utils.html import avoid_wrapping
-from django.utils.translation import get_language, gettext, ngettext, to_locale
+from django.utils.translation import get_language, gettext, npgettext, pgettext, to_locale
 
 from .conf import rtl_settings
 
@@ -177,11 +178,66 @@ _DURATION_UNITS: tuple[tuple[str, int], ...] = (
     ("second", 1),
 )
 
-#: Django's timesince strings cover every unit except seconds; the fallback
-#: gets the missing second forms and direction wording from the package's own
-#: gettext catalogs.
-_FILESIZE_UNITS = ("KB", "MB", "GB", "TB", "PB")
-_FILESIZE_UNIT_TEMPLATES = {unit: f"%s {unit}" for unit in _FILESIZE_UNITS}
+#: The no-Babel duration wording, per unit: (plain, past, future).  Django's
+#: ``timesince`` strings cover every unit except seconds, and in Arabic they
+#: put a number in front of the singular and the dual (``٢ دقيقتين``), so the
+#: package's catalogs carry their own forms under the ``duration`` context.
+#: A form the active catalog does not translate falls back to Django's unit
+#: string and the generic ``"%(delta)s ago"`` / ``"%(delta)s from now"``.
+_DURATION_FORMS: dict[str, tuple[Callable[[int], str], ...]] = {
+    "year": (
+        lambda n: npgettext("duration", "%(num)s year", "%(num)s years", n),
+        lambda n: npgettext("duration", "%(num)s year ago", "%(num)s years ago", n),
+        lambda n: npgettext("duration", "in %(num)s year", "in %(num)s years", n),
+    ),
+    "month": (
+        lambda n: npgettext("duration", "%(num)s month", "%(num)s months", n),
+        lambda n: npgettext("duration", "%(num)s month ago", "%(num)s months ago", n),
+        lambda n: npgettext("duration", "in %(num)s month", "in %(num)s months", n),
+    ),
+    "week": (
+        lambda n: npgettext("duration", "%(num)s week", "%(num)s weeks", n),
+        lambda n: npgettext("duration", "%(num)s week ago", "%(num)s weeks ago", n),
+        lambda n: npgettext("duration", "in %(num)s week", "in %(num)s weeks", n),
+    ),
+    "day": (
+        lambda n: npgettext("duration", "%(num)s day", "%(num)s days", n),
+        lambda n: npgettext("duration", "%(num)s day ago", "%(num)s days ago", n),
+        lambda n: npgettext("duration", "in %(num)s day", "in %(num)s days", n),
+    ),
+    "hour": (
+        lambda n: npgettext("duration", "%(num)s hour", "%(num)s hours", n),
+        lambda n: npgettext("duration", "%(num)s hour ago", "%(num)s hours ago", n),
+        lambda n: npgettext("duration", "in %(num)s hour", "in %(num)s hours", n),
+    ),
+    "minute": (
+        lambda n: npgettext("duration", "%(num)s minute", "%(num)s minutes", n),
+        lambda n: npgettext("duration", "%(num)s minute ago", "%(num)s minutes ago", n),
+        lambda n: npgettext("duration", "in %(num)s minute", "in %(num)s minutes", n),
+    ),
+    "second": (
+        lambda n: npgettext("duration", "%(num)s second", "%(num)s seconds", n),
+        lambda n: npgettext("duration", "%(num)s second ago", "%(num)s seconds ago", n),
+        lambda n: npgettext("duration", "in %(num)s second", "in %(num)s seconds", n),
+    ),
+}
+
+#: File size units.  The package translates them under its own ``file size``
+#: context so that its catalogs never override Django's ``"%s KB"`` strings
+#: (and with them Django's own ``filesizeformat``); a language the package does
+#: not ship falls back to Django's translation.
+_FILESIZE_UNITS: tuple[tuple[Callable[[], str], str], ...] = (
+    (lambda: pgettext("file size", "%s KB"), "%s KB"),
+    (lambda: pgettext("file size", "%s MB"), "%s MB"),
+    (lambda: pgettext("file size", "%s GB"), "%s GB"),
+    (lambda: pgettext("file size", "%s TB"), "%s TB"),
+    (lambda: pgettext("file size", "%s PB"), "%s PB"),
+)
+
+#: CLDR minus signs for the numbering systems, used when Babel is unavailable:
+#: ARABIC LETTER MARK + hyphen-minus for ``arab``, LEFT-TO-RIGHT MARK + U+2212
+#: MINUS SIGN for ``arabext`` (``fa``).
+_FALLBACK_MINUS_SIGNS = {"arab": "\u061c-", "arabext": "\u200e\u2212"}
 
 
 def _active(language: str | None) -> contextlib.AbstractContextManager[None]:
@@ -453,9 +509,14 @@ def format_percent(value: Any, *, language: str | None = None) -> str:
     return f"{format_number(percentage, language=language, decimal_pos=0)}%"
 
 
-def _second_text(amount: int) -> str:
-    """Spell a number of seconds from the package's gettext catalog."""
-    return ngettext("%(num)s second", "%(num)s seconds", amount) % {"num": amount}
+def _duration_form(form: Callable[[int], str], amount: int) -> str | None:
+    """Render a package duration form, or ``None`` if the catalog lacks it."""
+    text = form(amount)
+    with translation.override(None):
+        untranslated = form(amount)
+    if text == untranslated:
+        return None
+    return text % {"num": amount}
 
 
 def _fallback_timedelta(
@@ -465,7 +526,7 @@ def _fallback_timedelta(
     add_direction: bool,
     language: str | None,
 ) -> str:
-    """Format a duration with Django's translated unit strings."""
+    """Format a duration from the gettext catalogs (package, then Django)."""
     seconds: decimal.Decimal
     if isinstance(value, datetime.timedelta):
         # Babel ignores microseconds and normalizes negative deltas this way.
@@ -488,19 +549,27 @@ def _fallback_timedelta(
         return ""
 
     unit, amount = chosen
+    plain, past, future = _DURATION_FORMS[unit]
     with _active(language):
-        if unit == "second":
-            text = _second_text(amount)
-        else:
-            # ngettext_lazy resolves against the active language, so this must
-            # stay inside the override.
-            text = str(timesince.TIME_STRINGS[unit] % {"num": amount})
+        text = None
         if add_direction:
-            if negative:
-                template = gettext("%(delta)s ago")
-            else:
-                template = gettext("%(delta)s from now")
-            text = template % {"delta": text}
+            text = _duration_form(past if negative else future, amount)
+        if text is None:
+            text = _duration_form(plain, amount)
+            if text is None:
+                if unit == "second":
+                    # Django has no seconds string; use the English wording.
+                    text = plain(amount) % {"num": amount}
+                else:
+                    # ngettext_lazy resolves against the active language, so
+                    # this must stay inside the override.
+                    text = str(timesince.TIME_STRINGS[unit] % {"num": amount})
+            if add_direction:
+                if negative:
+                    template = gettext("%(delta)s ago")
+                else:
+                    template = gettext("%(delta)s from now")
+                text = template % {"delta": text}
     return _localize_digits(text, language)
 
 
@@ -557,6 +626,23 @@ def _filesize_bytes(number: decimal.Decimal, language: str | None) -> str:
     return _localize_digits(text, language)
 
 
+def _minus_sign(language: str | None) -> str:
+    """The locale's minus sign: Babel's number symbol, else the CLDR default."""
+    system = numbering_system(language)
+    locale = _babel_locale(language)
+    if locale is not None:
+        try:
+            try:
+                sign: str = babel_numbers.get_minus_sign_symbol(locale, numbering_system=system)
+            except TypeError:  # pragma: no cover - Babel < 2.14 has no numbering_system
+                sign = babel_numbers.get_minus_sign_symbol(locale)
+        except Exception:  # pragma: no cover - defensive
+            pass
+        else:
+            return sign
+    return _FALLBACK_MINUS_SIGNS.get(system, "-")
+
+
 def format_filesize(num_bytes: Any, *, binary: bool = False, language: str | None = None) -> str:
     """Format a byte count with locale-aware digits and unit spacing.
 
@@ -584,12 +670,14 @@ def format_filesize(num_bytes: Any, *, binary: bool = False, language: str | Non
             exponent += 1
         scaled = magnitude / limit
         formatted = format_number(scaled, language=language, decimal_pos=1)
-        unit = _FILESIZE_UNITS[exponent - 1]
+        package_template, django_msgid = _FILESIZE_UNITS[exponent - 1]
         with _active(language):
-            template = gettext(_FILESIZE_UNIT_TEMPLATES[unit])
+            template = package_template()
+            if template == django_msgid:
+                template = gettext(django_msgid)
         text = template % formatted
     if negative:
-        text = f"-{text}"
+        text = _minus_sign(language) + text
     return _localize_digits(avoid_wrapping(text), language)
 
 

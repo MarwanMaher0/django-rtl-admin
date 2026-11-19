@@ -76,11 +76,12 @@ msgstr "تحديد هذا العنصر لتنفيذ إجراء - {}"
 #: formatting.py
 # TRANSLATORS: translated without a native reviewer; please verify and
 # improve this wording in a follow-up contribution.
+msgctxt "duration"
 msgid "%(num)s second"
 msgid_plural "%(num)s seconds"
 msgstr[0] "%(num)s ثانية"
 msgstr[1] "ثانية"
-msgstr[2] "%(num)s ثانيتين"
+msgstr[2] "ثانيتان"
 msgstr[3] "%(num)s ثوان"
 msgstr[4] "%(num)s ثانية"
 msgstr[5] "%(num)s ثانية"
@@ -96,3 +97,293 @@ msgstr "منذ %(delta)s"
 # improve this wording in a follow-up contribution.
 msgid "%(delta)s from now"
 msgstr "خلال %(delta)s"
+
+#: formatting.py
+# Same wording as Django's own "%s KB"-style strings for this language.
+msgctxt "file size"
+msgid "%s KB"
+msgstr "%s ك.ب"
+
+#: formatting.py
+# Same wording as Django's own "%s KB"-style strings for this language.
+msgctxt "file size"
+msgid "%s MB"
+msgstr "%s م.ب"
+
+#: formatting.py
+# Same wording as Django's own "%s KB"-style strings for this language.
+msgctxt "file size"
+msgid "%s GB"
+msgstr "%s ج.ب"
+
+#: formatting.py
+# Same wording as Django's own "%s KB"-style strings for this language.
+msgctxt "file size"
+msgid "%s TB"
+msgstr "%s ت.ب"
+
+#: formatting.py
+# Same wording as Django's own "%s KB"-style strings for this language.
+msgctxt "file size"
+msgid "%s PB"
+msgstr "%s ب.ب"
+
+#: formatting.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgctxt "duration"
+msgid "%(num)s year ago"
+msgid_plural "%(num)s years ago"
+msgstr[0] "منذ %(num)s سنة"
+msgstr[1] "منذ سنة واحدة"
+msgstr[2] "منذ سنتين"
+msgstr[3] "منذ %(num)s سنوات"
+msgstr[4] "منذ %(num)s سنة"
+msgstr[5] "منذ %(num)s سنة"
+
+#: formatting.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgctxt "duration"
+msgid "in %(num)s year"
+msgid_plural "in %(num)s years"
+msgstr[0] "خلال %(num)s سنة"
+msgstr[1] "خلال سنة واحدة"
+msgstr[2] "خلال سنتين"
+msgstr[3] "خلال %(num)s سنوات"
+msgstr[4] "خلال %(num)s سنة"
+msgstr[5] "خلال %(num)s سنة"
+
+#: formatting.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgctxt "duration"
+msgid "%(num)s year"
+msgid_plural "%(num)s years"
+msgstr[0] "%(num)s سنة"
+msgstr[1] "سنة"
+msgstr[2] "سنتان"
+msgstr[3] "%(num)s سنوات"
+msgstr[4] "%(num)s سنة"
+msgstr[5] "%(num)s سنة"
+
+#: formatting.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgctxt "duration"
+msgid "%(num)s month ago"
+msgid_plural "%(num)s months ago"
+msgstr[0] "منذ %(num)s شهر"
+msgstr[1] "منذ شهر واحد"
+msgstr[2] "منذ شهرين"
+msgstr[3] "منذ %(num)s أشهر"
+msgstr[4] "منذ %(num)s شهرًا"
+msgstr[5] "منذ %(num)s شهر"
+
+#: formatting.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgctxt "duration"
+msgid "in %(num)s month"
+msgid_plural "in %(num)s months"
+msgstr[0] "خلال %(num)s شهر"
+msgstr[1] "خلال شهر واحد"
+msgstr[2] "خلال شهرين"
+msgstr[3] "خلال %(num)s أشهر"
+msgstr[4] "خلال %(num)s شهرًا"
+msgstr[5] "خلال %(num)s شهر"
+
+#: formatting.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgctxt "duration"
+msgid "%(num)s month"
+msgid_plural "%(num)s months"
+msgstr[0] "%(num)s شهر"
+msgstr[1] "شهر"
+msgstr[2] "شهران"
+msgstr[3] "%(num)s أشهر"
+msgstr[4] "%(num)s شهرًا"
+msgstr[5] "%(num)s شهر"
+
+#: formatting.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgctxt "duration"
+msgid "%(num)s week ago"
+msgid_plural "%(num)s weeks ago"
+msgstr[0] "منذ %(num)s أسبوع"
+msgstr[1] "منذ أسبوع واحد"
+msgstr[2] "منذ أسبوعين"
+msgstr[3] "منذ %(num)s أسابيع"
+msgstr[4] "منذ %(num)s أسبوعًا"
+msgstr[5] "منذ %(num)s أسبوع"
+
+#: formatting.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgctxt "duration"
+msgid "in %(num)s week"
+msgid_plural "in %(num)s weeks"
+msgstr[0] "خلال %(num)s أسبوع"
+msgstr[1] "خلال أسبوع واحد"
+msgstr[2] "خلال أسبوعين"
+msgstr[3] "خلال %(num)s أسابيع"
+msgstr[4] "خلال %(num)s أسبوعًا"
+msgstr[5] "خلال %(num)s أسبوع"
+
+#: formatting.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgctxt "duration"
+msgid "%(num)s week"
+msgid_plural "%(num)s weeks"
+msgstr[0] "%(num)s أسبوع"
+msgstr[1] "أسبوع"
+msgstr[2] "أسبوعان"
+msgstr[3] "%(num)s أسابيع"
+msgstr[4] "%(num)s أسبوعًا"
+msgstr[5] "%(num)s أسبوع"
+
+#: formatting.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgctxt "duration"
+msgid "%(num)s day ago"
+msgid_plural "%(num)s days ago"
+msgstr[0] "منذ %(num)s يوم"
+msgstr[1] "منذ يوم واحد"
+msgstr[2] "منذ يومين"
+msgstr[3] "منذ %(num)s أيام"
+msgstr[4] "منذ %(num)s يومًا"
+msgstr[5] "منذ %(num)s يوم"
+
+#: formatting.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgctxt "duration"
+msgid "in %(num)s day"
+msgid_plural "in %(num)s days"
+msgstr[0] "خلال %(num)s يوم"
+msgstr[1] "خلال يوم واحد"
+msgstr[2] "خلال يومين"
+msgstr[3] "خلال %(num)s أيام"
+msgstr[4] "خلال %(num)s يومًا"
+msgstr[5] "خلال %(num)s يوم"
+
+#: formatting.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgctxt "duration"
+msgid "%(num)s day"
+msgid_plural "%(num)s days"
+msgstr[0] "%(num)s يوم"
+msgstr[1] "يوم"
+msgstr[2] "يومان"
+msgstr[3] "%(num)s أيام"
+msgstr[4] "%(num)s يومًا"
+msgstr[5] "%(num)s يوم"
+
+#: formatting.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgctxt "duration"
+msgid "%(num)s hour ago"
+msgid_plural "%(num)s hours ago"
+msgstr[0] "منذ %(num)s ساعة"
+msgstr[1] "منذ ساعة واحدة"
+msgstr[2] "منذ ساعتين"
+msgstr[3] "منذ %(num)s ساعات"
+msgstr[4] "منذ %(num)s ساعة"
+msgstr[5] "منذ %(num)s ساعة"
+
+#: formatting.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgctxt "duration"
+msgid "in %(num)s hour"
+msgid_plural "in %(num)s hours"
+msgstr[0] "خلال %(num)s ساعة"
+msgstr[1] "خلال ساعة واحدة"
+msgstr[2] "خلال ساعتين"
+msgstr[3] "خلال %(num)s ساعات"
+msgstr[4] "خلال %(num)s ساعة"
+msgstr[5] "خلال %(num)s ساعة"
+
+#: formatting.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgctxt "duration"
+msgid "%(num)s hour"
+msgid_plural "%(num)s hours"
+msgstr[0] "%(num)s ساعة"
+msgstr[1] "ساعة"
+msgstr[2] "ساعتان"
+msgstr[3] "%(num)s ساعات"
+msgstr[4] "%(num)s ساعة"
+msgstr[5] "%(num)s ساعة"
+
+#: formatting.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgctxt "duration"
+msgid "%(num)s minute ago"
+msgid_plural "%(num)s minutes ago"
+msgstr[0] "منذ %(num)s دقيقة"
+msgstr[1] "منذ دقيقة واحدة"
+msgstr[2] "منذ دقيقتين"
+msgstr[3] "منذ %(num)s دقائق"
+msgstr[4] "منذ %(num)s دقيقة"
+msgstr[5] "منذ %(num)s دقيقة"
+
+#: formatting.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgctxt "duration"
+msgid "in %(num)s minute"
+msgid_plural "in %(num)s minutes"
+msgstr[0] "خلال %(num)s دقيقة"
+msgstr[1] "خلال دقيقة واحدة"
+msgstr[2] "خلال دقيقتين"
+msgstr[3] "خلال %(num)s دقائق"
+msgstr[4] "خلال %(num)s دقيقة"
+msgstr[5] "خلال %(num)s دقيقة"
+
+#: formatting.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgctxt "duration"
+msgid "%(num)s minute"
+msgid_plural "%(num)s minutes"
+msgstr[0] "%(num)s دقيقة"
+msgstr[1] "دقيقة"
+msgstr[2] "دقيقتان"
+msgstr[3] "%(num)s دقائق"
+msgstr[4] "%(num)s دقيقة"
+msgstr[5] "%(num)s دقيقة"
+
+#: formatting.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgctxt "duration"
+msgid "%(num)s second ago"
+msgid_plural "%(num)s seconds ago"
+msgstr[0] "منذ %(num)s ثانية"
+msgstr[1] "منذ ثانية واحدة"
+msgstr[2] "منذ ثانيتين"
+msgstr[3] "منذ %(num)s ثوانٍ"
+msgstr[4] "منذ %(num)s ثانية"
+msgstr[5] "منذ %(num)s ثانية"
+
+#: formatting.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgctxt "duration"
+msgid "in %(num)s second"
+msgid_plural "in %(num)s seconds"
+msgstr[0] "خلال %(num)s ثانية"
+msgstr[1] "خلال ثانية واحدة"
+msgstr[2] "خلال ثانيتين"
+msgstr[3] "خلال %(num)s ثوانٍ"
+msgstr[4] "خلال %(num)s ثانية"
+msgstr[5] "خلال %(num)s ثانية"

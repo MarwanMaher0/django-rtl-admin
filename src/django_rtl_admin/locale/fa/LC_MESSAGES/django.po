@@ -81,6 +81,7 @@ msgstr "انتخاب این شیء برای انجام یک اقدام - {}"
 #: formatting.py
 # TRANSLATORS: translated without a native reviewer; please verify and
 # improve this wording in a follow-up contribution.
+msgctxt "duration"
 msgid "%(num)s second"
 msgid_plural "%(num)s seconds"
 msgstr[0] "%(num)s ثانیه"
@@ -97,3 +98,48 @@ msgstr "%(delta)s پیش"
 # improve this wording in a follow-up contribution.
 msgid "%(delta)s from now"
 msgstr "%(delta)s دیگر"
+
+#: formatting.py
+# Django's Persian catalog leaves these in Latin script; the wording is
+# CLDR's long Persian unit names.
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgctxt "file size"
+msgid "%s KB"
+msgstr "%s کیلوبایت"
+
+#: formatting.py
+# Django's Persian catalog leaves these in Latin script; the wording is
+# CLDR's long Persian unit names.
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgctxt "file size"
+msgid "%s MB"
+msgstr "%s مگابایت"
+
+#: formatting.py
+# Django's Persian catalog leaves these in Latin script; the wording is
+# CLDR's long Persian unit names.
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgctxt "file size"
+msgid "%s GB"
+msgstr "%s گیگابایت"
+
+#: formatting.py
+# Django's Persian catalog leaves these in Latin script; the wording is
+# CLDR's long Persian unit names.
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgctxt "file size"
+msgid "%s TB"
+msgstr "%s ترابایت"
+
+#: formatting.py
+# Django's Persian catalog leaves these in Latin script; the wording is
+# CLDR's long Persian unit names.
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgctxt "file size"
+msgid "%s PB"
+msgstr "%s پتابایت"

@@ -665,7 +665,7 @@ def test_format_filesize_rejects_non_numeric_input(use_babel, value):
     [
         (0, "٠ ثانية"),
         (1, "ثانية"),
-        (2, "٢ ثانيتين"),
+        (2, "ثانيتان"),
         (5, "٥ ثوان"),
         (45, "٤٥ ثانية"),
     ],
@@ -685,3 +685,115 @@ def test_no_babel_arabic_direction_precedes_the_duration(monkeypatch):
     monkeypatch.setattr(formatting, "HAS_BABEL", False)
     assert format_timedelta(-45, add_direction=True, language="ar-eg") == "منذ ٤٥ ثانية"
     assert format_timedelta(45, add_direction=True, language="ar-eg") == "خلال ٤٥ ثانية"
+
+
+@pytest.mark.parametrize(
+    ("seconds", "add_direction", "expected"),
+    [
+        (2, False, "ثانيتان"),
+        (-2, True, "منذ ثانيتين"),
+        (2, True, "خلال ثانيتين"),
+        (-1, True, "منذ ثانية واحدة"),
+        (-5, True, "منذ ٥ ثوانٍ"),
+    ],
+)
+def test_no_babel_arabic_dual_seconds_take_no_number(monkeypatch, seconds, add_direction, expected):
+    monkeypatch.setattr(formatting, "HAS_BABEL", False)
+    assert format_timedelta(seconds, add_direction=add_direction, language="ar-eg") == expected
+
+
+@pytest.mark.parametrize(
+    ("seconds", "plain", "past", "future"),
+    [
+        (120, "دقيقتان", "منذ دقيقتين", "خلال دقيقتين"),
+        (7_200, "ساعتان", "منذ ساعتين", "خلال ساعتين"),
+        (3_600, "ساعة", "منذ ساعة واحدة", "خلال ساعة واحدة"),
+        (172_800, "يومان", "منذ يومين", "خلال يومين"),
+        (28_512_000, "١١ شهرًا", "منذ ١١ شهرًا", "خلال ١١ شهرًا"),
+        (1_209_600, "أسبوعان", "منذ أسبوعين", "خلال أسبوعين"),
+        (5_184_000, "شهران", "منذ شهرين", "خلال شهرين"),
+        (63_072_000, "سنتان", "منذ سنتين", "خلال سنتين"),
+        (94_608_000, "٣ سنوات", "منذ ٣ سنوات", "خلال ٣ سنوات"),
+    ],
+)
+def test_no_babel_arabic_units_use_the_package_wording(monkeypatch, seconds, plain, past, future):
+    monkeypatch.setattr(formatting, "HAS_BABEL", False)
+    kwargs = {"threshold": 1, "language": "ar-eg"}
+    assert format_timedelta(seconds, **kwargs) == plain
+    assert format_timedelta(-seconds, add_direction=True, **kwargs) == past
+    assert format_timedelta(seconds, add_direction=True, **kwargs) == future
+
+
+@pytest.mark.skipif(not formatting.HAS_BABEL, reason="Babel is not installed")
+@pytest.mark.parametrize("seconds", [2, 120, 7_200, 172_800, 1_209_600, 5_184_000, 63_072_000])
+def test_no_babel_arabic_duals_match_babel(monkeypatch, seconds):
+    with_babel = format_timedelta(seconds, threshold=1, language="ar-eg")
+    future = format_timedelta(seconds, threshold=1, add_direction=True, language="ar-eg")
+    monkeypatch.setattr(formatting, "HAS_BABEL", False)
+    assert format_timedelta(seconds, threshold=1, language="ar-eg") == with_babel
+    assert format_timedelta(seconds, threshold=1, add_direction=True, language="ar-eg") == future
+
+
+def test_no_babel_other_languages_keep_django_units(monkeypatch):
+    monkeypatch.setattr(formatting, "HAS_BABEL", False)
+    assert format_timedelta(120, language="en") == "2 minutes"
+    assert format_timedelta(-120, add_direction=True, language="en") == "2 minutes ago"
+    assert format_timedelta(-2, add_direction=True, language="he") == "לפני 2 שניות"
+    assert format_timedelta(-120, add_direction=True, language="he") == "לפני 2 דקות"
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+@pytest.mark.parametrize(
+    ("language", "expected"),
+    [
+        ("en", "-2.0\xa0KB"),
+        ("ar-eg", "\u061c-٢٫٠\xa0ك.ب"),
+        ("fa", "\u200e\u2212۲٫۰\xa0کیلوبایت"),
+    ],
+)
+def test_negative_file_sizes_use_the_locale_minus_sign(use_babel, language, expected):
+    with override_settings(RTL_ADMIN={"USE_BABEL": use_babel}):
+        assert format_filesize(-2_000, language=language) == expected
+
+
+def test_minus_sign_falls_back_to_cldr_without_babel(monkeypatch):
+    monkeypatch.setattr(formatting, "HAS_BABEL", False)
+    assert formatting._minus_sign("ar-eg") == "\u061c-"
+    assert formatting._minus_sign("fa") == "\u200e\u2212"
+    assert formatting._minus_sign("ar") == "-"
+    assert formatting._minus_sign("en") == "-"
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+@pytest.mark.parametrize(
+    ("num_bytes", "expected"),
+    [
+        (1_500, "۱٫۵\xa0کیلوبایت"),
+        (1_500_000, "۱٫۵\xa0مگابایت"),
+        (931_300_000_000, "۹۳۱٫۳\xa0گیگابایت"),
+        (2 * 10**12, "۲٫۰\xa0ترابایت"),
+        (2 * 10**15, "۲٫۰\xa0پتابایت"),
+    ],
+)
+def test_persian_file_size_units_are_translated(use_babel, num_bytes, expected):
+    with override_settings(RTL_ADMIN={"USE_BABEL": use_babel}):
+        assert format_filesize(num_bytes, language="fa") == expected
+
+
+@pytest.mark.parametrize(
+    ("language", "expected"),
+    [
+        ("he", '2.0\xa0ק"ב'),
+        ("fa", "2.0\xa0KB"),
+        ("ar", "2,0\xa0ك.ب"),
+    ],
+)
+def test_django_filesizeformat_is_unchanged_by_the_package_catalogs(language, expected):
+    from django.template.defaultfilters import filesizeformat
+
+    with translation.override(language):
+        assert filesizeformat(2_048) == expected
+
+
+def test_a_language_the_package_does_not_ship_uses_django_units():
+    assert format_filesize(2_000, language="de") == "2,0\xa0KB"

@@ -76,6 +76,7 @@ msgstr "בחירת אובייקט זה עבור פעולה - {}"
 #: formatting.py
 # TRANSLATORS: translated without a native reviewer; please verify and
 # improve this wording in a follow-up contribution.
+msgctxt "duration"
 msgid "%(num)s second"
 msgid_plural "%(num)s seconds"
 msgstr[0] "%(num)s שנייה"
@@ -92,3 +93,33 @@ msgstr "לפני %(delta)s"
 # improve this wording in a follow-up contribution.
 msgid "%(delta)s from now"
 msgstr "בעוד %(delta)s"
+
+#: formatting.py
+# Same wording as Django's own "%s KB"-style strings for this language.
+msgctxt "file size"
+msgid "%s KB"
+msgstr "%s ק\"ב"
+
+#: formatting.py
+# Same wording as Django's own "%s KB"-style strings for this language.
+msgctxt "file size"
+msgid "%s MB"
+msgstr "%s מ\"ב"
+
+#: formatting.py
+# Same wording as Django's own "%s KB"-style strings for this language.
+msgctxt "file size"
+msgid "%s GB"
+msgstr "%s ג\"ב"
+
+#: formatting.py
+# Same wording as Django's own "%s KB"-style strings for this language.
+msgctxt "file size"
+msgid "%s TB"
+msgstr "%s ט\"ב"
+
+#: formatting.py
+# Same wording as Django's own "%s KB"-style strings for this language.
+msgctxt "file size"
+msgid "%s PB"
+msgstr "%s פ\"ב"

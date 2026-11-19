@@ -38,13 +38,37 @@ EXPECTED_MSGIDS = {
     "View on site",
     "Bilingual / RTL admin",
     "Select this object for an action - {}",
-    "%(num)s second",
     "%(delta)s ago",
     "%(delta)s from now",
+    "duration\x04%(num)s second",
+    "file size\x04%s KB",
+    "file size\x04%s MB",
+    "file size\x04%s GB",
+    "file size\x04%s TB",
+    "file size\x04%s PB",
 }
 
-PLURAL_MSGIDS = {"%(num)s second": "%(num)s seconds"}
-EXTRACTED_MSGIDS = EXPECTED_MSGIDS | set(PLURAL_MSGIDS.values())
+# Duration wording only the Arabic catalog needs: Django's own unit strings
+# put a number in front of the Arabic singular and dual. Other languages fall
+# back to Django's strings, so their catalogs do not carry these.
+DURATION_UNITS = ("year", "month", "week", "day", "hour", "minute", "second")
+DURATION_PLURALS = {
+    f"duration\x04{singular}": plural
+    for unit in DURATION_UNITS
+    for singular, plural in (
+        (f"%(num)s {unit}", f"%(num)s {unit}s"),
+        (f"%(num)s {unit} ago", f"%(num)s {unit}s ago"),
+        (f"in %(num)s {unit}", f"in %(num)s {unit}s"),
+    )
+}
+LOCALE_ONLY_MSGIDS = {"ar": set(DURATION_PLURALS) - EXPECTED_MSGIDS}
+
+PLURAL_MSGIDS = DURATION_PLURALS
+EXTRACTED_MSGIDS = (
+    EXPECTED_MSGIDS
+    | LOCALE_ONLY_MSGIDS["ar"]
+    | {msgid.split("\x04")[0] + "\x04" + plural for msgid, plural in PLURAL_MSGIDS.items()}
+)
 
 
 # -- extraction ------------------------------------------------------------
@@ -57,7 +81,15 @@ BLOCKTRANSLATE = re.compile(
 GETTEXT_CALL = re.compile(
     r"\b(?:gettext_lazy|gettext|_)\(\s*(?P<quote>[\"'])(?P<msg>.*?)(?P=quote)\s*\)"
 )
-GETTEXT_FUNC_NAMES = {"_", "gettext", "gettext_lazy", "ngettext"}
+# Function name -> (number of message arguments, whether a context comes first).
+GETTEXT_FUNCS = {
+    "_": (1, False),
+    "gettext": (1, False),
+    "gettext_lazy": (1, False),
+    "ngettext": (2, False),
+    "pgettext": (1, True),
+    "npgettext": (2, True),
+}
 
 
 def _normalize_blocktranslate(body: str) -> str:
@@ -72,11 +104,19 @@ def _python_msgids(path: pathlib.Path) -> set[str]:
         if not isinstance(node, ast.Call) or not node.args:
             continue
         name = getattr(node.func, "id", None) or getattr(node.func, "attr", None)
-        if name not in GETTEXT_FUNC_NAMES:
+        if name not in GETTEXT_FUNCS:
             continue
-        for argument in node.args[: 2 if name == "ngettext" else 1]:
+        count, has_context = GETTEXT_FUNCS[name]
+        arguments = node.args
+        prefix = ""
+        if has_context:
+            context = arguments[0]
+            assert isinstance(context, ast.Constant) and isinstance(context.value, str)
+            prefix = context.value + "\x04"
+            arguments = arguments[1:]
+        for argument in arguments[:count]:
             if isinstance(argument, ast.Constant) and isinstance(argument.value, str):
-                msgids.add(argument.value)
+                msgids.add(prefix + argument.value)
     return msgids
 
 
@@ -109,10 +149,15 @@ def _unquote(lines: list[str]) -> str:
 
 
 def parse_po(path: pathlib.Path) -> list[dict]:
-    """Parse a `.po` file into `{msgid, msgstr, fuzzy}` dicts, header included."""
+    """Parse a `.po` file into `{msgid, msgstr, fuzzy}` dicts, header included.
+
+    An entry with a `msgctxt` is keyed `context + "\\x04" + msgid`, the way
+    gettext stores it in the compiled catalog.
+    """
     entries: list[dict] = []
     field: str | tuple[str, int] | None = None
     fuzzy = False
+    msgctxt: list[str] = []
     msgid: list[str] = []
     msgid_plural: list[str] = []
     msgstr: list[str] = []
@@ -120,9 +165,12 @@ def parse_po(path: pathlib.Path) -> list[dict]:
     plural_msgstr = re.compile(r"^msgstr\[(\d+)\]\s+(.*)$")
 
     def flush() -> None:
-        nonlocal field, fuzzy, msgid, msgid_plural, msgstr, msgstr_plural
+        nonlocal field, fuzzy, msgctxt, msgid, msgid_plural, msgstr, msgstr_plural
         if msgid or msgstr or msgid_plural or msgstr_plural:
-            entry = {"msgid": _unquote(msgid), "msgstr": _unquote(msgstr), "fuzzy": fuzzy}
+            key = _unquote(msgid)
+            if msgctxt:
+                key = _unquote(msgctxt) + "\x04" + key
+            entry = {"msgid": key, "msgstr": _unquote(msgstr), "fuzzy": fuzzy}
             if msgid_plural or msgstr_plural:
                 entry["msgid_plural"] = _unquote(msgid_plural)
                 entry["msgstr_plural"] = {
@@ -131,9 +179,10 @@ def parse_po(path: pathlib.Path) -> list[dict]:
                 if not entry["msgstr"] and 0 in entry["msgstr_plural"]:
                     entry["msgstr"] = entry["msgstr_plural"][0]
             entries.append(entry)
-        field, fuzzy, msgid, msgid_plural, msgstr, msgstr_plural = (
+        field, fuzzy, msgctxt, msgid, msgid_plural, msgstr, msgstr_plural = (
             None,
             False,
+            [],
             [],
             [],
             [],
@@ -147,8 +196,13 @@ def parse_po(path: pathlib.Path) -> list[dict]:
                 fuzzy = True
         elif not line:
             continue
-        elif line.startswith("msgid "):
+        elif line.startswith("msgctxt "):
             flush()
+            field = "msgctxt"
+            msgctxt.append(line[len("msgctxt ") :])
+        elif line.startswith("msgid "):
+            if field != "msgctxt":
+                flush()
             field = "msgid"
             msgid.append(line[len("msgid ") :])
         elif line.startswith("msgid_plural "):
@@ -162,7 +216,9 @@ def parse_po(path: pathlib.Path) -> list[dict]:
             field = "msgstr"
             msgstr.append(line[len("msgstr ") :])
         elif line.startswith('"'):
-            if field == "msgid":
+            if field == "msgctxt":
+                msgctxt.append(line)
+            elif field == "msgid":
                 msgid.append(line)
             elif field == "msgid_plural":
                 msgid_plural.append(line)
@@ -230,13 +286,15 @@ def test_each_locale_ships_both_a_po_and_a_mo(code):
 @pytest.mark.parametrize("code", SHIPPED_LOCALES)
 def test_every_message_is_translated_without_fuzzy_flags(code):
     entries = {entry["msgid"]: entry for entry in parse_po(po_path(code)) if entry["msgid"]}
-    missing = EXPECTED_MSGIDS - entries.keys()
+    expected = EXPECTED_MSGIDS | LOCALE_ONLY_MSGIDS.get(code, set())
+    missing = expected - entries.keys()
     assert not missing, f"{code}: untranslated or missing: {sorted(missing)}"
-    for msgid in sorted(EXPECTED_MSGIDS):
+    for msgid in sorted(expected):
         entry = entries[msgid]
         assert not entry["fuzzy"], f"{code}: {msgid!r} is flagged fuzzy"
         assert entry["msgstr"].strip(), f"{code}: {msgid!r} has an empty translation"
-        assert entry["msgstr"] != msgid, f"{code}: {msgid!r} was left untranslated"
+        source = msgid.rpartition("\x04")[2]
+        assert entry["msgstr"] != source, f"{code}: {msgid!r} was left untranslated"
 
 
 def _placeholders(text: str) -> tuple[list[str], int]:
@@ -268,7 +326,7 @@ def test_the_shipped_mo_matches_the_po(code):
 def test_the_shipped_mo_translates_every_message(code):
     with open(mo_path(code), "rb") as handle:
         translations = gettext_module.GNUTranslations(handle)
-    for msgid in sorted(EXPECTED_MSGIDS):
+    for msgid in sorted(EXPECTED_MSGIDS | LOCALE_ONLY_MSGIDS.get(code, set())):
         if msgid in PLURAL_MSGIDS:
             translated = translations.ngettext(msgid, PLURAL_MSGIDS[msgid], 2)
         else:

@@ -91,6 +91,7 @@ msgstr "کسی کاروائی کے لیے یہ شے منتخب کریں - {}"
 #: formatting.py
 # TRANSLATORS: translated without a native reviewer; please verify and
 # improve this wording in a follow-up contribution.
+msgctxt "duration"
 msgid "%(num)s second"
 msgid_plural "%(num)s seconds"
 msgstr[0] "%(num)s سیکنڈ"
@@ -107,3 +108,33 @@ msgstr "%(delta)s پہلے"
 # improve this wording in a follow-up contribution.
 msgid "%(delta)s from now"
 msgstr "%(delta)s اب سے"
+
+#: formatting.py
+# Django's own wording for this language, with spacing/typos fixed.
+msgctxt "file size"
+msgid "%s KB"
+msgstr "%s ک ۔ ب"
+
+#: formatting.py
+# Django's own wording for this language, with spacing/typos fixed.
+msgctxt "file size"
+msgid "%s MB"
+msgstr "%s م ۔ ب"
+
+#: formatting.py
+# Django's own wording for this language, with spacing/typos fixed.
+msgctxt "file size"
+msgid "%s GB"
+msgstr "%s ج ۔ ب"
+
+#: formatting.py
+# Django's own wording for this language, with spacing/typos fixed.
+msgctxt "file size"
+msgid "%s TB"
+msgstr "%s ٹ ۔ ب"
+
+#: formatting.py
+# Django's own wording for this language, with spacing/typos fixed.
+msgctxt "file size"
+msgid "%s PB"
+msgstr "%s پ ۔ ب"
