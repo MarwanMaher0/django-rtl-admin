@@ -2,6 +2,7 @@
 
 import json
 import re
+from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
 import django
@@ -20,6 +21,7 @@ from django.utils.translation import gettext
 
 from django_rtl_admin import BidiSafeAdminMixin
 from django_rtl_admin.bidi import FSI, ISOLATE_OPENERS, LRI, PDI, RLI, isolate
+from django_rtl_admin.mixins import _SUCCESS_MESSAGES
 
 from .testapp.admin import BidiThingAdmin
 from .testapp.models import Book, Category, Chapter, Review, Thing
@@ -1164,6 +1166,21 @@ def test_plain_change_message_from_a_base_class_is_isolated(admin_client):
     assert "<a" not in stock_message
     assert bidi.messages == [stock_message.replace(MIXED_NAME, FSI + MIXED_NAME + PDI)]
     assert bidi.redirects == stock.redirects
+
+
+def _django_admin_msgids():
+    """Every msgid in Django's English admin catalogue, continuation lines joined."""
+    po = Path(admin.__file__).parent / "locale" / "en" / "LC_MESSAGES" / "django.po"
+    entries = re.findall(r'^msgid ((?:"(?:[^"\\]|\\.)*"\n)+)', po.read_text("utf-8"), re.M)
+    return {"".join(re.findall(r'"((?:[^"\\]|\\.)*)"', entry)) for entry in entries}
+
+
+def test_recognised_success_messages_are_still_djangos_msgids():
+    # The plain-name rewrite matches Django's success messages verbatim; if
+    # Django rewords one, isolation would silently stop for that message.
+    msgids = _django_admin_msgids()
+    assert "The {name} “{obj}” was added successfully." in msgids
+    assert [msgid for msgid in _SUCCESS_MESSAGES if msgid not in msgids] == []
 
 
 def test_html_in_str_stays_escaped_in_the_add_message(admin_client):
