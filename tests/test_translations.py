@@ -38,7 +38,13 @@ EXPECTED_MSGIDS = {
     "View on site",
     "Bilingual / RTL admin",
     "Select this object for an action - {}",
+    "%(num)s second",
+    "%(delta)s ago",
+    "%(delta)s from now",
 }
+
+PLURAL_MSGIDS = {"%(num)s second": "%(num)s seconds"}
+EXTRACTED_MSGIDS = EXPECTED_MSGIDS | set(PLURAL_MSGIDS.values())
 
 
 # -- extraction ------------------------------------------------------------
@@ -51,7 +57,7 @@ BLOCKTRANSLATE = re.compile(
 GETTEXT_CALL = re.compile(
     r"\b(?:gettext_lazy|gettext|_)\(\s*(?P<quote>[\"'])(?P<msg>.*?)(?P=quote)\s*\)"
 )
-GETTEXT_FUNC_NAMES = {"_", "gettext", "gettext_lazy"}
+GETTEXT_FUNC_NAMES = {"_", "gettext", "gettext_lazy", "ngettext"}
 
 
 def _normalize_blocktranslate(body: str) -> str:
@@ -66,13 +72,11 @@ def _python_msgids(path: pathlib.Path) -> set[str]:
         if not isinstance(node, ast.Call) or not node.args:
             continue
         name = getattr(node.func, "id", None) or getattr(node.func, "attr", None)
-        first = node.args[0]
-        if (
-            name in GETTEXT_FUNC_NAMES
-            and isinstance(first, ast.Constant)
-            and isinstance(first.value, str)
-        ):
-            msgids.add(first.value)
+        if name not in GETTEXT_FUNC_NAMES:
+            continue
+        for argument in node.args[: 2 if name == "ngettext" else 1]:
+            if isinstance(argument, ast.Constant) and isinstance(argument.value, str):
+                msgids.add(argument.value)
     return msgids
 
 
@@ -94,7 +98,7 @@ def extract_msgids() -> set[str]:
 
 
 def test_extraction_finds_exactly_the_marked_messages():
-    assert extract_msgids() == EXPECTED_MSGIDS
+    assert extract_msgids() == EXTRACTED_MSGIDS
 
 
 # -- the .po parser ---------------------------------------------------------
@@ -107,16 +111,34 @@ def _unquote(lines: list[str]) -> str:
 def parse_po(path: pathlib.Path) -> list[dict]:
     """Parse a `.po` file into `{msgid, msgstr, fuzzy}` dicts, header included."""
     entries: list[dict] = []
-    field: str | None = None
+    field: str | tuple[str, int] | None = None
     fuzzy = False
     msgid: list[str] = []
+    msgid_plural: list[str] = []
     msgstr: list[str] = []
+    msgstr_plural: dict[int, list[str]] = {}
+    plural_msgstr = re.compile(r"^msgstr\[(\d+)\]\s+(.*)$")
 
     def flush() -> None:
-        nonlocal field, fuzzy, msgid, msgstr
-        if msgid or msgstr:
-            entries.append({"msgid": _unquote(msgid), "msgstr": _unquote(msgstr), "fuzzy": fuzzy})
-        field, fuzzy, msgid, msgstr = None, False, [], []
+        nonlocal field, fuzzy, msgid, msgid_plural, msgstr, msgstr_plural
+        if msgid or msgstr or msgid_plural or msgstr_plural:
+            entry = {"msgid": _unquote(msgid), "msgstr": _unquote(msgstr), "fuzzy": fuzzy}
+            if msgid_plural or msgstr_plural:
+                entry["msgid_plural"] = _unquote(msgid_plural)
+                entry["msgstr_plural"] = {
+                    index: _unquote(lines) for index, lines in sorted(msgstr_plural.items())
+                }
+                if not entry["msgstr"] and 0 in entry["msgstr_plural"]:
+                    entry["msgstr"] = entry["msgstr_plural"][0]
+            entries.append(entry)
+        field, fuzzy, msgid, msgid_plural, msgstr, msgstr_plural = (
+            None,
+            False,
+            [],
+            [],
+            [],
+            {},
+        )
 
     for raw_line in path.read_text(encoding="utf-8").splitlines():
         line = raw_line.strip()
@@ -129,14 +151,25 @@ def parse_po(path: pathlib.Path) -> list[dict]:
             flush()
             field = "msgid"
             msgid.append(line[len("msgid ") :])
+        elif line.startswith("msgid_plural "):
+            field = "msgid_plural"
+            msgid_plural.append(line[len("msgid_plural ") :])
+        elif (plural := plural_msgstr.match(line)) is not None:
+            index = int(plural[1])
+            field = ("plural", index)
+            msgstr_plural[index] = [plural[2]]
         elif line.startswith("msgstr "):
             field = "msgstr"
             msgstr.append(line[len("msgstr ") :])
         elif line.startswith('"'):
             if field == "msgid":
                 msgid.append(line)
+            elif field == "msgid_plural":
+                msgid_plural.append(line)
             elif field == "msgstr":
                 msgstr.append(line)
+            elif isinstance(field, tuple):
+                msgstr_plural[field[1]].append(line)
         else:
             field = None
     flush()
@@ -165,7 +198,19 @@ def mo_entries(path: pathlib.Path) -> dict[str, str]:
         # compare entries rather than bytes because msgfmt and Babel lay out
         # the binary differently.
         catalog = gettext_module.GNUTranslations(handle)._catalog
-    return {msgid: msgstr for msgid, msgstr in catalog.items() if msgid}
+    entries: dict[str, str] = {}
+    for key, msgstr in catalog.items():
+        if not key:
+            continue
+        if isinstance(key, tuple):
+            # Plural entries are keyed as (msgid, plural_index); form 0 is the
+            # entry the .po comparison pairs with ``msgstr``.
+            msgid, index = key
+            if index == 0:
+                entries[msgid] = msgstr
+        else:
+            entries[key] = msgstr
+    return entries
 
 
 # -- shipped catalogs -------------------------------------------------------
@@ -224,7 +269,10 @@ def test_the_shipped_mo_translates_every_message(code):
     with open(mo_path(code), "rb") as handle:
         translations = gettext_module.GNUTranslations(handle)
     for msgid in sorted(EXPECTED_MSGIDS):
-        translated = translations.gettext(msgid)
+        if msgid in PLURAL_MSGIDS:
+            translated = translations.ngettext(msgid, PLURAL_MSGIDS[msgid], 2)
+        else:
+            translated = translations.gettext(msgid)
         assert translated != msgid, f"{code}: {msgid!r} missing from django.mo"
         assert translated.strip(), f"{code}: {msgid!r} compiles to an empty string"
 

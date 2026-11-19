@@ -14,6 +14,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Language: he\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 
 #: templates/django_rtl_admin/language_switcher.html
@@ -71,3 +72,23 @@ msgstr "ממשק דו-לשוני / מימין לשמאל"
 #: templatetags/rtl_admin.py
 msgid "Select this object for an action - {}"
 msgstr "בחירת אובייקט זה עבור פעולה - {}"
+
+#: formatting.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgid "%(num)s second"
+msgid_plural "%(num)s seconds"
+msgstr[0] "%(num)s שנייה"
+msgstr[1] "%(num)s שניות"
+
+#: formatting.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgid "%(delta)s ago"
+msgstr "לפני %(delta)s"
+
+#: formatting.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgid "%(delta)s from now"
+msgstr "בעוד %(delta)s"

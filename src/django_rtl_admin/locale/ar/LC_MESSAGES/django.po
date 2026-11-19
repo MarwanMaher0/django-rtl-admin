@@ -14,6 +14,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Language: ar\n"
+"Plural-Forms: nplurals=6; plural=n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 ? 4 : 5;\n"
 
 
 #: templates/django_rtl_admin/language_switcher.html
@@ -71,3 +72,27 @@ msgstr "إدارة ثنائية اللغة / من اليمين إلى اليسا
 #: templatetags/rtl_admin.py
 msgid "Select this object for an action - {}"
 msgstr "تحديد هذا العنصر لتنفيذ إجراء - {}"
+
+#: formatting.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgid "%(num)s second"
+msgid_plural "%(num)s seconds"
+msgstr[0] "%(num)s ثانية"
+msgstr[1] "ثانية"
+msgstr[2] "%(num)s ثانيتين"
+msgstr[3] "%(num)s ثوان"
+msgstr[4] "%(num)s ثانية"
+msgstr[5] "%(num)s ثانية"
+
+#: formatting.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgid "%(delta)s ago"
+msgstr "منذ %(delta)s"
+
+#: formatting.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgid "%(delta)s from now"
+msgstr "خلال %(delta)s"

@@ -9,6 +9,9 @@ Public API::
         mark_isolated,
         format_number,
         format_currency,
+        format_percent,
+        format_timedelta,
+        format_filesize,
         format_date,
     )
 
@@ -40,9 +43,11 @@ from .formatting import (
     format_currency,
     format_date,
     format_datetime,
+    format_filesize,
     format_number,
     format_percent,
     format_time,
+    format_timedelta,
     numbering_system,
     transliterate_digits,
 )
@@ -84,9 +89,11 @@ __all__ = [
     "format_currency",
     "format_date",
     "format_datetime",
+    "format_filesize",
     "format_number",
     "format_percent",
     "format_time",
+    "format_timedelta",
     "has_mixed_direction",
     "is_isolated",
     "is_rtl_language",

@@ -13,6 +13,7 @@ from django import template
 from django.conf import settings
 from django.templatetags.static import static
 from django.urls import NoReverseMatch, reverse
+from django.utils import timezone
 from django.utils.html import conditional_escape, format_html, format_html_join
 from django.utils.safestring import mark_safe
 from django.utils.translation import get_language, get_language_info
@@ -113,6 +114,75 @@ def l10n_percent(value: Any) -> str:
     try:
         number = formatting._as_decimal(value)
         return formatting.format_percent(number)
+    except (ArithmeticError, TypeError, ValueError):
+        return str(value)
+
+
+_BINARY_VALUES = {"1", "true", "yes", "binary"}
+
+
+def _is_binary(value: Any) -> bool:
+    """Treat only ``True`` and the documented strings as binary sizes."""
+    if value is True:
+        return True
+    if isinstance(value, str):
+        return value.strip().lower() in _BINARY_VALUES
+    return False
+
+
+@register.filter(name="l10n_timedelta")
+def l10n_timedelta(value: Any, granularity: str = "second") -> str:
+    """Locale-aware duration: ``{{ seconds|l10n_timedelta }}``.
+
+    ``value`` is a ``timedelta`` or a number of seconds.  The optional
+    argument selects the lowest unit, as in Babel's ``format_timedelta``.
+    """
+    if value is None or value == "":
+        return ""
+    if not isinstance(granularity, str) or not granularity:
+        granularity = "second"
+    try:
+        return formatting.format_timedelta(value, granularity=granularity)
+    except (ArithmeticError, TypeError, ValueError):
+        return str(value)
+
+
+@register.filter(name="l10n_timesince", expects_localtime=True)
+def l10n_timesince(value: datetime.date | datetime.datetime | None) -> str:
+    """Locale-aware relative time: ``{{ published_at|l10n_timesince }}``.
+
+    Dates become whole-day differences; datetimes are measured against the
+    current time.  Past and future values use the locale's direction wording.
+    """
+    try:
+        if isinstance(value, datetime.datetime):
+            now = timezone.now()
+            if timezone.is_aware(value):
+                if not timezone.is_aware(now):
+                    now = timezone.make_aware(now)
+            elif timezone.is_aware(now):
+                now = timezone.make_naive(now)
+            delta = value - now
+        elif isinstance(value, datetime.date):
+            today = timezone.localdate() if settings.USE_TZ else timezone.now().date()
+            delta = value - today
+        else:
+            return ""
+        return formatting.format_timedelta(delta, add_direction=True)
+    except (ArithmeticError, TypeError, ValueError):
+        return ""
+
+
+@register.filter(name="l10n_filesize")
+def l10n_filesize(value: Any, binary: Any = False) -> str:
+    """Locale-aware file size: ``{{ upload.size|l10n_filesize }}``.
+
+    Pass ``"binary"`` for powers of 1024 instead of 1000.
+    """
+    if value is None or value == "":
+        return ""
+    try:
+        return formatting.format_filesize(value, binary=_is_binary(binary))
     except (ArithmeticError, TypeError, ValueError):
         return str(value)
 

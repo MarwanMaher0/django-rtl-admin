@@ -11,7 +11,7 @@ Load the library in each Django template that uses it:
 {% load rtl_admin %}
 ```
 
-The library contains 14 filters and 8 tags. Examples below assume it is loaded
+The library contains 17 filters and 8 tags. Examples below assume it is loaded
 and that variables come from the template context. Number examples use numeric
 values or numeric strings; date/time examples use Python date, datetime, or time
 objects. See [Configuration](configuration.md) for shared defaults and the
@@ -128,6 +128,49 @@ For `ratio = 0.256`, English output begins with `26`. Input is normally a `0..1`
 ratio, but that range is not enforced. The Django fallback multiplies by 100,
 rounds half up to a whole number, and appends `%`. Empty input renders empty;
 nonnumeric input renders unchanged.
+
+### `l10n_timedelta`
+
+Format a duration given as a `timedelta` or a number of seconds. The optional
+argument selects the lowest unit, which defaults to `"second"`:
+
+```django
+{{ elapsed|l10n_timedelta }}
+```
+
+Babel supplies CLDR unit patterns and direction wording. Without Babel, Django's
+translated `timesince` unit strings are used, including translated second forms
+for the shipped RTL locales. Digits follow `NUMERALS` and the active language.
+`None` and empty input render empty; nonnumeric or non-finite input passes
+through as text.
+
+### `l10n_timesince`
+
+Show a date or datetime relative to now, with past and future wording:
+
+```django
+{{ book.published_on|l10n_timesince }}
+```
+
+Dates are measured in whole days; datetimes are measured against the current
+time. The filter registers `expects_localtime=True`, so aware datetimes follow
+Django's active time zone and `{% localtime off %}`. `None` and invalid values
+render empty.
+
+### `l10n_filesize`
+
+Format a byte count with locale-aware digits and an optional binary argument:
+
+```django
+{{ upload.size|l10n_filesize }}
+```
+
+The default uses powers of 1000; pass `"binary"` for 1024-step sizes with
+Django's `KB`, `MB`, and later unit labels. Only `True` and the strings `"1"`,
+`"true"`, `"yes"`, and `"binary"` (case-insensitive) select binary sizes;
+anything else uses decimal steps. Unit names come from Django's translations.
+`None` and empty input render empty; nonnumeric or non-finite input passes
+through as text.
 
 ### `l10n_date`
 

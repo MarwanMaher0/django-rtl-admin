@@ -363,6 +363,9 @@ invalid choice at runtime also raises `ImproperlyConfigured`.
 | `l10n_number` | `{{ n\|l10n_number }}`, `{{ n\|l10n_number:"2" }}` | Locale-aware number in the locale's numbering system. |
 | `l10n_currency` | `{{ p\|l10n_currency:"EGP" }}` | Locale-aware money; the argument is optional. |
 | `l10n_percent` | `{{ ratio\|l10n_percent }}` | A 0..1 ratio as a percentage. |
+| `l10n_timedelta` | `{{ seconds\|l10n_timedelta }}` | Localized duration from seconds or a `timedelta`. |
+| `l10n_timesince` | `{{ published_at\|l10n_timesince }}` | Localized relative time with past/future wording. |
+| `l10n_filesize` | `{{ upload.size\|l10n_filesize }}` | Locale-aware file size; pass `"binary"` for powers of 1024. |
 | `l10n_date` | `{{ d\|l10n_date:"long" }}` | `short`, `medium`, `long`, `full`. |
 | `l10n_datetime` | `{{ dt\|l10n_datetime }}` | |
 | `l10n_time` | `{{ t\|l10n_time }}` | |
@@ -408,6 +411,8 @@ from django_rtl_admin import (
     format_number,
     format_currency,
     format_percent,
+    format_timedelta,
+    format_filesize,
     format_date,
     format_datetime,
     format_time,

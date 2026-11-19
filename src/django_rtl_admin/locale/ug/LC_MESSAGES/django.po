@@ -17,6 +17,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Language: ug\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 
 # TRANSLATORS: written without a native reviewer; please verify and
@@ -78,3 +79,23 @@ msgstr "ئىككى تىللىق / ئوڭدىن سولغا باشقۇرۇش"
 #: templatetags/rtl_admin.py
 msgid "Select this object for an action - {}"
 msgstr "مەشغۇلات ئۈچۈن ئوبيېكت تاللىنىدۇ-{}"
+
+#: formatting.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgid "%(num)s second"
+msgid_plural "%(num)s seconds"
+msgstr[0] "%(num)s سېكۇنت"
+msgstr[1] "%(num)s سېكۇنت"
+
+#: formatting.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgid "%(delta)s ago"
+msgstr "%(delta)s ئىلگىرى"
+
+#: formatting.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgid "%(delta)s from now"
+msgstr "%(delta)s دىن كېيىن"

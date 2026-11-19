@@ -5,7 +5,7 @@ import decimal
 
 import pytest
 from django.test import override_settings
-from django.utils import timezone
+from django.utils import timezone, translation
 
 from django_rtl_admin import formatting
 from django_rtl_admin.formatting import (
@@ -13,9 +13,11 @@ from django_rtl_admin.formatting import (
     format_currency,
     format_date,
     format_datetime,
+    format_filesize,
     format_number,
     format_percent,
     format_time,
+    format_timedelta,
     numbering_system,
     transliterate_digits,
 )
@@ -509,3 +511,177 @@ def test_format_datetime_and_time_leave_aware_datetimes_untouched_when_use_tz_is
 
 def test_unknown_locale_does_not_blow_up():
     assert format_number(1234, language="zz-zz") != ""
+
+
+# -- durations and file sizes ---------------------------------------------
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+@pytest.mark.parametrize(
+    ("language", "digits"),
+    [
+        ("en", "0123456789"),
+        ("ar", "0123456789"),
+        ("ar-eg", ARABIC_INDIC),
+        ("fa", EXTENDED),
+    ],
+)
+def test_format_timedelta_localizes_digits(use_babel, language, digits):
+    with override_settings(RTL_ADMIN={"USE_BABEL": use_babel}):
+        output = format_timedelta(45, language=language)
+    assert any(char in output for char in digits)
+    if digits != "0123456789":
+        assert all(char not in output for char in "0123456789")
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+@pytest.mark.parametrize(
+    ("language", "digits"),
+    [("en", "0123456789"), ("ar", "0123456789"), ("ar-eg", ARABIC_INDIC), ("fa", EXTENDED)],
+)
+def test_format_filesize_localizes_digits(use_babel, language, digits):
+    with override_settings(RTL_ADMIN={"USE_BABEL": use_babel}):
+        output = format_filesize(1_500, language=language)
+    assert any(char in output for char in digits)
+    if digits != "0123456789":
+        assert all(char not in output for char in "0123456789")
+
+
+def test_format_timedelta_accepts_timedeltas_and_seconds():
+    assert format_timedelta(datetime.timedelta(minutes=2), language="en") == "2 minutes"
+    assert format_timedelta(120, language="en") == "2 minutes"
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+def test_format_timedelta_honours_granularity_and_add_direction(use_babel):
+    with override_settings(RTL_ADMIN={"USE_BABEL": use_babel}):
+        assert format_timedelta(90, granularity="minute", language="en") == "2 minutes"
+        assert format_timedelta(-45, add_direction=True, language="en").endswith("ago")
+        assert not format_timedelta(45, add_direction=True, language="en").endswith("ago")
+        assert "45" in format_timedelta(45, add_direction=True, language="en")
+
+
+@pytest.mark.skipif(not formatting.HAS_BABEL, reason="Babel is not installed")
+def test_format_timedelta_matches_babel_when_available():
+    assert format_timedelta(45, language="en") == "45 seconds"
+    assert format_timedelta(datetime.timedelta(hours=3), format="short", language="en") == "3 hr"
+    assert (
+        format_timedelta(datetime.timedelta(hours=23), threshold=1.1, language="en") == "23 hours"
+    )
+
+
+def test_fallback_timedelta_uses_english_units(monkeypatch):
+    monkeypatch.setattr(formatting, "HAS_BABEL", False)
+    assert formatting.format_timedelta(45, language="en") == "45 seconds"
+    assert formatting.format_timedelta(3600, language="en") == "1 hour"
+    assert formatting.format_timedelta(-45, add_direction=True, language="en") == "45 seconds ago"
+
+
+def test_format_timedelta_respects_numbering_system_and_language():
+    with override_settings(RTL_ADMIN={"NUMERALS": "latn"}):
+        assert "1" in formatting.format_timedelta(10, language="ar-eg")
+    with override_settings(RTL_ADMIN={"NUMERALS": "arab"}):
+        assert any(char in formatting.format_timedelta(10, language="en") for char in ARABIC_INDIC)
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+def test_duration_and_filesize_honour_an_explicit_language(use_babel):
+    with (
+        override_settings(RTL_ADMIN={"USE_BABEL": use_babel}),
+        translation.override("en"),
+    ):
+        assert any(char in format_timedelta(5, language="ar-eg") for char in ARABIC_INDIC)
+        assert any(char in format_filesize(1500, language="fa") for char in EXTENDED)
+
+
+def test_format_filesize_uses_decimal_and_binary_units():
+    assert formatting.format_filesize(1000, language="en").startswith("1.0")
+    assert formatting.format_filesize(1024, binary=True, language="en").startswith("1.0")
+    assert formatting.format_filesize(1000, binary=True, language="en").startswith("1000")
+    assert formatting.format_filesize(-1500, language="en").startswith("-1.5")
+
+
+def test_format_filesize_accepts_numeric_strings_and_decimals():
+    assert formatting.format_filesize("1500", language="en") == formatting.format_filesize(
+        decimal.Decimal("1500"), language="en"
+    )
+
+
+@pytest.mark.parametrize("value", [None, ""])
+def test_duration_and_filesize_of_empty_values_are_empty(value):
+    assert format_timedelta(value) == ""
+    assert format_filesize(value) == ""
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+@pytest.mark.parametrize(
+    "value",
+    [
+        "abc",
+        [],
+        {},
+        float("nan"),
+        float("inf"),
+        float("-inf"),
+        decimal.Decimal("NaN"),
+        decimal.Decimal("Infinity"),
+        "NaN",
+        "Infinity",
+        "-Infinity",
+    ],
+)
+def test_format_timedelta_rejects_non_numeric_input(monkeypatch, use_babel, value):
+    if not use_babel:
+        monkeypatch.setattr(formatting, "HAS_BABEL", False)
+    with pytest.raises(ValueError, match="Timedelta value must be numeric"):
+        format_timedelta(value)
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+@pytest.mark.parametrize(
+    "value",
+    [
+        "abc",
+        [],
+        {},
+        float("nan"),
+        float("inf"),
+        float("-inf"),
+        decimal.Decimal("NaN"),
+        decimal.Decimal("Infinity"),
+        "NaN",
+        "Infinity",
+        "-Infinity",
+    ],
+)
+def test_format_filesize_rejects_non_numeric_input(use_babel, value):
+    with override_settings(RTL_ADMIN={"USE_BABEL": use_babel}):
+        with pytest.raises(ValueError, match="File size value must be numeric"):
+            format_filesize(value)
+
+
+@pytest.mark.parametrize(
+    ("amount", "expected"),
+    [
+        (0, "٠ ثانية"),
+        (1, "ثانية"),
+        (2, "٢ ثانيتين"),
+        (5, "٥ ثوان"),
+        (45, "٤٥ ثانية"),
+    ],
+)
+def test_no_babel_seconds_follow_arabic_plural_forms(monkeypatch, amount, expected):
+    monkeypatch.setattr(formatting, "HAS_BABEL", False)
+    assert format_timedelta(amount, language="ar-eg") == expected
+
+
+def test_filesize_scales_to_the_largest_unit():
+    assert format_filesize(10**9, language="en").endswith("GB")
+    assert format_filesize(10**15, language="en").endswith("PB")
+    assert format_filesize(10**18, language="en").endswith("PB")
+
+
+def test_no_babel_arabic_direction_precedes_the_duration(monkeypatch):
+    monkeypatch.setattr(formatting, "HAS_BABEL", False)
+    assert format_timedelta(-45, add_direction=True, language="ar-eg") == "منذ ٤٥ ثانية"
+    assert format_timedelta(45, add_direction=True, language="ar-eg") == "خلال ٤٥ ثانية"

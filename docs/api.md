@@ -83,6 +83,13 @@ are left untouched.
 converts digits among `latn`, `arab`, and `arabext` without changing punctuation.
 Formatting helpers return text; apply isolation separately when needed.
 
+`format_timedelta()` formats a `timedelta` or a number of seconds with CLDR unit
+patterns; without Babel it uses Django's translated `timesince` strings. Its
+`granularity`, `threshold`, `add_direction`, and `format` arguments mirror
+`babel.dates.format_timedelta`. `format_filesize()` formats a byte count, using
+powers of 1000 by default and powers of 1024 with `binary=True`; Django's
+translated unit names are used on both backends.
+
 ::: django_rtl_admin.formatting
     options:
       heading_level: 2
@@ -92,6 +99,8 @@ Formatting helpers return text; apply isolation separately when needed.
         - format_number
         - format_currency
         - format_percent
+        - format_timedelta
+        - format_filesize
         - format_date
         - format_datetime
         - format_time

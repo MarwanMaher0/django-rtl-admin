@@ -26,6 +26,9 @@ EXPECTED_FILTERS = {
     "l10n_number",
     "l10n_currency",
     "l10n_percent",
+    "l10n_timedelta",
+    "l10n_timesince",
+    "l10n_filesize",
     "l10n_date",
     "l10n_datetime",
     "l10n_time",
@@ -616,3 +619,139 @@ def test_styles_and_scripts_carry_a_csp_nonce_when_one_is_available():
 def test_styles_carry_no_nonce_attribute_without_csp():
     assert "nonce" not in render("{% rtl_admin_styles %}")
     assert "nonce" not in render("{% rtl_admin_scripts %}")
+
+
+# -- duration, relative time and file size filters ------------------------
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+@pytest.mark.parametrize(
+    ("language", "digits"),
+    [
+        ("en", "0123456789"),
+        ("ar", "0123456789"),
+        ("ar-eg", DIGITS["arab"]),
+        ("fa", DIGITS["arabext"]),
+    ],
+)
+def test_l10n_timedelta_and_filesize_filters_use_locale_digits(
+    monkeypatch, use_babel, language, digits
+):
+    if not use_babel:
+        monkeypatch.setattr(formatting, "HAS_BABEL", False)
+    with override_language(language):
+        duration = render("{{ v|l10n_timedelta }}", v=45)
+        size = render("{{ v|l10n_filesize }}", v=1500)
+    for output in (duration, size):
+        assert any(char in output for char in digits)
+        if digits != "0123456789":
+            assert all(char not in output for char in "0123456789")
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+def test_l10n_timesince_filter_has_past_and_future_wording(monkeypatch, use_babel):
+    if not use_babel:
+        monkeypatch.setattr(formatting, "HAS_BABEL", False)
+    now = timezone.now()
+    with override_settings(USE_TZ=True, TIME_ZONE="Africa/Cairo"), override_language("en"):
+        past = render("{{ v|l10n_timesince }}", v=now - datetime.timedelta(days=2))
+        future = render("{{ v|l10n_timesince }}", v=now + datetime.timedelta(days=2))
+    assert "2 days" in past
+    assert "2 days" in future
+    assert past != future
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+def test_l10n_timesince_filter_accepts_dates(monkeypatch, use_babel):
+    if not use_babel:
+        monkeypatch.setattr(formatting, "HAS_BABEL", False)
+    with override_settings(USE_TZ=True), override_language("en"):
+        past = render("{{ v|l10n_timesince }}", v=timezone.localdate() - datetime.timedelta(days=1))
+        future = render(
+            "{{ v|l10n_timesince }}", v=timezone.localdate() + datetime.timedelta(days=1)
+        )
+    assert "1 day" in past
+    assert "1 day" in future
+    assert past != future
+
+
+def test_l10n_filesize_filter_accepts_a_binary_argument():
+    with override_language("en"):
+        assert render('{{ v|l10n_filesize:"binary" }}', v=1000).startswith("1000")
+        assert render("{{ v|l10n_filesize }}", v=1000).startswith("1")
+
+
+@pytest.mark.parametrize(
+    ("argument", "binary"),
+    [
+        (True, True),
+        ("1", True),
+        ("true", True),
+        ("TRUE", True),
+        ("yes", True),
+        ("binary", True),
+        ("Binary", True),
+        ("false", False),
+        ("FALSE", False),
+        ("0", False),
+        ("no", False),
+        (1, False),
+        (0, False),
+    ],
+)
+def test_l10n_filesize_only_treats_documented_arguments_as_binary(argument, binary):
+    with override_language("en"):
+        output = render("{{ v|l10n_filesize:argument }}", v=1000, argument=argument)
+    assert output.startswith("1000" if binary else "1")
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+@pytest.mark.parametrize(
+    ("filter_name", "value", "expected"),
+    [
+        ("l10n_timedelta", "abc", "abc"),
+        ("l10n_timedelta", [], "[]"),
+        ("l10n_filesize", "abc", "abc"),
+        ("l10n_filesize", [], "[]"),
+        ("l10n_timesince", "abc", ""),
+        ("l10n_timesince", 1234, ""),
+    ],
+)
+def test_new_l10n_filters_fail_silently(monkeypatch, use_babel, filter_name, value, expected):
+    if not use_babel:
+        monkeypatch.setattr(formatting, "HAS_BABEL", False)
+    with override_language("en"):
+        assert render("{{ v|" + filter_name + " }}", v=value) == expected
+
+
+@pytest.mark.parametrize("filter_name", ["l10n_timedelta", "l10n_timesince", "l10n_filesize"])
+def test_new_l10n_filters_render_none_as_empty(filter_name):
+    assert render("{{ v|" + filter_name + " }}", v=None) == ""
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+@pytest.mark.parametrize("filter_name", ["l10n_timedelta", "l10n_filesize"])
+def test_new_l10n_filters_escape_passthrough_values(monkeypatch, use_babel, filter_name):
+    if not use_babel:
+        monkeypatch.setattr(formatting, "HAS_BABEL", False)
+    payload = "<script>alert(1)</script>"
+    with override_language("ar-eg"):
+        output = render("{{ v|" + filter_name + " }}", v=payload)
+        raw = render(
+            "{% autoescape off %}{{ v|" + filter_name + " }}{% endautoescape %}",
+            v=payload,
+        )
+    assert output == "&lt;script&gt;alert(1)&lt;/script&gt;"
+    assert raw == payload
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+def test_l10n_timesince_filter_ignores_junk(monkeypatch, use_babel):
+    if not use_babel:
+        monkeypatch.setattr(formatting, "HAS_BABEL", False)
+    with override_language("ar-eg"):
+        assert render("{{ v|l10n_timesince }}", v="<script>alert(1)</script>") == ""
+
+
+def test_l10n_timesince_filter_declares_expects_localtime():
+    assert getattr(tags.register.filters["l10n_timesince"], "expects_localtime", False) is True

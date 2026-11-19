@@ -22,8 +22,9 @@ import decimal
 from typing import Any
 
 from django.conf import settings
-from django.utils import formats, timezone, translation
-from django.utils.translation import get_language, to_locale
+from django.utils import formats, timesince, timezone, translation
+from django.utils.html import avoid_wrapping
+from django.utils.translation import get_language, gettext, ngettext, to_locale
 
 from .conf import rtl_settings
 
@@ -163,6 +164,24 @@ _DJANGO_DATETIME_FORMATS = {
     "long": "DATETIME_FORMAT",
     "full": "DATETIME_FORMAT",
 }
+
+#: Babel's duration units and their length in seconds.  Kept in the same order
+#: so the no-Babel fallback picks the same unit as Babel.
+_DURATION_UNITS: tuple[tuple[str, int], ...] = (
+    ("year", 31_536_000),
+    ("month", 2_592_000),
+    ("week", 604_800),
+    ("day", 86_400),
+    ("hour", 3_600),
+    ("minute", 60),
+    ("second", 1),
+)
+
+#: Django's timesince strings cover every unit except seconds; the fallback
+#: gets the missing second forms and direction wording from the package's own
+#: gettext catalogs.
+_FILESIZE_UNITS = ("KB", "MB", "GB", "TB", "PB")
+_FILESIZE_UNIT_TEMPLATES = {unit: f"%s {unit}" for unit in _FILESIZE_UNITS}
 
 
 def _active(language: str | None) -> contextlib.AbstractContextManager[None]:
@@ -432,6 +451,146 @@ def format_percent(value: Any, *, language: str | None = None) -> str:
             pass
     percentage = _quantize(number * 100, 0)
     return f"{format_number(percentage, language=language, decimal_pos=0)}%"
+
+
+def _second_text(amount: int) -> str:
+    """Spell a number of seconds from the package's gettext catalog."""
+    return ngettext("%(num)s second", "%(num)s seconds", amount) % {"num": amount}
+
+
+def _fallback_timedelta(
+    value: datetime.timedelta | decimal.Decimal,
+    granularity: str,
+    threshold: float,
+    add_direction: bool,
+    language: str | None,
+) -> str:
+    """Format a duration with Django's translated unit strings."""
+    seconds: decimal.Decimal
+    if isinstance(value, datetime.timedelta):
+        # Babel ignores microseconds and normalizes negative deltas this way.
+        seconds = decimal.Decimal(value.days * 86_400 + value.seconds)
+    else:
+        seconds = value
+
+    negative = seconds < 0
+    magnitude = -seconds if negative else seconds
+    threshold_decimal = decimal.Decimal(str(threshold))
+    chosen: tuple[str, int] | None = None
+    for unit, seconds_per_unit in _DURATION_UNITS:
+        value_in_unit = magnitude / seconds_per_unit
+        if value_in_unit >= threshold_decimal or unit == granularity:
+            if unit == granularity and value_in_unit > 0:
+                value_in_unit = max(decimal.Decimal(1), value_in_unit)
+            chosen = (unit, round(value_in_unit))
+            break
+    if chosen is None:
+        return ""
+
+    unit, amount = chosen
+    with _active(language):
+        if unit == "second":
+            text = _second_text(amount)
+        else:
+            # ngettext_lazy resolves against the active language, so this must
+            # stay inside the override.
+            text = str(timesince.TIME_STRINGS[unit] % {"num": amount})
+        if add_direction:
+            if negative:
+                template = gettext("%(delta)s ago")
+            else:
+                template = gettext("%(delta)s from now")
+            text = template % {"delta": text}
+    return _localize_digits(text, language)
+
+
+def format_timedelta(
+    value: Any,
+    *,
+    granularity: str = "second",
+    threshold: float = 0.85,
+    add_direction: bool = False,
+    format: str = "long",
+    language: str | None = None,
+) -> str:
+    """Format a duration the way ``babel.dates.format_timedelta`` does.
+
+    ``value`` is a :class:`datetime.timedelta` or a number of seconds.  Babel
+    supplies CLDR unit patterns and direction wording when it is installed;
+    otherwise Django's translated ``timesince`` unit strings are used.  The
+    result always follows ``NUMERALS`` and an explicit ``language``.
+    """
+    if value is None or value == "":
+        return ""
+    if isinstance(value, datetime.timedelta):
+        duration: Any = value
+    else:
+        try:
+            duration = _as_decimal(value)
+        except ValueError:
+            raise ValueError(f"Timedelta value must be numeric, got {value!r}") from None
+
+    locale = _babel_locale(language)
+    if locale is not None:
+        try:
+            text = babel_dates.format_timedelta(
+                duration,
+                granularity=granularity,  # type: ignore[arg-type]
+                threshold=threshold,
+                add_direction=add_direction,
+                format=format,  # type: ignore[arg-type]
+                locale=locale,
+            )
+        except Exception:  # pragma: no cover - defensive
+            pass
+        else:
+            return _localize_digits(text, language)
+    return _fallback_timedelta(duration, granularity, threshold, add_direction, language)
+
+
+def _filesize_bytes(number: decimal.Decimal, language: str | None) -> str:
+    """Render a value below the first unit boundary through Django."""
+    from django.template.defaultfilters import filesizeformat
+
+    with _active(language):
+        text = str(filesizeformat(int(number)))
+    return _localize_digits(text, language)
+
+
+def format_filesize(num_bytes: Any, *, binary: bool = False, language: str | None = None) -> str:
+    """Format a byte count with locale-aware digits and unit spacing.
+
+    ``binary=False`` (the default) uses powers of 1000; ``binary=True`` uses
+    powers of 1024, matching Django's ``filesizeformat``.  Babel, when
+    available, provides the locale's number separators and digits.
+    """
+    if num_bytes is None or num_bytes == "":
+        return ""
+    try:
+        number = _as_decimal(num_bytes)
+    except ValueError:
+        raise ValueError(f"File size value must be numeric, got {num_bytes!r}") from None
+
+    negative = number < 0
+    magnitude = abs(number)
+    base = 1024 if binary else 1000
+    if magnitude < base:
+        text = _filesize_bytes(magnitude, language)
+    else:
+        limit = base
+        exponent = 1
+        while magnitude >= limit * base and exponent < len(_FILESIZE_UNITS):
+            limit *= base
+            exponent += 1
+        scaled = magnitude / limit
+        formatted = format_number(scaled, language=language, decimal_pos=1)
+        unit = _FILESIZE_UNITS[exponent - 1]
+        with _active(language):
+            template = gettext(_FILESIZE_UNIT_TEMPLATES[unit])
+        text = template % formatted
+    if negative:
+        text = f"-{text}"
+    return _localize_digits(avoid_wrapping(text), language)
 
 
 def format_date(

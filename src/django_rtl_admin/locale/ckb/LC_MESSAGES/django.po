@@ -17,6 +17,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Language: ckb\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 
 # TRANSLATORS: written without a native reviewer; please verify and
@@ -78,3 +79,23 @@ msgstr "بەڕێوەبەرایەتی دووزمانە / ڕاست بۆ چەپ"
 #: templatetags/rtl_admin.py
 msgid "Select this object for an action - {}"
 msgstr "ئەم تەنە هەڵبژێرە بۆ کردارێک - {}"
+
+#: formatting.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgid "%(num)s second"
+msgid_plural "%(num)s seconds"
+msgstr[0] "%(num)s چرکە"
+msgstr[1] "%(num)s چرکە"
+
+#: formatting.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgid "%(delta)s ago"
+msgstr "%(delta)s پێشتر"
+
+#: formatting.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgid "%(delta)s from now"
+msgstr "%(delta)s لە ئێستاوە"
