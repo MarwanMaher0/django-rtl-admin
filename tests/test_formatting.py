@@ -312,6 +312,41 @@ def test_format_percent():
     assert format_percent(0.256, language="en").startswith("26")
 
 
+@pytest.mark.parametrize("use_babel", [True, False])
+@pytest.mark.parametrize("language", ["en", "ar-eg", "fa"])
+@pytest.mark.parametrize("value, expected", [(0.125, 12), (0.135, 14), (-0.5, -50)])
+def test_format_percent_rounds_half_even(use_babel, language, value, expected):
+    with override_settings(RTL_ADMIN={"USE_BABEL": use_babel}):
+        output = format_percent(value, language=language)
+        assert output.rstrip("%٪") == format_number(expected, language=language, decimal_pos=0)
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+@pytest.mark.parametrize("language", ["en", "ar-eg", "fa"])
+@pytest.mark.parametrize("value", ["abc", float("nan"), float("inf")])
+def test_format_percent_rejects_invalid_values(use_babel, language, value):
+    with override_settings(RTL_ADMIN={"USE_BABEL": use_babel}), pytest.raises(ValueError):
+        format_percent(value, language=language)
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+@pytest.mark.parametrize("language", ["en", "ar-eg", "fa"])
+@pytest.mark.parametrize("code, canonical", [("usd", "USD"), (" eur ", "EUR")])
+def test_format_currency_normalizes_codes(use_babel, language, code, canonical):
+    with override_settings(RTL_ADMIN={"USE_BABEL": use_babel}):
+        assert format_currency(1, code, language=language) == format_currency(
+            1, canonical, language=language
+        )
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+@pytest.mark.parametrize("language", ["en", "ar-eg", "fa"])
+@pytest.mark.parametrize("code", ["US", "UŚD", "   "])
+def test_format_currency_rejects_invalid_codes(use_babel, language, code):
+    with override_settings(RTL_ADMIN={"USE_BABEL": use_babel}), pytest.raises(ValueError):
+        format_currency(1, code, language=language)
+
+
 def test_format_date_localises_digits():
     result = format_date(datetime.date(2024, 3, 5), language="ar-eg")
     assert any(char in result for char in ARABIC_INDIC)
