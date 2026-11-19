@@ -121,6 +121,17 @@ alignment and geometry relative to fields; it does not establish input-path
 punctuation coverage. The source-level examples below are not additional visual
 assertions.
 
+The same module holds two tests that are not README defects:
+`test_issue_2_message_link_and_subtitle_are_isolated` and
+`test_issue_2_delete_page_object_links_are_isolated` check `unicode-bidi: isolate`
+on the object names the admin quotes (see
+[Object names in messages and on the delete page](admin-mixin.md#object-names-in-messages-and-on-the-delete-page)).
+They run in both languages with the package CSS on, with it off, and with
+`ISOLATE_TABLE_CELLS` off. That rule is not tied to the direction, so English
+differs from stock there by design. The links compute `normal` without the rule.
+Chromium already isolates headings, so the subtitle computes `isolate` either way;
+for it, the tests read which selector of the loaded package stylesheet matches.
+
 ### Punctuation and mixed-direction form content
 
 Physical layout mirroring does not determine the direction of application text.

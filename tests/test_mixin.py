@@ -1,11 +1,13 @@
 """``BidiSafeAdminMixin`` applied to a real changelist."""
 
+import json
 import re
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 
 import django
 import pytest
-from django.contrib import admin
+from django.contrib import admin, messages
+from django.contrib.admin.models import LogEntry
 from django.contrib.admin.sites import AdminSite
 from django.contrib.messages.storage.cookie import CookieStorage
 from django.core.exceptions import ObjectDoesNotExist
@@ -14,6 +16,7 @@ from django.urls import include, path
 from django.utils import translation
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
+from django.utils.translation import gettext
 
 from django_rtl_admin import BidiSafeAdminMixin
 from django_rtl_admin.bidi import FSI, ISOLATE_OPENERS, LRI, PDI, RLI, isolate
@@ -915,16 +918,16 @@ def stock_thing_admin_cls():
     )
 
 
-def stock_delete_urlconf(stock_cls):
-    """A URLconf whose admin site mirrors the default one, with a stock Thing admin.
+def thing_urlconf(thing_admin_cls):
+    """A URLconf whose admin site mirrors the default one, with another Thing admin.
 
     ``admin.site.urls`` is built once at import time, so swapping the registry
     alone would not change which admin serves the requests.
     """
     site = AdminSite()
     for model, model_admin in admin.site._registry.items():
-        site.register(model, stock_cls if model is Thing else type(model_admin))
-    urlconf = ModuleType("tests.urls_stock_delete")
+        site.register(model, thing_admin_cls if model is Thing else type(model_admin))
+    urlconf = ModuleType("tests.urls_thing_admin")
     urlconf.urlpatterns = [
         path("admin/", site.urls),
         path("i18n/", include("django.conf.urls.i18n")),
@@ -948,7 +951,7 @@ def test_switch_off_delete_page_and_message_match_stock(admin_client):
 
     with override_settings(RTL_ADMIN={"ISOLATE_CHANGELIST": False}):
         pk, off_page, off_messages, off_final = delete_round_trip()
-    with override_settings(ROOT_URLCONF=stock_delete_urlconf(stock_cls)):
+    with override_settings(ROOT_URLCONF=thing_urlconf(stock_cls)):
         _, stock_page, stock_messages, stock_final = delete_round_trip(pk=pk)
 
     assert off_page == stock_page
@@ -962,7 +965,7 @@ def test_whitespace_only_str_matches_stock_on_the_delete_page(admin_client):
     thing = Thing.objects.create(name="   ")
     url = delete_url(thing)
     bidi_html = admin_client.get(url, headers=AR_EG).content.decode()
-    with override_settings(ROOT_URLCONF=stock_delete_urlconf(stock_thing_admin_cls())):
+    with override_settings(ROOT_URLCONF=thing_urlconf(stock_thing_admin_cls())):
         stock_html = admin_client.get(url, headers=AR_EG).content.decode()
 
     def breadcrumb(html):
@@ -972,3 +975,348 @@ def test_whitespace_only_str_matches_stock_on_the_delete_page(admin_client):
     assert breadcrumb(bidi_html).group(1) == breadcrumb(stock_html).group(1)
     assert FSI not in delete_question(bidi_html)
     assert FSI not in breadcrumb(bidi_html).group(1)
+
+
+# -- add and change success messages -----------------------------------------
+
+ADD_URL = "/admin/testapp/thing/add/"
+SAVE_BUTTONS = pytest.mark.parametrize("button", [None, "_continue", "_addanother"])
+
+
+def change_url(obj):
+    return f"/admin/testapp/thing/{obj.pk}/change/"
+
+
+def thing_form(name, button=None, **fields):
+    data = {"name": name, "quantity": "0", "price": "0", "is_active": "on", **fields}
+    if button:
+        data[button] = "1"
+    return data
+
+
+def variant(base, **attrs):
+    """``base`` with ``attrs`` overridden, to be served through ``thing_urlconf``."""
+    return type(f"{base.__name__}Variant", (base,), attrs)
+
+
+@staticmethod
+def no_change_permission(request, obj=None):
+    return False
+
+
+@staticmethod
+def change_permission_while_active(request, obj=None):
+    """An object-level rule: an inactive thing can no longer be changed."""
+    return obj is None or obj.is_active
+
+
+def save_outcome(client, thing_admin_cls, data, obj=None):
+    """Save the add form, or ``obj``'s change form, in ar-eg and follow the redirect.
+
+    ``thing_admin_cls`` is the admin class that serves the request; ``None``
+    keeps the registered ``BidiThingAdmin``.  The saved object's primary key
+    is scrubbed from the result, so that two saves which create different rows
+    can be compared with ``==``.
+    """
+    url = ADD_URL if obj is None else change_url(obj)
+    urlconf = "tests.urls" if thing_admin_cls is None else thing_urlconf(thing_admin_cls)
+    with override_settings(ROOT_URLCONF=urlconf):
+        response = client.post(url, data, headers=AR_EG, follow=True)
+    assert response.status_code == 200
+    assert response.redirect_chain, "the form did not validate"
+    pk = Thing.objects.latest("pk").pk if obj is None else obj.pk
+
+    def scrub(text):
+        return text.replace(f"/thing/{pk}/", "/thing/PK/")
+
+    html = response.content.decode()
+    assert 'dir="rtl"' in html
+    message_list = re.search(r'<ul class="messagelist">.*?</ul>', html, re.S)
+    return SimpleNamespace(
+        redirects=[(scrub(target), status) for target, status in response.redirect_chain],
+        messages=[scrub(str(message)) for message in response.context["messages"]],
+        message_list=scrub(message_list.group(0)),
+    )
+
+
+@SAVE_BUTTONS
+def test_add_message_isolates_the_plain_name_without_change_permission(admin_client, button):
+    form = thing_form(MIXED_NAME, button)
+    bidi = save_outcome(
+        admin_client, variant(BidiThingAdmin, has_change_permission=no_change_permission), form
+    )
+    stock = save_outcome(
+        admin_client,
+        variant(stock_thing_admin_cls(), has_change_permission=no_change_permission),
+        form,
+    )
+    (stock_message,) = stock.messages
+    # Django prints the name once, as plain text, because the user cannot
+    # follow a link to the change form.
+    assert "<a" not in stock_message
+    assert stock_message.count(MIXED_NAME) == 1
+    assert bidi.messages == [stock_message.replace(MIXED_NAME, FSI + MIXED_NAME + PDI)]
+    assert bidi.message_list == stock.message_list.replace(MIXED_NAME, FSI + MIXED_NAME + PDI)
+    # Only the message differs: the redirect and the log entry are Django's.
+    assert bidi.redirects == stock.redirects
+    assert [entry.object_repr for entry in LogEntry.objects.all()] == [MIXED_NAME, MIXED_NAME]
+
+
+@SAVE_BUTTONS
+def test_add_message_with_change_permission_matches_stock(admin_client, button):
+    form = thing_form(MIXED_NAME, button)
+    bidi = save_outcome(admin_client, None, form)
+    stock = save_outcome(admin_client, stock_thing_admin_cls(), form)
+    (message,) = bidi.messages
+    assert f'<a href="/admin/testapp/thing/PK/change/">{MIXED_NAME}</a>' in message
+    assert FSI not in message
+    assert bidi.messages == stock.messages
+    assert bidi.message_list == stock.message_list
+    assert bidi.redirects == stock.redirects
+    assert [entry.object_repr for entry in LogEntry.objects.all()] == [MIXED_NAME, MIXED_NAME]
+
+
+@SAVE_BUTTONS
+def test_change_message_with_change_permission_matches_stock(admin_client, button):
+    thing = Thing.objects.create(name=MIXED_NAME)
+    form = thing_form(MIXED_NAME, button, reference="v1.2.3")
+    bidi = save_outcome(admin_client, None, form, thing)
+    stock = save_outcome(admin_client, stock_thing_admin_cls(), form, thing)
+    (message,) = bidi.messages
+    assert f'<a href="/admin/testapp/thing/PK/change/">{MIXED_NAME}</a>' in message
+    assert FSI not in message
+    assert bidi.messages == stock.messages
+    assert bidi.message_list == stock.message_list
+    assert bidi.redirects == stock.redirects
+    assert [entry.object_repr for entry in LogEntry.objects.all()] == [MIXED_NAME, MIXED_NAME]
+
+
+def test_change_without_change_permission_is_refused_like_stock(admin_client):
+    """Without change permission the change view never reaches ``response_change``."""
+    thing = Thing.objects.create(name=MIXED_NAME)
+    form = thing_form("renamed 1.2.3")
+    for base in (BidiThingAdmin, stock_thing_admin_cls()):
+        urlconf = thing_urlconf(variant(base, has_change_permission=no_change_permission))
+        with override_settings(ROOT_URLCONF=urlconf):
+            response = admin_client.post(change_url(thing), form, headers=AR_EG)
+            page = admin_client.get(CHANGELIST_URL, headers=AR_EG)
+        assert response.status_code == 403
+        assert not list(page.context["messages"])
+    thing.refresh_from_db()
+    assert thing.name == MIXED_NAME
+    assert not LogEntry.objects.exists()
+
+
+def test_change_message_stays_linked_when_the_save_costs_the_change_permission(admin_client):
+    """``response_change`` links the name whatever the permission; that is left alone."""
+    thing = Thing.objects.create(name=MIXED_NAME)
+    form = thing_form(MIXED_NAME)
+    del form["is_active"]
+    bidi = save_outcome(
+        admin_client,
+        variant(BidiThingAdmin, has_change_permission=change_permission_while_active),
+        form,
+        thing,
+    )
+    thing.refresh_from_db()
+    assert not thing.is_active
+    Thing.objects.filter(pk=thing.pk).update(is_active=True)
+    stock = save_outcome(
+        admin_client,
+        variant(stock_thing_admin_cls(), has_change_permission=change_permission_while_active),
+        form,
+        thing,
+    )
+    (message,) = bidi.messages
+    assert f'<a href="/admin/testapp/thing/PK/change/">{MIXED_NAME}</a>' in message
+    assert FSI not in message
+    assert bidi.messages == stock.messages
+    assert bidi.message_list == stock.message_list
+    assert bidi.redirects == stock.redirects
+
+
+class PlainChangeMessageAdmin(admin.ModelAdmin):
+    """Prints the name instead of a dead link once the user cannot change the object."""
+
+    has_change_permission = change_permission_while_active
+
+    def response_change(self, request, obj):
+        if self.has_change_permission(request, obj):
+            return super().response_change(request, obj)
+        message = format_html(
+            gettext("The {name} “{obj}” was changed successfully."),
+            name=self.opts.verbose_name,
+            obj=str(obj),
+        )
+        self.message_user(request, message, messages.SUCCESS)
+        return self.response_post_save_change(request, obj)
+
+
+def test_plain_change_message_from_a_base_class_is_isolated(admin_client):
+    thing = Thing.objects.create(name=MIXED_NAME)
+    form = thing_form(MIXED_NAME)
+    del form["is_active"]
+    bidi_cls = type("BidiPlainChangeAdmin", (BidiSafeAdminMixin, PlainChangeMessageAdmin), {})
+    bidi = save_outcome(admin_client, bidi_cls, form, thing)
+    Thing.objects.filter(pk=thing.pk).update(is_active=True)
+    stock = save_outcome(admin_client, PlainChangeMessageAdmin, form, thing)
+    (stock_message,) = stock.messages
+    assert "<a" not in stock_message
+    assert bidi.messages == [stock_message.replace(MIXED_NAME, FSI + MIXED_NAME + PDI)]
+    assert bidi.redirects == stock.redirects
+
+
+def test_html_in_str_stays_escaped_in_the_add_message(admin_client):
+    form = thing_form("<b>x</b>")
+    plain = save_outcome(
+        admin_client, variant(BidiThingAdmin, has_change_permission=no_change_permission), form
+    )
+    assert FSI + "&lt;b&gt;x&lt;/b&gt;" + PDI in plain.message_list
+    assert "<b>" not in plain.message_list
+    linked = save_outcome(admin_client, None, form)
+    assert (
+        '<a href="/admin/testapp/thing/PK/change/">&lt;b&gt;x&lt;/b&gt;</a>' in linked.message_list
+    )
+    assert "<b>" not in linked.message_list
+    assert FSI not in linked.message_list
+
+
+def test_html_in_str_stays_escaped_in_the_change_message(admin_client):
+    thing = Thing.objects.create(name="<b>x</b>")
+    linked = save_outcome(admin_client, None, thing_form("<b>x</b>"), thing)
+    assert (
+        '<a href="/admin/testapp/thing/PK/change/">&lt;b&gt;x&lt;/b&gt;</a>' in linked.message_list
+    )
+    assert "<b>" not in linked.message_list
+    assert FSI not in linked.message_list
+
+
+def test_popup_add_response_is_stock_without_change_permission(admin_client):
+    form = thing_form(MIXED_NAME, "_popup")
+    popups = []
+    for base in (BidiThingAdmin, stock_thing_admin_cls()):
+        urlconf = thing_urlconf(variant(base, has_change_permission=no_change_permission))
+        with override_settings(ROOT_URLCONF=urlconf):
+            response = admin_client.post(ADD_URL, form, headers=AR_EG)
+            page = admin_client.get(CHANGELIST_URL, headers=AR_EG)
+        assert response.status_code == 200
+        # The popup hands the name to the opener's <select>; it shows no message.
+        assert not list(page.context["messages"])
+        pk = str(Thing.objects.latest("pk").pk)
+        data = json.loads(response.context["popup_response_data"])
+        assert data == {"value": pk, "obj": MIXED_NAME}
+        popups.append(response.content.decode().replace(f"&quot;{pk}&quot;", "&quot;PK&quot;"))
+    bidi_popup, stock_popup = popups
+    assert bidi_popup == stock_popup
+    assert FSI not in bidi_popup
+    assert [entry.object_repr for entry in LogEntry.objects.all()] == [MIXED_NAME, MIXED_NAME]
+
+
+@pytest.mark.parametrize("switch", ["setting", "attribute"])
+@SAVE_BUTTONS
+def test_switch_off_add_message_matches_stock(admin_client, switch, button):
+    form = thing_form(MIXED_NAME, button)
+    stock = save_outcome(
+        admin_client,
+        variant(stock_thing_admin_cls(), has_change_permission=no_change_permission),
+        form,
+    )
+    if switch == "setting":
+        off_cls = variant(BidiThingAdmin, has_change_permission=no_change_permission)
+        with override_settings(RTL_ADMIN={"ISOLATE_CHANGELIST": False}):
+            off = save_outcome(admin_client, off_cls, form)
+    else:
+        off_cls = variant(
+            BidiThingAdmin,
+            has_change_permission=no_change_permission,
+            bidi_isolate_changelist=False,
+        )
+        off = save_outcome(admin_client, off_cls, form)
+    assert off.messages == stock.messages
+    assert off.message_list == stock.message_list
+    assert off.redirects == stock.redirects
+    assert MIXED_NAME in off.message_list
+    assert FSI not in off.message_list
+
+
+@pytest.mark.parametrize("switch", ["setting", "attribute"])
+@SAVE_BUTTONS
+def test_switch_off_change_message_matches_stock(admin_client, switch, button):
+    thing = Thing.objects.create(name=MIXED_NAME)
+    form = thing_form(MIXED_NAME, button)
+    stock = save_outcome(admin_client, stock_thing_admin_cls(), form, thing)
+    if switch == "setting":
+        with override_settings(RTL_ADMIN={"ISOLATE_CHANGELIST": False}):
+            off = save_outcome(admin_client, None, form, thing)
+    else:
+        off = save_outcome(
+            admin_client, variant(BidiThingAdmin, bidi_isolate_changelist=False), form, thing
+        )
+    assert off.messages == stock.messages
+    assert off.message_list == stock.message_list
+    assert off.redirects == stock.redirects
+    assert MIXED_NAME in off.message_list
+    assert FSI not in off.message_list
+
+
+def add_messages(model_admin, user, name):
+    """Call ``response_add`` directly, in English, and return the messages it queued."""
+    obj = Thing.objects.create(name=name)
+    request = RequestFactory().post(ADD_URL)
+    request.user = user
+    request._messages = CookieStorage(request)
+    with translation.override("en"):
+        response = model_admin.response_add(request, obj)
+    # The name handed to message_user() does not outlive the call.
+    assert not hasattr(request, "_bidi_plain_object_name")
+    return [str(message) for message in request._messages], response
+
+
+def test_only_the_quoted_name_is_isolated_in_the_add_message(admin_user):
+    class RemindingAdmin(admin.ModelAdmin):
+        has_change_permission = no_change_permission
+
+        def response_post_save_add(self, request, obj):
+            self.message_user(request, "Thanks, a note was saved.")
+            return super().response_post_save_add(request, obj)
+
+    bidi = type("BidiRemindingAdmin", (BidiSafeAdminMixin, RemindingAdmin), {})
+    # The name "a" is also a substring of the sentence around it and of the
+    # project's own message; neither of those is touched.
+    bidi_messages, bidi_response = add_messages(bidi(Thing, AdminSite()), admin_user, "a")
+    stock_messages, stock_response = add_messages(
+        RemindingAdmin(Thing, AdminSite()), admin_user, "a"
+    )
+    assert stock_messages == ["The thing “a” was added successfully.", "Thanks, a note was saved."]
+    assert bidi_messages == [
+        f"The thing “{FSI}a{PDI}” was added successfully.",
+        "Thanks, a note was saved.",
+    ]
+    assert bidi_response.status_code == stock_response.status_code == 302
+    assert bidi_response.url == stock_response.url
+
+
+@pytest.mark.parametrize("name", ["", "   ", "\u202e\u2069"])
+def test_names_with_nothing_to_isolate_keep_the_stock_add_message(admin_user, name):
+    bidi_messages, _ = add_messages(
+        make_admin(has_change_permission=no_change_permission), admin_user, name
+    )
+    stock = variant(admin.ModelAdmin, has_change_permission=no_change_permission)
+    stock_messages, _ = add_messages(stock(Thing, AdminSite()), admin_user, name)
+    assert bidi_messages == stock_messages
+    assert FSI not in bidi_messages[0]
+
+
+def test_padded_and_bidi_control_names_are_isolated_as_django_prints_them(admin_user):
+    stock = variant(admin.ModelAdmin, has_change_permission=no_change_permission)
+    name = "  v1.2.3 \u202eكتاب  "
+    # Django 6.1 strips the name it prints; earlier versions print it as is.
+    printed = name.strip() if django.VERSION >= (6, 1) else name
+    bidi_messages, _ = add_messages(
+        make_admin(has_change_permission=no_change_permission), admin_user, name
+    )
+    stock_messages, _ = add_messages(stock(Thing, AdminSite()), admin_user, name)
+    assert stock_messages == [f"The thing “{printed}” was added successfully."]
+    # isolate() drops the embedded override, so it cannot reach past the quotes.
+    isolated = FSI + printed.replace("\u202e", "") + PDI
+    assert bidi_messages == [f"The thing “{isolated}” was added successfully."]

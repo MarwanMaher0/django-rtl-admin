@@ -162,6 +162,9 @@ field labels, help text and the link to the change form are unchanged; boolean
 fields (which render as icons), `SafeString` HTML values and anything in
 `list_editable` are left alone.
 
+The object's name is isolated as well where the admin quotes it: on the delete
+confirmation page and in the "added", "changed" and "deleted" messages.
+
 ### In your own templates
 
 ```django
@@ -329,9 +332,9 @@ RTL_ADMIN = {
 | `FONT_STACK` | `None` | Override the `--rtl-admin-font-stack` custom property. A string or a sequence of family names. |
 | `EXTRA_RTL_LANGUAGES` | `()` | Language codes to treat as RTL on top of the ones in Django's `LANGUAGES_BIDI`. |
 | `ISOLATION_DIRECTION` | `"auto"` | Default isolate used by `bidi_isolate` and the mixin: `"auto"` (FSI), `"ltr"` (LRI) or `"rtl"` (RLI). |
-| `ISOLATE_CHANGELIST` | `True` | Let `BidiSafeAdminMixin` isolate changelist cells. |
+| `ISOLATE_CHANGELIST` | `True` | Let `BidiSafeAdminMixin` isolate changelist cells, and object names on the delete page and in plain-text messages. |
 | `ISOLATE_READONLY_FIELDS` | `True` | Let `BidiSafeAdminMixin` isolate embedded opposite-direction runs in change-form `readonly_fields`. |
-| `ISOLATE_TABLE_CELLS` | `True` | CSS-level `unicode-bidi: isolate` on changelist cells. |
+| `ISOLATE_TABLE_CELLS` | `True` | CSS-level `unicode-bidi: isolate` on changelist cells, linked object names in messages, the change-form subtitle and object links on the delete pages. |
 | `PLAINTEXT_FORM_FIELDS` | `True` | CSS-level `unicode-bidi: plaintext` on text inputs and textareas. |
 | `NUMERALS` | `"auto"` | Numbering system for the formatting helpers: `"auto"` follows the locale, or force `"latn"`, `"arab"` or `"arabext"`. |
 | `USE_BABEL` | `True` | Use Babel when it is installed. `False` skips Babel and uses the built-in CLDR number tables plus Django date/time formatting. |

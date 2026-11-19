@@ -6,7 +6,9 @@ description: Add opt-in Unicode isolation to Django changelist cells and change-
 # BidiSafeAdminMixin
 
 `BidiSafeAdminMixin` adds Unicode isolates around eligible changelist cells and
-embedded opposite-direction runs inside change-form `readonly_fields`.
+embedded opposite-direction runs inside change-form `readonly_fields`, and around
+the object's name on the delete confirmation page and in the messages that print
+it as plain text.
 Use it for mixed-direction names, identifiers, emails, paths, and other data
 that should not disturb surrounding text. It affects presentation, not stored
 model values, and works in both LTR and RTL admins.
@@ -47,7 +49,7 @@ These are all five supported configuration attributes:
 
 | Attribute | Default | Effect |
 | --- | --- | --- |
-| `bidi_isolate_changelist` | `None` | Follow `RTL_ADMIN["ISOLATE_CHANGELIST"]`; `True` or `False` overrides it for this admin. |
+| `bidi_isolate_changelist` | `None` | Follow `RTL_ADMIN["ISOLATE_CHANGELIST"]`; `True` or `False` overrides it for this admin. The same switch covers [object names](#object-names-in-messages-and-on-the-delete-page) on the delete page and in messages. |
 | `bidi_isolate_readonly` | `None` | Follow `RTL_ADMIN["ISOLATE_READONLY_FIELDS"]`; `True` or `False` overrides it for this admin. |
 | `bidi_isolate_fields` | `None` | Consider all eligible string `list_display` entries; otherwise isolate only names in this iterable on the changelist. An empty tuple isolates none. |
 | `bidi_isolate_exclude` | `()` | Leave these `list_display` or `readonly_fields` entries unchanged, even if they are in the changelist allowlist. |
@@ -173,6 +175,87 @@ a field name or callable (by object or `__name__`) with `bidi_isolate_exclude`,
 disable per admin with `bidi_isolate_readonly = False`, or disable globally with
 `RTL_ADMIN["ISOLATE_READONLY_FIELDS"] = False`.
 
+## Object names in messages and on the delete page
+
+The admin also quotes an object's `__str__` inside sentences and headings. In an
+RTL admin, an identifier such as `978-0-262-03561-3` or `v1.2.3` between those
+quotes is reordered unless it is isolated. The mixin handles the places where
+Django prints the name as plain text; the package stylesheet handles the places
+where the name has an element of its own:
+
+| Where the name appears | Isolated by | Switch |
+| --- | --- | --- |
+| Delete confirmation question and breadcrumb | Mixin, `render_delete_form()` | `ISOLATE_CHANGELIST` or `bidi_isolate_changelist` |
+| Delete success message | Mixin, `response_delete()` | `ISOLATE_CHANGELIST` or `bidi_isolate_changelist` |
+| "Added" message without change permission (plain text) | Mixin, `response_add()` | `ISOLATE_CHANGELIST` or `bidi_isolate_changelist` |
+| "Added" and "changed" messages with a linked name | Stylesheet | `ISOLATE_TABLE_CELLS` |
+| Change-form subtitle | Stylesheet | `ISOLATE_TABLE_CELLS` |
+| Object links in the lists on the delete and delete-selected confirmation pages | Stylesheet | `ISOLATE_TABLE_CELLS` |
+
+The mixin wraps the whole name with `isolate()`, in the direction set by
+`RTL_ADMIN["ISOLATION_DIRECTION"]`. The per-admin `bidi_isolation_direction`,
+`bidi_isolate_fields` and `bidi_isolate_exclude` attributes do not apply to
+object names. Django escapes the name afterwards as it always does, so HTML in
+`__str__` stays escaped, and existing `Bidi_Control` characters are stripped
+from the name first. On the delete confirmation page and in the "added" message,
+an empty or whitespace-only name renders exactly as in the stock admin.
+
+The stylesheet rules insert no characters. They need the package CSS
+(`ENABLE_CSS`) and follow the stock admin markup:
+
+```css
+.rtl-admin--isolate-cells ul.messagelist li a,
+.rtl-admin--isolate-cells #content > h2,
+.rtl-admin--isolate-cells #content > .titles-and-tools > .titles > h2,
+.rtl-admin--isolate-cells.delete-confirmation #content ul li a {
+  unicode-bidi: isolate;
+}
+```
+
+### Delete confirmation page and message
+
+`render_delete_form()` replaces `context["object"]` with a thin proxy whose
+`__str__` returns the isolated name and which delegates every other attribute to
+the real object, so the breadcrumb still links to the object's change page. The
+breadcrumb's `truncatewords:"18"` cannot cut off the closing PDI: in a longer
+name the isolate is closed after the 18th word and reopened for the rest. Django
+6.1 renders the question from a precomputed `escaped_object`, and the mixin
+isolates that value as well.
+
+`response_delete()` passes the isolated name on to Django, which builds the
+"deleted successfully" message from it. The `LogEntry` keeps the plain name.
+
+The lists of related objects on this page, and on the confirmation page of the
+"delete selected" action, come from Django's `get_deleted_objects()`. Their
+links are isolated by the stylesheet. An object without an admin page of its own
+is listed there as plain text and is not isolated.
+
+### Add and change messages
+
+When the user may change the object, Django links its name in the success
+message. The stylesheet isolates that link, and the mixin leaves the message
+exactly as Django built it.
+
+A user without change permission gets the "added" message with the name as plain
+text, which no selector can reach, so the mixin wraps the name with `isolate()`,
+whichever save button was used.
+Only the message Django itself builds is rewritten. The redirect, the popup
+response of a related-object window, the `LogEntry` and any message your own code
+sends with `message_user()` stay exactly as they are.
+
+On Django 4.2 to 6.1, `response_change()` links the name whatever the user's
+permissions, so the "changed" message has no plain-text form and is never
+rewritten. The mixin's `response_change()` only acts when a base class sends
+Django's "changed" message with a plain name instead.
+
+### Change-form subtitle
+
+The change form, also in view-only mode, repeats the object's name in a subtitle
+`<h2>` under the page title. Up to Django 6.0 that heading is a child of
+`#content`; Django 6.1 moved it into `.titles-and-tools > .titles`. The
+stylesheet has a rule for each. The history page has no subtitle: its name is
+part of the `<h1>` sentence, which is isolated only as a whole.
+
 ## Escaping and formatting
 
 Changelist wrappers call Django's `display_for_field` or `display_for_value`, then
@@ -201,8 +284,10 @@ then let the mixin isolate its result. See the [Python API](api.md) or
 
 ## Scope and customization
 
-The mixin hooks into changelist display methods and `render_change_form` for
-read-only fields. It does not rewrite editable form widgets or exports. CSS
+The mixin hooks into changelist display methods, `render_change_form` for
+read-only fields, and `render_delete_form`, `response_delete`, `response_add`,
+`response_change` and `message_user` for object names. It does not rewrite
+editable form widgets or exports. CSS
 isolation remains independent, including on columns and fields the mixin skips.
 
 Keep attributes stable after the admin starts serving requests: wrappers are
@@ -238,3 +323,8 @@ gives Django's own hooks.
         - get_list_display_links
         - get_sortable_by
         - render_change_form
+        - render_delete_form
+        - response_delete
+        - response_add
+        - response_change
+        - message_user

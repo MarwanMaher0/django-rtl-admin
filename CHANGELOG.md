@@ -20,6 +20,31 @@ All notable changes to this project are documented here. The format follows
   Opt out globally with `RTL_ADMIN["ISOLATE_READONLY_FIELDS"] = False`, per
   admin with `bidi_isolate_readonly = False`, or per field/callable with
   `bidi_isolate_exclude`.
+- **Object names in admin sentences are isolated ([#2](https://github.com/MarwanMaher0/django-rtl-admin/issues/2)).**
+  The admin quotes an object's `__str__` in messages, headings and the delete
+  page, where an identifier such as `978-0-262-03561-3` or `v1.2.3` was
+  reordered in an RTL admin.
+    - `BidiSafeAdminMixin` wraps the name with `isolate()` where Django prints
+      it as plain text: the delete confirmation question and breadcrumb
+      (`render_delete_form`), the "deleted successfully" message
+      (`response_delete`) and the "added successfully" message for a user
+      without change permission (`response_add`). These follow
+      `RTL_ADMIN["ISOLATE_CHANGELIST"]` and `bidi_isolate_changelist`.
+    - `rtl-admin.css` sets `unicode-bidi: isolate`, under the existing
+      `.rtl-admin--isolate-cells` switch (`RTL_ADMIN["ISOLATE_TABLE_CELLS"]`),
+      on the linked name in the "added" and "changed" messages
+      (`ul.messagelist li a`), on the change-form subtitle `<h2>` (a child of
+      `#content` up to Django 6.0, inside `.titles-and-tools > .titles` on 6.1)
+      and on the object links in the lists of the delete and delete-selected
+      confirmation pages.
+    - The linked messages, popup responses, redirects and `LogEntry.object_repr`
+      stay exactly as Django makes them, HTML in `__str__` stays escaped, and
+      with the switch off the output matches a stock `ModelAdmin`.
+    - Django 4.2 to 6.1 link the name in the "changed" message whatever the
+      user's permissions, and refuse the change view without change
+      permission, so that message has no plain-text form. The mixin's
+      `response_change` only acts when a base class sends Django's "changed"
+      message with a plain name. The history page has no subtitle.
 - Computed-style browser coverage for README defects 1, 2, 3, 4, 5, 6, 8 and
   selected rules from 10, reusing the existing e2e suite at 1280px in `ar-eg`
   and `en` with package CSS enabled and disabled. All measured English computed

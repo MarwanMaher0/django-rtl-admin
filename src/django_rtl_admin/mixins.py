@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import html
 import re
+from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
 import django
+from django.contrib import messages
 from django.contrib.admin import helpers
+from django.contrib.admin.options import IS_POPUP_VAR
 from django.contrib.admin.utils import (
     display_for_field,
     display_for_value,
@@ -17,8 +20,9 @@ from django.contrib.admin.utils import (
 )
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models.constants import LOOKUP_SEP
-from django.utils.html import conditional_escape
+from django.utils.html import conditional_escape, format_html
 from django.utils.safestring import SafeData, mark_safe
+from django.utils.translation import gettext
 
 from .bidi import PDI, current_direction, isolate, mark_isolated, mark_isolated_runs, text_direction
 from .conf import rtl_settings
@@ -67,6 +71,23 @@ _NON_BR_TAG_RE = re.compile(r"<(?!br>)")
 _BREADCRUMB_WORDS = 18
 _BREADCRUMB_CUTOFF_RE = re.compile(rf"\s*(?:\S+\s+){{{_BREADCRUMB_WORDS - 1}}}\S+")
 
+#: Set on the request while ``response_add``/``response_change`` run for a user
+#: who cannot change the object: ``(verbose_name, str(obj))``, the two values
+#: Django formats into its success message.
+_PLAIN_NAME_ATTR = "_bidi_plain_object_name"
+
+#: The msgids of the success messages ``ModelAdmin.response_add`` and
+#: ``response_change`` build (Django 4.2 to 6.1) that can carry the object name
+#: as plain text.  The "You may edit it again below." variant of the add
+#: message is only used with change permission, where the name is a link.
+_SUCCESS_MESSAGES = (
+    "The {name} “{obj}” was added successfully.",
+    "The {name} “{obj}” was added successfully. You may add another {name} below.",
+    "The {name} “{obj}” was changed successfully.",
+    "The {name} “{obj}” was changed successfully. You may edit it again below.",
+    "The {name} “{obj}” was changed successfully. You may add another {name} below.",
+)
+
 _WRAPPED_CONTAINERS = (
     helpers.InlineAdminFormSet,
     helpers.AdminForm,
@@ -92,6 +113,29 @@ def _isolate_rendered_lines(rendered: SafeString, empty_value_display: Any) -> S
         raw = html.unescape(line)
         lines.append(mark_isolated_runs(raw, base=text_direction(raw, default=default_dir)))
     return mark_safe("<br>".join(lines))
+
+
+def _isolate_plain_object_name(message: Any, verbose_name: Any, obj_display: str) -> Any:
+    """Isolate the object name in one of Django's plain-text success messages.
+
+    ``message`` is rewritten only when it is exactly what Django formats from
+    one of ``_SUCCESS_MESSAGES`` with the plain name -- as printed, or stripped
+    the way Django 6.1 displays it.  The linked form of the message and any
+    message written by the project differ from that and are returned
+    untouched, so no character is ever inserted into text this module did not
+    recognise.  ``format_html`` escapes the name; isolates are plain
+    characters and pass through it.
+    """
+    for msgid in _SUCCESS_MESSAGES:
+        template = gettext(msgid)
+        for name in dict.fromkeys((obj_display, obj_display.strip())):
+            if message != format_html(template, name=verbose_name, obj=name):
+                continue
+            isolated = isolate(name)
+            if not isolated:
+                return message
+            return format_html(template, name=verbose_name, obj=isolated)
+    return message
 
 
 class _ResolvedLookup:
@@ -261,7 +305,10 @@ class BidiSafeAdminMixin(_Base):
 
     The delete confirmation page and the delete success message wrap the
     object's ``__str__`` in an isolate as well, following the same
-    changelist switch.
+    changelist switch.  So do the "added" and "changed" success messages when
+    they print the name as plain text, which Django does for a user without
+    change permission; the linked form of those messages is left to
+    ``rtl-admin.css``.
 
     Class-level knobs:
 
@@ -395,7 +442,65 @@ class BidiSafeAdminMixin(_Base):
             obj_display = isolate(obj_display)
         return super().response_delete(request, obj_display, obj_id)
 
+    def response_add(
+        self, request: HttpRequest, obj: Any, post_url_continue: str | None = None
+    ) -> HttpResponse:
+        with self._bidi_plain_object_name(request, obj, obj._meta.verbose_name):
+            return super().response_add(request, obj, post_url_continue)
+
+    def response_change(self, request: HttpRequest, obj: Any) -> HttpResponse:
+        # Django 4.2 to 6.1 link the name here whatever the permission, so
+        # their message is never rewritten; this covers a base class (or a
+        # later Django) that prints the name as plain text instead.
+        with self._bidi_plain_object_name(request, obj, self.opts.verbose_name):
+            return super().response_change(request, obj)
+
+    def message_user(
+        self,
+        request: HttpRequest,
+        message: Any,
+        level: int | str = messages.INFO,
+        extra_tags: str = "",
+        fail_silently: bool = False,
+    ) -> None:
+        pending = getattr(request, _PLAIN_NAME_ATTR, None)
+        if pending is not None:
+            message = _isolate_plain_object_name(message, *pending)
+        super().message_user(request, message, level, extra_tags, fail_silently)
+
     # -- internals ---------------------------------------------------------
+
+    @contextmanager
+    def _bidi_plain_object_name(
+        self, request: HttpRequest, obj: Any, verbose_name: Any
+    ) -> Iterator[None]:
+        """Let ``message_user`` isolate the plain-text name of ``obj``.
+
+        Django builds the success message inside ``response_add`` and
+        ``response_change`` and only hands it over through ``message_user``,
+        so the name is passed to that hook on the request for the duration of
+        the call.  The object itself goes on to Django untouched: the
+        redirect, the popup response and the linked message are its own.
+
+        Nothing is passed on for a popup (it shows no message), for a user
+        with change permission (Django links the name) or for an empty or
+        whitespace-only name, which renders as stock.
+        """
+        obj_display = ""
+        if (
+            self.bidi_isolation_enabled(request)
+            and IS_POPUP_VAR not in request.POST
+            and not self.has_change_permission(request, obj)
+        ):
+            obj_display = str(obj)
+        if not obj_display.strip():
+            yield
+            return
+        setattr(request, _PLAIN_NAME_ATTR, (verbose_name, obj_display))
+        try:
+            yield
+        finally:
+            request.__dict__.pop(_PLAIN_NAME_ATTR, None)
 
     def _bidi_entry(self, entry: _Display) -> _Display:
         """Map one ``list_display`` entry to its isolating wrapper."""

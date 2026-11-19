@@ -349,3 +349,140 @@ def test_defect_10_unmirrored_rules(style_pages, monkeypatch, rule):
             assert values[key][opposite] != "3px", f"sortremove {key}: stale {opposite} anchor"
         assert values["ar-eg", True] != values["ar-eg", False]
         assert values["en", True] == values["en", False]
+
+
+# -- issue #2: object names quoted by the admin --------------------------------
+
+MESSAGE_LINK_RULE = ".rtl-admin--isolate-cells ul.messagelist li a"
+SUBTITLE_RULE = (
+    ".rtl-admin--isolate-cells #content > .titles-and-tools > .titles > h2"
+    if DJANGO_61
+    else ".rtl-admin--isolate-cells #content > h2"
+)
+DELETE_LIST_LINK_RULE = ".rtl-admin--isolate-cells.delete-confirmation #content ul li a"
+
+# (ENABLE_CSS, ISOLATE_TABLE_CELLS): is the package's isolation in force?
+ISOLATION_CASES = {(True, True): True, (False, True): False, (True, False): False}
+
+
+def unicode_bidi(locator):
+    """Computed ``unicode-bidi`` of one element, and the package selectors that set it.
+
+    The second value separates the package's rule from a browser default:
+    it lists the selectors of rtl-admin.css that match the element in a rule
+    declaring ``unicode-bidi``, read from the loaded stylesheet.
+    """
+    assert locator.count() == 1, "expected exactly one element"
+    assert locator.is_visible(), "element is not visible"
+    return locator.evaluate(
+        """el => {
+            const selectors = [];
+            const walk = rules => {
+                for (const rule of rules) {
+                    if (rule.media && !matchMedia(rule.media.mediaText).matches) continue;
+                    if (rule.selectorText && rule.style.getPropertyValue('unicode-bidi')) {
+                        for (const selector of rule.selectorText.split(',')) {
+                            if (el.matches(selector)) selectors.push(selector.trim());
+                        }
+                    }
+                    if (rule.cssRules) walk(rule.cssRules);
+                }
+            };
+            for (const sheet of document.styleSheets) {
+                if (sheet.href && sheet.href.endsWith('django_rtl_admin/css/rtl-admin.css')) {
+                    walk(sheet.cssRules);
+                }
+            }
+            return [getComputedStyle(el).unicodeBidi, selectors];
+        }"""
+    )
+
+
+@pytest.fixture
+def isolation_pages(settings, open_admin, live_server_app):
+    """Open a page per language and isolation case, running ``prepare`` on each."""
+
+    def _open(path, prepare=None):
+        pages = {}
+        for lang in ("ar-eg", "en"):
+            for css, cells in ISOLATION_CASES:
+                live_server_app.wait_until_idle()
+                settings.RTL_ADMIN = {"ENABLE_CSS": css, "ISOLATE_TABLE_CELLS": cells}
+                page = open_admin(path, lang=lang, width=1280)
+                if prepare is not None:
+                    # The follow-up request has to see the same settings.
+                    prepare(page)
+                    live_server_app.wait_until_idle()
+                assert page.locator("html").get_attribute("lang") == lang
+                sheet = page.locator('link[href$="django_rtl_admin/css/rtl-admin.css"]')
+                assert sheet.count() == int(css)
+                if css:
+                    assert sheet.evaluate("el => el.sheet !== null"), "package CSS did not load"
+                body = page.locator("body").get_attribute("class").split()
+                assert ("rtl-admin--isolate-cells" in body) is cells
+                assert not page.js_errors, page.js_errors
+                pages[lang, css, cells] = page
+        return pages
+
+    return _open
+
+
+def test_issue_2_message_link_and_subtitle_are_isolated(isolation_pages, e2e_data):
+    """The object name in the "changed" message link and in the change-form subtitle.
+
+    A link is ``unicode-bidi: normal`` in stock, so both switches are real
+    negative controls for it.  Chromium's own stylesheet already isolates
+    headings, so the subtitle computes ``isolate`` everywhere; what the
+    package adds is read from its stylesheet, whose subtitle selector has to
+    follow the markup of the running Django.  The switch is not tied to the
+    direction, so English differs from stock here by design.
+    """
+    book = e2e_data["book"]
+    change_form = f"/admin/testapp/book/{book.pk}/change/"
+
+    def save_and_continue(page):
+        with page.expect_navigation():
+            page.locator("input[name=_continue]").click()
+        page.wait_for_load_state("load")
+        assert page.url.endswith(change_form), "the change form did not validate"
+
+    for (lang, css, cells), page in isolation_pages(change_form, save_and_continue).items():
+        case = f"{lang=} ENABLE_CSS={css} ISOLATE_TABLE_CELLS={cells}"
+        isolated = ISOLATION_CASES[css, cells]
+        link = page.locator("ul.messagelist li.success").get_by_role(
+            "link", name=book.title, exact=True
+        )
+        assert unicode_bidi(link) == (
+            ["isolate", [MESSAGE_LINK_RULE]] if isolated else ["normal", []]
+        ), case
+        subtitle = page.get_by_role("heading", name=book.title, exact=True, level=2)
+        assert unicode_bidi(subtitle) == ["isolate", [SUBTITLE_RULE] if isolated else []], case
+
+
+def test_issue_2_delete_page_object_links_are_isolated(isolation_pages, e2e_data):
+    """The links in the object lists of both delete confirmation pages."""
+    book = e2e_data["book"]
+
+    def delete_selected(page):
+        page.locator("#result_list input.action-select").first.check()
+        page.locator("select[name=action]").select_option("delete_selected")
+        with page.expect_navigation():
+            page.locator("button[name=index]").click()
+        page.wait_for_load_state("load")
+
+    for path, prepare, body_class in (
+        (f"/admin/testapp/book/{book.pk}/delete/", None, "delete-confirmation"),
+        (CHANGELIST, delete_selected, "delete-selected-confirmation"),
+    ):
+        for (lang, css, cells), page in isolation_pages(path, prepare).items():
+            case = f"{body_class} {lang=} ENABLE_CSS={css} ISOLATE_TABLE_CELLS={cells}"
+            assert body_class in page.locator("body").get_attribute("class").split(), case
+            # Chapters and reviews have no admin of their own, so the only
+            # link in the list is the book itself.
+            link = page.locator("#content li > a")
+            expected = (
+                ["isolate", [DELETE_LIST_LINK_RULE]]
+                if ISOLATION_CASES[css, cells]
+                else ["normal", []]
+            )
+            assert unicode_bidi(link) == expected, case

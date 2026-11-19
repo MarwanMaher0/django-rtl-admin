@@ -2,11 +2,16 @@
 
 import os
 import re
+from html.parser import HTMLParser
+from pathlib import Path
+from types import SimpleNamespace
 
 import django
 import pytest
 from django.template.loader import get_template
 from django.test import override_settings
+
+import django_rtl_admin
 
 pytestmark = pytest.mark.django_db
 
@@ -234,3 +239,213 @@ def test_switching_the_language_actually_changes_the_admin(admin_client):
 def test_the_switcher_label_is_translated(admin_client):
     html = admin_client.get(INDEX_URL, headers={"accept-language": "ar"}).content.decode()
     assert "اللغة" in html
+
+
+# -- object names isolated by the stylesheet ---------------------------------
+
+STYLESHEET = (
+    Path(django_rtl_admin.__file__).parent / "static" / "django_rtl_admin" / "css" / "rtl-admin.css"
+)
+MESSAGE_LINK = ".rtl-admin--isolate-cells ul.messagelist li a"
+# Up to Django 6.0 the subtitle is a child of #content; 6.1 wraps the titles.
+SUBTITLE = (
+    ".rtl-admin--isolate-cells #content > h2"
+    if django.VERSION < (6, 1)
+    else ".rtl-admin--isolate-cells #content > .titles-and-tools > .titles > h2"
+)
+DELETE_LIST_LINK = ".rtl-admin--isolate-cells.delete-confirmation #content ul li a"
+OBJECT_NAME_SELECTORS = (
+    MESSAGE_LINK,
+    ".rtl-admin--isolate-cells #content > h2",
+    ".rtl-admin--isolate-cells #content > .titles-and-tools > .titles > h2",
+    DELETE_LIST_LINK,
+)
+OBJECT_NAME = "مقدمة 978-0-262-03561-3"
+AR_EG = {"accept-language": "ar-eg"}
+
+
+def isolating_selectors():
+    """Every selector of a rule in rtl-admin.css that sets ``unicode-bidi: isolate``."""
+    css = re.sub(r"/\*.*?\*/", "", STYLESHEET.read_text(encoding="utf-8"), flags=re.S)
+    selectors = set()
+    for selector_list, declarations in re.findall(r"([^{}]+)\{([^{}]*)\}", css):
+        if re.search(r"unicode-bidi:\s*isolate\s*;", declarations):
+            selectors.update(" ".join(selector.split()) for selector in selector_list.split(","))
+    return selectors
+
+
+class ElementPaths(HTMLParser):
+    """Record every element of a page as its path from ``<html>`` down to itself."""
+
+    VOID = frozenset("area base br col embed hr img input link meta source track wbr".split())
+
+    def __init__(self, html):
+        super().__init__()
+        self.open = []
+        self.paths = []
+        self.feed(html)
+        self.close()
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        classes = set((attrs.get("class") or "").split())
+        element = SimpleNamespace(tag=tag, id=attrs.get("id"), classes=classes, text="")
+        self.paths.append([*self.open, element])
+        if tag not in self.VOID:
+            self.open.append(element)
+
+    def handle_endtag(self, tag):
+        for index in reversed(range(len(self.open))):
+            if self.open[index].tag == tag:
+                del self.open[index:]
+                break
+
+    def handle_data(self, data):
+        if self.open:
+            self.open[-1].text += data
+
+    def named(self, tag, text):
+        """Paths of the ``tag`` elements whose own text is ``text``."""
+        return [
+            path for path in self.paths if path[-1].tag == tag and path[-1].text.strip() == text
+        ]
+
+
+def selector_matches(selector, path):
+    """Does ``selector`` match the last element of ``path``?
+
+    Understands what the object-name rules use: tag, ``#id`` and ``.class``
+    compounds joined by descendant and child combinators.
+    """
+    steps = re.findall(r">|[^\s>]+", selector)
+
+    def compound_matches(compound, element):
+        for token in re.findall(r"[#.]?[\w-]+", compound):
+            if token.startswith("#"):
+                if element.id != token[1:]:
+                    return False
+            elif token.startswith("."):
+                if token[1:] not in element.classes:
+                    return False
+            elif element.tag != token:
+                return False
+        return True
+
+    def matches(step, depth):
+        if not compound_matches(steps[step], path[depth]):
+            return False
+        if step == 0:
+            return True
+        if steps[step - 1] == ">":
+            return depth > 0 and matches(step - 2, depth - 1)
+        return any(matches(step - 1, ancestor) for ancestor in range(depth))
+
+    return matches(len(steps) - 1, len(path) - 1)
+
+
+def matching_selectors(path):
+    """The selectors under the cells switch, read from rtl-admin.css, that isolate ``path``."""
+    return sorted(
+        selector
+        for selector in isolating_selectors()
+        if selector.startswith(".rtl-admin--isolate-cells") and selector_matches(selector, path)
+    )
+
+
+def inside_content(paths):
+    return [path for path in paths if any(element.id == "content" for element in path)]
+
+
+@pytest.fixture
+def named_thing(db):
+    from tests.testapp.models import Thing
+
+    return Thing.objects.create(name=OBJECT_NAME)
+
+
+def test_the_stylesheet_isolates_object_names_under_the_cells_switch():
+    assert set(OBJECT_NAME_SELECTORS) <= isolating_selectors()
+
+
+def test_the_selector_matcher_tells_child_from_descendant():
+    paths = ElementPaths(
+        '<body class="a b"><div id="content"><h2>x</h2><div class="titles"><h2>y</h2></div></div>'
+    )
+    (direct,) = paths.named("h2", "x")
+    (nested,) = paths.named("h2", "y")
+    assert selector_matches(".a #content > h2", direct)
+    assert not selector_matches(".a #content > h2", nested)
+    assert selector_matches(".a.b #content h2", nested)
+    assert selector_matches("#content > .titles > h2", nested)
+    assert not selector_matches(".c #content h2", nested)
+    assert not selector_matches(".a.c #content h2", nested)
+    assert not selector_matches("#content > h1", direct)
+
+
+def test_success_message_link_and_subtitle_match_the_object_name_selectors(
+    admin_client, named_thing
+):
+    url = f"/admin/testapp/thing/{named_thing.pk}/change/"
+    form = {"name": OBJECT_NAME, "quantity": "0", "price": "0", "_continue": "1"}
+    response = admin_client.post(url, form, headers=AR_EG, follow=True)
+    assert response.redirect_chain == [(url, 302)]
+    paths = ElementPaths(response.content.decode())
+    # The page quotes the name twice: in the message link and in the subtitle.
+    (link,) = paths.named("a", OBJECT_NAME)
+    assert matching_selectors(link) == [MESSAGE_LINK]
+    (subtitle,) = paths.named("h2", OBJECT_NAME)
+    assert matching_selectors(subtitle) == [SUBTITLE]
+
+
+def test_add_message_link_matches_the_object_name_selector(admin_client):
+    form = {"name": OBJECT_NAME, "quantity": "0", "price": "0"}
+    response = admin_client.post("/admin/testapp/thing/add/", form, headers=AR_EG, follow=True)
+    assert response.redirect_chain == [("/admin/testapp/thing/", 302)]
+    paths = ElementPaths(response.content.decode())
+    (link,) = [path for path in paths.named("a", OBJECT_NAME) if path[-2].tag == "li"]
+    assert matching_selectors(link) == [MESSAGE_LINK]
+
+
+def test_the_history_page_has_no_subtitle(admin_client, named_thing):
+    """Django passes ``subtitle=None`` there; the name is part of the ``<h1>`` sentence."""
+    url = f"/admin/testapp/thing/{named_thing.pk}/history/"
+    response = admin_client.get(url, headers=AR_EG)
+    assert response.context["subtitle"] is None
+    paths = ElementPaths(response.content.decode())
+    assert not paths.named("h2", OBJECT_NAME)
+    (title,) = [path for path in inside_content(paths.paths) if path[-1].tag == "h1"]
+    assert OBJECT_NAME in title[-1].text
+    assert matching_selectors(title) == [".rtl-admin--isolate-cells #content h1"]
+
+
+def test_delete_page_object_link_matches_the_object_name_selector(admin_client, named_thing):
+    url = f"/admin/testapp/thing/{named_thing.pk}/delete/"
+    paths = ElementPaths(admin_client.get(url, headers=AR_EG).content.decode())
+    (link,) = inside_content(paths.named("a", OBJECT_NAME))
+    assert matching_selectors(link) == [DELETE_LIST_LINK]
+
+
+def test_delete_selected_page_object_link_matches_the_object_name_selector(
+    admin_client, named_thing
+):
+    form = {"action": "delete_selected", "_selected_action": [str(named_thing.pk)]}
+    response = admin_client.post("/admin/testapp/thing/", form, headers=AR_EG)
+    assert response.status_code == 200
+    assert "delete-selected-confirmation" in response.content.decode()
+    paths = ElementPaths(response.content.decode())
+    (link,) = inside_content(paths.named("a", OBJECT_NAME))
+    assert matching_selectors(link) == [DELETE_LIST_LINK]
+
+
+@override_settings(RTL_ADMIN={"ISOLATE_TABLE_CELLS": False})
+def test_object_name_selectors_match_nothing_with_the_cells_switch_off(admin_client, named_thing):
+    url = f"/admin/testapp/thing/{named_thing.pk}/change/"
+    form = {"name": OBJECT_NAME, "quantity": "0", "price": "0", "_continue": "1"}
+    pages = [
+        admin_client.post(url, form, headers=AR_EG, follow=True),
+        admin_client.get(f"/admin/testapp/thing/{named_thing.pk}/delete/", headers=AR_EG),
+    ]
+    for page in pages:
+        paths = ElementPaths(page.content.decode())
+        assert paths.named("a", OBJECT_NAME)
+        assert not any(matching_selectors(path) for path in paths.paths)

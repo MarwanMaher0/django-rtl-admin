@@ -27,7 +27,7 @@ These are all 14 supported keys, defined in `django_rtl_admin.conf.DEFAULTS`.
 | `FONT_STACK` | `None` | Override `--rtl-admin-font-stack` with a string or sequence of family names; `None` retains the shipped stack. |
 | `EXTRA_RTL_LANGUAGES` | `()` | Add language codes to the RTL languages already in Django's `LANGUAGES_BIDI`. |
 | `ISOLATION_DIRECTION` | `"auto"` | Default whole-value isolate: `"auto"` (FSI), `"ltr"` (LRI), or `"rtl"` (RLI). |
-| `ISOLATE_CHANGELIST` | `True` | Enable changelist isolation in admins that explicitly use `BidiSafeAdminMixin`, unless overridden per admin. |
+| `ISOLATE_CHANGELIST` | `True` | Enable changelist isolation in admins that explicitly use `BidiSafeAdminMixin`, unless overridden per admin. The same switch covers object names on the delete confirmation page and in plain-text messages. |
 | `ISOLATE_READONLY_FIELDS` | `True` | Enable run-level isolation for change-form `readonly_fields` in admins that explicitly use `BidiSafeAdminMixin`, unless overridden per admin. |
 | `ISOLATE_TABLE_CELLS` | `True` | Add the body class enabling CSS isolation for changelist cells and related navigation/data containers. |
 | `PLAINTEXT_FORM_FIELDS` | `True` | Add the body class enabling first-strong plaintext direction for text-like inputs and textareas. |
@@ -90,9 +90,10 @@ The stylesheet supplies body direction for extra languages; it does not rewrite
 Django's `<html dir>` attribute. See [System checks](system-checks.md#rtl_adminw006-extra-rtl-language-missing-from-languages_bidi).
 
 `ISOLATE_TABLE_CELLS` gates `unicode-bidi: isolate` on changelist body cells,
-tabular-inline cells, breadcrumbs, content headings, object-tool links, and
-changelist-filter links. It works in either UI direction and does not insert
-characters into values.
+tabular-inline cells, breadcrumbs, content headings, object-tool links,
+changelist-filter links, the object link in "added" and "changed" messages, the
+change-form subtitle, and object links in the lists on the delete confirmation
+pages. It works in either UI direction and does not insert characters into values.
 
 `PLAINTEXT_FORM_FIELDS` gates `unicode-bidi: plaintext; text-align: start` on
 text, email, URL, search, and telephone inputs, inputs without a `type`, and

@@ -102,6 +102,21 @@ body.rtl-admin--rtl {
   unicode-bidi: isolate;
 }
 
+/* An object's name quoted by the admin: the link in the "added"/"changed"
+   message, the subtitle of the change form and history page, and the links in
+   the object lists of the two delete confirmation pages.  Up to Django 6.0
+   the subtitle <h2> is a child of #content; Django 6.1 moved it into
+   .titles-and-tools > .titles.  Both confirmation pages put
+   `delete-confirmation` on <body> next to `rtl-admin`, so the classes are
+   compounded.  A name the admin prints as plain text cannot be reached from
+   here; BidiSafeAdminMixin wraps those in isolate characters instead. */
+.rtl-admin--isolate-cells ul.messagelist li a,
+.rtl-admin--isolate-cells #content > h2,
+.rtl-admin--isolate-cells #content > .titles-and-tools > .titles > h2,
+.rtl-admin--isolate-cells.delete-confirmation #content ul li a {
+  unicode-bidi: isolate;
+}
+
 /* Labels, help text, fieldset descriptions and read-only values hold
    application content, not chrome.  `plaintext` makes each one resolve its own
    direction from its first strong character, which is what stops an English

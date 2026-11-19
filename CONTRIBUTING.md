@@ -112,6 +112,11 @@ or 9 (input paths); `test_change_form` separately checks label geometry, not pat
 punctuation. See [the coverage table](docs/rtl-defects.md#computed-style-coverage) for
 exact test names, measured properties and limitations.
 
+The two `test_issue_2_*` tests in the same module (issue #2) check `unicode-bidi: isolate` on
+the object names the admin quotes: the message link, the change-form subtitle and the links
+on both delete confirmation pages. They also run with `ISOLATE_TABLE_CELLS` off. The rule is
+not tied to the direction, so English differs from stock there by design.
+
 ```bash
 nox -s e2e                               # both Django 5.2 and newest (6.1), Python 3.14; installs Chromium
 nox -s "e2e(py3.14-django5.2)" -- -k test_defect_1_addlink_icon_and_padding
