@@ -313,19 +313,33 @@ def test_format_percent():
 
 
 @pytest.mark.parametrize("use_babel", [True, False])
-@pytest.mark.parametrize("language", ["en", "ar-eg", "fa"])
-@pytest.mark.parametrize("value, expected", [(0.125, 12), (0.135, 14), (-0.5, -50)])
+@pytest.mark.parametrize(
+    ("language", "value", "expected"),
+    [
+        ("en", 0.125, "12%"),
+        ("en", 0.135, "14%"),
+        ("en", -0.5, "-50%"),
+        ("ar-eg", 0.125, "١٢%"),
+        ("ar-eg", 0.135, "١٤%"),
+        ("ar-eg", -0.5, "-٥٠%"),
+        ("fa", 0.125, "۱۲%"),
+        ("fa", 0.135, "۱۴%"),
+        ("fa", -0.5, "-۵۰%"),
+    ],
+)
 def test_format_percent_rounds_half_even(use_babel, language, value, expected):
     with override_settings(RTL_ADMIN={"USE_BABEL": use_babel}):
-        output = format_percent(value, language=language)
-        assert output.rstrip("%٪") == format_number(expected, language=language, decimal_pos=0)
+        assert format_percent(value, language=language) == expected
 
 
 @pytest.mark.parametrize("use_babel", [True, False])
 @pytest.mark.parametrize("language", ["en", "ar-eg", "fa"])
 @pytest.mark.parametrize("value", ["abc", float("nan"), float("inf")])
 def test_format_percent_rejects_invalid_values(use_babel, language, value):
-    with override_settings(RTL_ADMIN={"USE_BABEL": use_babel}), pytest.raises(ValueError):
+    with (
+        override_settings(RTL_ADMIN={"USE_BABEL": use_babel}),
+        pytest.raises(ValueError, match="Percentage value must be numeric and finite"),
+    ):
         format_percent(value, language=language)
 
 
@@ -343,8 +357,31 @@ def test_format_currency_normalizes_codes(use_babel, language, code, canonical):
 @pytest.mark.parametrize("language", ["en", "ar-eg", "fa"])
 @pytest.mark.parametrize("code", ["US", "UŚD", "   "])
 def test_format_currency_rejects_invalid_codes(use_babel, language, code):
-    with override_settings(RTL_ADMIN={"USE_BABEL": use_babel}), pytest.raises(ValueError):
+    with (
+        override_settings(RTL_ADMIN={"USE_BABEL": use_babel}),
+        pytest.raises(ValueError, match="Currency code must be three ASCII letters"),
+    ):
         format_currency(1, code, language=language)
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+@pytest.mark.parametrize("language", ["en", "ar-eg", "fa"])
+@pytest.mark.parametrize("code", ["", None])
+def test_format_currency_falls_back_to_the_configured_currency(use_babel, language, code):
+    with override_settings(RTL_ADMIN={"USE_BABEL": use_babel, "CURRENCY": "EUR"}):
+        assert format_currency(1, code, language=language) == format_currency(
+            1, "EUR", language=language
+        )
+
+
+@pytest.mark.parametrize("use_babel", [True, False])
+@pytest.mark.parametrize("language", ["en", "ar-eg", "fa"])
+def test_format_currency_rejects_a_non_string_code(use_babel, language):
+    with (
+        override_settings(RTL_ADMIN={"USE_BABEL": use_babel}),
+        pytest.raises(ValueError, match="Currency code must be three ASCII letters, got 5"),
+    ):
+        format_currency(1, 5, language=language)  # type: ignore[arg-type]
 
 
 def test_format_date_localises_digits():

@@ -392,7 +392,10 @@ def format_currency(
         number = _as_decimal(value)
     except ValueError:
         raise ValueError(f"Currency value must be numeric, got {value!r}") from None
-    currency = (rtl_settings.CURRENCY if currency is None else currency).strip()
+    currency = currency or rtl_settings.CURRENCY
+    if not isinstance(currency, str):
+        raise ValueError(f"Currency code must be three ASCII letters, got {currency!r}")
+    currency = currency.strip()
     if len(currency) != 3 or not currency.isascii() or not currency.isalpha():
         raise ValueError(f"Currency code must be three ASCII letters, got {currency!r}")
     currency = currency.upper()
@@ -414,7 +417,10 @@ def format_percent(value: Any, *, language: str | None = None) -> str:
     """Format a 0..1 ratio as a locale-aware percentage."""
     if value is None or value == "":
         return ""
-    number = _as_decimal(value)
+    try:
+        number = _as_decimal(value)
+    except ValueError:
+        raise ValueError(f"Percentage value must be numeric and finite, got {value!r}") from None
     locale = _babel_locale(language)
     if locale is not None:
         try:
