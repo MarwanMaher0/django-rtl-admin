@@ -37,6 +37,10 @@ All notable changes to this project are documented here. The format follows
       `#content` up to Django 6.0, inside `.titles-and-tools > .titles` on 6.1)
       and on the object links in the lists of the delete and delete-selected
       confirmation pages.
+    - The same CSS switch isolates dashboard Recent actions links, object history
+      table cells, related-object labels beside `raw_id_fields`, and selected
+      names and dropdown options in Select2 autocompletes. Deleted names in
+      Recent actions are bare text; CSS cannot isolate them individually.
     - The linked messages, popup responses, redirects and `LogEntry.object_repr`
       stay exactly as Django makes them, HTML in `__str__` stays escaped, and
       with the switch off the output matches a stock `ModelAdmin`.

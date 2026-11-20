@@ -259,17 +259,27 @@ OBJECT_NAME_SELECTORS = (
     ".rtl-admin--isolate-cells #content > h2",
     ".rtl-admin--isolate-cells #content > .titles-and-tools > .titles > h2",
     DELETE_LIST_LINK,
+    ".rtl-admin--isolate-cells.dashboard #recent-actions-module li a",
+    ".rtl-admin--isolate-cells .related-lookup + strong",
+    '.rtl-admin--isolate-cells .form-row input[type="text"] + strong',
+)
+AUTOCOMPLETE = ".rtl-admin--isolate-cells .select2-container--admin-autocomplete"
+PLAINTEXT_NAME_SELECTORS = (
+    ".rtl-admin--isolate-cells #change-history tbody td",
+    f"{AUTOCOMPLETE} .select2-selection--single .select2-selection__rendered",
+    f"{AUTOCOMPLETE} .select2-selection__choice",
+    f"{AUTOCOMPLETE} .select2-results__option",
 )
 OBJECT_NAME = "مقدمة 978-0-262-03561-3"
 AR_EG = {"accept-language": "ar-eg"}
 
 
-def isolating_selectors():
-    """Every selector of a rule in rtl-admin.css that sets ``unicode-bidi: isolate``."""
+def bidi_selectors(value):
+    """Every selector in rtl-admin.css whose rule sets this ``unicode-bidi`` value."""
     css = re.sub(r"/\*.*?\*/", "", STYLESHEET.read_text(encoding="utf-8"), flags=re.S)
     selectors = set()
     for selector_list, declarations in re.findall(r"([^{}]+)\{([^{}]*)\}", css):
-        if re.search(r"unicode-bidi:\s*isolate\s*;", declarations):
+        if re.search(rf"unicode-bidi:\s*{value}\s*;", declarations):
             selectors.update(" ".join(selector.split()) for selector in selector_list.split(","))
     return selectors
 
@@ -314,10 +324,12 @@ class ElementPaths(HTMLParser):
 def selector_matches(selector, path):
     """Does ``selector`` match the last element of ``path``?
 
-    Understands what the object-name rules use: tag, ``#id`` and ``.class``
-    compounds joined by descendant and child combinators.
+    Handles tag, ``#id`` and ``.class`` compounds joined by descendant and
+    child combinators. The browser tests cover the raw-ID sibling selectors.
     """
     steps = re.findall(r">|[^\s>]+", selector)
+    if "+" in steps:
+        return False  # Siblings are not represented in an ancestor path.
 
     def compound_matches(compound, element):
         for token in re.findall(r"[#.]?[\w-]+", compound):
@@ -347,7 +359,7 @@ def matching_selectors(path):
     """The selectors under the cells switch, read from rtl-admin.css, that isolate ``path``."""
     return sorted(
         selector
-        for selector in isolating_selectors()
+        for selector in bidi_selectors("isolate")
         if selector.startswith(".rtl-admin--isolate-cells") and selector_matches(selector, path)
     )
 
@@ -364,7 +376,8 @@ def named_thing(db):
 
 
 def test_the_stylesheet_isolates_object_names_under_the_cells_switch():
-    assert set(OBJECT_NAME_SELECTORS) <= isolating_selectors()
+    assert set(OBJECT_NAME_SELECTORS) <= bidi_selectors("isolate")
+    assert set(PLAINTEXT_NAME_SELECTORS) <= bidi_selectors("plaintext")
 
 
 def test_the_selector_matcher_tells_child_from_descendant():

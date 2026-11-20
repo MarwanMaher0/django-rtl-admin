@@ -31,6 +31,11 @@ class CategoryAdmin(admin.ModelAdmin):
     search_fields = ("name",)
 
 
+@admin.register(Chapter)
+class ChapterAdmin(admin.ModelAdmin):
+    raw_id_fields = ("book",)
+
+
 class ChapterInline(admin.TabularInline):
     model = Chapter
     extra = 1

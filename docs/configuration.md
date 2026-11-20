@@ -29,7 +29,7 @@ These are all 14 supported keys, defined in `django_rtl_admin.conf.DEFAULTS`.
 | `ISOLATION_DIRECTION` | `"auto"` | Default whole-value isolate: `"auto"` (FSI), `"ltr"` (LRI), or `"rtl"` (RLI). |
 | `ISOLATE_CHANGELIST` | `True` | Enable changelist isolation in admins that explicitly use `BidiSafeAdminMixin`, unless overridden per admin. The same switch covers object names on the delete confirmation page and in plain-text messages. |
 | `ISOLATE_READONLY_FIELDS` | `True` | Enable run-level isolation for change-form `readonly_fields` in admins that explicitly use `BidiSafeAdminMixin`, unless overridden per admin. |
-| `ISOLATE_TABLE_CELLS` | `True` | Add the body class enabling CSS isolation for changelist cells and related navigation/data containers. |
+| `ISOLATE_TABLE_CELLS` | `True` | Enable CSS isolation for changelist cells and related navigation and data, including dashboard Recent actions links, object history table cells, related-object labels beside `raw_id_fields`, and selected names and dropdown options in Select2 autocompletes. |
 | `PLAINTEXT_FORM_FIELDS` | `True` | Add the body class enabling first-strong plaintext direction for text-like inputs and textareas. |
 | `NUMERALS` | `"auto"` | Follow the locale's numbering system, or force `"latn"`, `"arab"`, or `"arabext"` in the formatting helpers. |
 | `USE_BABEL` | `True` | Use Babel when installed; otherwise render numbers from built-in CLDR tables, with Django as a last resort. |
@@ -93,7 +93,11 @@ Django's `<html dir>` attribute. See [System checks](system-checks.md#rtl_adminw
 tabular-inline cells, breadcrumbs, content headings, object-tool links,
 changelist-filter links, the object link in "added" and "changed" messages, the
 change-form subtitle, and object links in the lists on the delete confirmation
-pages. It works in either UI direction and does not insert characters into values.
+pages. The same setting isolates links in the dashboard's Recent actions list,
+object history table cells, related-object labels beside `raw_id_fields`, and
+selected names and dropdown options in Select2 autocompletes. A deleted object's
+name in Recent actions is bare text with no element for CSS to target separately.
+CSS isolation works in either UI direction and does not insert characters into values.
 
 `PLAINTEXT_FORM_FIELDS` gates `unicode-bidi: plaintext; text-align: start` on
 text, email, URL, search, and telephone inputs, inputs without a `type`, and

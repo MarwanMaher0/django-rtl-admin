@@ -165,6 +165,33 @@ def e2e_data(transactional_db):
 
 
 @pytest.fixture
+def mixed_name_book(transactional_db):
+    from tests.testapp.models import Book, Category
+
+    return Book.objects.create(
+        title="مقدمة ابن خلدون v1.2.3",
+        isbn="978-0-262-03561-3",
+        category=Category.objects.create(name="كتب /v1.2 — تاريخ"),
+    )
+
+
+@pytest.fixture
+def book_log_entry(e2e_data, mixed_name_book):
+    """One change feeds both Recent actions and the book's history table."""
+    from django.contrib.admin.models import CHANGE, LogEntry
+    from django.contrib.contenttypes.models import ContentType
+
+    return LogEntry.objects.create(
+        user=e2e_data["user"],
+        content_type=ContentType.objects.get_for_model(mixed_name_book),
+        object_id=str(mixed_name_book.pk),
+        object_repr=mixed_name_book.title,
+        action_flag=CHANGE,
+        change_message=f"Updated {mixed_name_book.title}",
+    )
+
+
+@pytest.fixture
 def open_admin(browser, live_server, live_server_app, e2e_data, request, artifacts_dir):
     """Open an admin URL in a fresh browser context.
 

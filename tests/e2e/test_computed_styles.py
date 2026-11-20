@@ -11,11 +11,15 @@ not claimed negative controls. Every measured LTR value must match stock.
 
 from __future__ import annotations
 
+from types import ModuleType
+
 import django
 import pytest
 from django.contrib import admin
+from django.urls import path as url_path
 
-from tests.testapp.models import Book
+from tests.testapp.admin import ChapterAdmin
+from tests.testapp.models import Book, Chapter
 
 pytest.importorskip("playwright.sync_api")
 pytestmark = pytest.mark.e2e
@@ -477,12 +481,81 @@ def test_issue_2_delete_page_object_links_are_isolated(isolation_pages, e2e_data
         for (lang, css, cells), page in isolation_pages(path, prepare).items():
             case = f"{body_class} {lang=} ENABLE_CSS={css} ISOLATE_TABLE_CELLS={cells}"
             assert body_class in page.locator("body").get_attribute("class").split(), case
-            # Chapters and reviews have no admin of their own, so the only
-            # link in the list is the book itself.
-            link = page.locator("#content li > a")
+            # Chapter now has a change link too; check the selected book itself.
+            link = page.locator('#content li > a[href^="/admin/testapp/book/"]')
             expected = (
                 ["isolate", [DELETE_LIST_LINK_RULE]]
                 if ISOLATION_CASES[css, cells]
                 else ["normal", []]
             )
             assert unicode_bidi(link) == expected, case
+
+
+def assert_name_bidi(locator, case, value, *, stock="normal"):
+    """Block elements such as td and li already compute `isolate` in Chromium."""
+    _lang, css, cells = case
+    enabled = ISOLATION_CASES[css, cells]
+    computed_value, package_rules = unicode_bidi(locator)
+    assert computed_value == (value if enabled else stock), case
+    assert bool(package_rules) is enabled, case
+
+
+def test_recent_actions_object_link_is_isolated(isolation_pages, book_log_entry):
+    for case, page in isolation_pages("/admin/").items():
+        link = page.locator("#recent-actions-module").get_by_role(
+            "link", name=book_log_entry.object_repr, exact=True
+        )
+        assert_name_bidi(link, case, "isolate")
+
+
+def test_history_table_values_are_isolated(isolation_pages, book_log_entry):
+    path = f"/admin/testapp/book/{book_log_entry.object_id}/history/"
+    for case, page in isolation_pages(path).items():
+        row = page.locator("#change-history tbody tr", has_text=book_log_entry.change_message)
+        for name in (book_log_entry.user.username, book_log_entry.change_message):
+            cell = row.get_by_role("cell", name=name, exact=True)
+            assert_name_bidi(cell, case, "plaintext", stock="isolate")
+
+
+@pytest.mark.parametrize("registered", [True, False], ids=["linked", "unlinked"])
+def test_raw_id_related_object_label_is_isolated(
+    isolation_pages, mixed_name_book, settings, registered
+):
+    if not registered:
+        # Without a Book admin Django omits both the lookup link and the link
+        # inside <strong>. Render that stock variant, not hand-built HTML.
+        site = admin.AdminSite()
+        site.register(Chapter, ChapterAdmin)
+        urlconf = ModuleType("chapter_only_urls")
+        urlconf.urlpatterns = [url_path("admin/", site.urls)]
+        settings.ROOT_URLCONF = urlconf
+    chapter = mixed_name_book.chapter_set.create(number=1, title="Introduction")
+    for case, page in isolation_pages(f"/admin/testapp/chapter/{chapter.pk}/change/").items():
+        label = page.locator(".field-book strong", has_text=mixed_name_book.title)
+        assert label.get_by_role("link").count() == int(registered)
+        assert_name_bidi(label, case, "isolate")
+
+
+def test_autocomplete_selection_and_result_are_isolated(isolation_pages, mixed_name_book):
+    name = mixed_name_book.category.name
+
+    def open_results(page):
+        page.locator(".field-category .select2-selection").click()
+        page.get_by_role("option", name=name, exact=True).wait_for()
+
+    path = f"/admin/testapp/book/{mixed_name_book.pk}/change/"
+    for case, page in isolation_pages(path, open_results).items():
+        selection = page.locator(".field-category .select2-selection__rendered", has_text=name)
+        assert_name_bidi(selection, case, "plaintext")
+        option = page.get_by_role("option", name=name, exact=True)
+        assert_name_bidi(option, case, "plaintext", stock="isolate")
+
+
+def test_autocomplete_multiple_selection_is_isolated(isolation_pages, e2e_data, monkeypatch):
+    # Use an existing M2M rather than add a model just to render a choice chip.
+    user = e2e_data["user"]
+    group = user.groups.create(name="محرر /v1.2")
+    monkeypatch.setattr(admin.site._registry[type(user)], "autocomplete_fields", ("groups",))
+    for case, page in isolation_pages(f"/admin/auth/user/{user.pk}/change/").items():
+        choice = page.locator(".field-groups .select2-selection__choice", has_text=group.name)
+        assert_name_bidi(choice, case, "plaintext", stock="isolate")

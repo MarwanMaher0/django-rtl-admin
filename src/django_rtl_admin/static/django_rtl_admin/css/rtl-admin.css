@@ -117,6 +117,39 @@ body.rtl-admin--rtl {
   unicode-bidi: isolate;
 }
 
+/* Recent actions puts `dashboard` on <body>. Deleted names are bare text in
+   the list item: unlike the links, they cannot be isolated separately by CSS.
+   A raw-ID widget puts its <strong> label after the lookup link, or directly
+   after the text input if the related model has no registered admin. */
+.rtl-admin--isolate-cells.dashboard #recent-actions-module li a,
+.rtl-admin--isolate-cells .related-lookup + strong,
+.rtl-admin--isolate-cells .form-row input[type="text"] + strong {
+  unicode-bidi: isolate;
+}
+
+/* With plaintext, text-align: start would follow the value's direction,
+   not that of the column or widget. Resolve the alignment from the UI. */
+.rtl-admin--isolate-cells.rtl-admin--rtl {
+  --rtl-admin-text-start: right;
+}
+
+.rtl-admin--isolate-cells.rtl-admin--ltr {
+  --rtl-admin-text-start: left;
+}
+
+/* History values and Select2 names occupy their own boxes (even the single
+   selection's <span> is display: block). `plaintext` lets the text choose
+   its base direction rather than ordering a mixed name in the UI direction.
+   Select2 appends the dropdown under <body>, outside the form. Keep the text
+   aligned with its widget/column regardless of the name's direction. */
+.rtl-admin--isolate-cells #change-history tbody td,
+.rtl-admin--isolate-cells .select2-container--admin-autocomplete .select2-selection--single .select2-selection__rendered,
+.rtl-admin--isolate-cells .select2-container--admin-autocomplete .select2-selection__choice,
+.rtl-admin--isolate-cells .select2-container--admin-autocomplete .select2-results__option {
+  unicode-bidi: plaintext;
+  text-align: var(--rtl-admin-text-start);
+}
+
 /* Labels, help text, fieldset descriptions and read-only values hold
    application content, not chrome.  `plaintext` makes each one resolve its own
    direction from its first strong character, which is what stops an English
