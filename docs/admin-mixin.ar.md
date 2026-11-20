@@ -179,6 +179,7 @@ RTL، يُعاد ترتيب معرّف مثل `978-0-262-03561-3` أو `v1.2.3` 
 | موضع ظهور الاسم | وسيلة العزل | المفتاح |
 | --- | --- | --- |
 | سؤال تأكيد الحذف ومسار التنقل | المزيج، `render_delete_form()` | `ISOLATE_CHANGELIST` أو `bidi_isolate_changelist` |
+| مدخلات الكائنات المرتبطة والمحمية النصية في صفحتَي تأكيد الحذف وتأكيد حذف العناصر المحددة | المزيج، `get_deleted_objects()` | `ISOLATE_CHANGELIST` أو `bidi_isolate_changelist` |
 | رسالة نجاح الحذف | المزيج، `response_delete()` | `ISOLATE_CHANGELIST` أو `bidi_isolate_changelist` |
 | رسالة «تمت الإضافة» دون صلاحية التعديل (نص عادي) | المزيج، `response_add()` | `ISOLATE_CHANGELIST` أو `bidi_isolate_changelist` |
 | رسالتا «تمت الإضافة» و«تم التعديل» باسم على هيئة رابط | ورقة الأنماط | `ISOLATE_TABLE_CELLS` |
@@ -217,9 +218,14 @@ RTL، يُعاد ترتيب معرّف مثل `978-0-262-03561-3` أو `v1.2.3` 
 يمرّر `response_delete()` الاسم المعزول إلى Django، الذي يبني منه رسالة «تم الحذف
 بنجاح». ويحتفظ `LogEntry` بالاسم العادي.
 
-تأتي قوائم الكائنات المرتبطة في هذه الصفحة، وفي صفحة تأكيد إجراء «حذف العناصر
-المحددة»، من الدالة `get_deleted_objects()` في Django. تعزل ورقة الأنماط روابطها.
-أما الكائن الذي ليست له صفحة إدارة خاصة به فيُدرج هناك نصًا عاديًا ولا يُعزل.
+تأتي قوائم الكائنات التي ستُحذف والكائنات المحمية في هذه الصفحة، وفي صفحة تأكيد
+إجراء «حذف العناصر المحددة»، من الدالة `get_deleted_objects()` في Django. وتُترك
+المدخلات المرتبطة بروابط (قيم `SafeString` التي تحتوي على رابط إدارة) مطابقةً
+بايتًا ببايت لتعزلها ورقة الأنماط. أما المدخلات النصية العادية—مثل كائن مرتبط
+ليست له صفحة إدارة خاصة به، والذي ينسّقه Django بالصيغة
+`<Verbose name>: <str(obj)>`—فيُحاط الاسم فيها بعد أول `": "` باستخدام
+`isolate()` بصفته نصًا عاديًا حتى يواصل Django تهريب أي شيفرة HTML فيه، مع
+إبقاء تداخل القوائم و`model_count` و`perms_needed` دون تغيير.
 
 ### رسائل الإضافة والتعديل { #add-and-change-messages }
 
@@ -272,8 +278,8 @@ HTML المخصصة باستخدام `format_html` في Django، لا بتعلي
 ## النطاق والتخصيص { #scope-and-customization }
 
 يتدخل المزيج في طرائق عرض قائمة السجلات، وفي `render_change_form` لحقول القراءة فقط،
-وفي `render_delete_form` و`response_delete` و`response_add` و`response_change`
-و`message_user` لأسماء الكائنات.
+وفي `get_deleted_objects` و`render_delete_form` و`response_delete` و`response_add`
+و`response_change` و`message_user` لأسماء الكائنات.
 ولا يعيد كتابة عناصر التحرير القابلة للتعديل أو المخرجات المصدَّرة. يظل العزل بواسطة
 CSS مستقلًا، بما في ذلك في الأعمدة والحقول التي يتجاوزها المزيج.
 
@@ -310,6 +316,7 @@ CSS مستقلًا، بما في ذلك في الأعمدة والحقول ال�
         - get_list_display_links
         - get_sortable_by
         - render_change_form
+        - get_deleted_objects
         - render_delete_form
         - response_delete
         - response_add

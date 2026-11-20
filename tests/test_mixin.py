@@ -8,6 +8,7 @@ from types import ModuleType, SimpleNamespace
 import django
 import pytest
 from django.contrib import admin, messages
+from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
 from django.contrib.admin.models import LogEntry
 from django.contrib.admin.sites import AdminSite
 from django.contrib.messages.storage.cookie import CookieStorage
@@ -16,14 +17,14 @@ from django.test import RequestFactory, override_settings
 from django.urls import include, path
 from django.utils import translation
 from django.utils.html import format_html
-from django.utils.safestring import mark_safe
+from django.utils.safestring import SafeData, mark_safe
 from django.utils.translation import gettext
 
 from django_rtl_admin import BidiSafeAdminMixin
 from django_rtl_admin.bidi import FSI, ISOLATE_OPENERS, LRI, PDI, RLI, isolate
 from django_rtl_admin.mixins import _SUCCESS_MESSAGES
 
-from .testapp.admin import BidiThingAdmin
+from .testapp.admin import BidiThingAdmin, BookAdmin
 from .testapp.models import Book, Category, Chapter, Review, Thing
 
 pytestmark = pytest.mark.django_db
@@ -977,6 +978,256 @@ def test_whitespace_only_str_matches_stock_on_the_delete_page(admin_client):
     assert breadcrumb(bidi_html).group(1) == breadcrumb(stock_html).group(1)
     assert FSI not in delete_question(bidi_html)
     assert FSI not in breadcrumb(bidi_html).group(1)
+
+
+def stock_book_admin_cls():
+    """A stock ModelAdmin with the same configuration as the registered BookAdmin."""
+    return type(
+        "StockBookAdmin",
+        (admin.ModelAdmin,),
+        {
+            name: getattr(BookAdmin, name)
+            for name in (
+                "list_display",
+                "list_filter",
+                "search_fields",
+                "date_hierarchy",
+                "list_per_page",
+                "autocomplete_fields",
+                "actions",
+                "inlines",
+                "readonly_fields",
+                "fieldsets",
+                "mark_published",
+            )
+        },
+    )
+
+
+def book_urlconf(book_admin_cls):
+    """A URLconf whose admin site mirrors the default one, with another Book admin."""
+    site = AdminSite()
+    for model, model_admin in admin.site._registry.items():
+        site.register(model, book_admin_cls if model is Book else type(model_admin))
+    urlconf = ModuleType("tests.urls_book_admin")
+    urlconf.urlpatterns = [
+        path("admin/", site.urls),
+        path("i18n/", include("django.conf.urls.i18n")),
+    ]
+    return urlconf
+
+
+def fetch_book_delete_page(client, book, page):
+    if page == "delete":
+        return client.get(delete_url(book), headers=AR_EG)
+    return client.post(
+        BOOK_CHANGELIST_URL,
+        {"action": "delete_selected", ACTION_CHECKBOX_NAME: [str(book.pk)]},
+        headers=AR_EG,
+    )
+
+
+@pytest.mark.parametrize("page", ["delete", "delete_selected"])
+def test_delete_lists_isolate_plain_review_and_keep_book_link(admin_client, page):
+    assert Review not in admin.site._registry
+    book = Book.objects.create(title=MIXED_NAME, isbn="978-0-262-03561-3")
+    Review.objects.create(book=book, reviewer="مراجعة v1.2.3", body="plain")
+    Review.objects.create(book=book, reviewer="ملاحظة: /srv/archive/v1.2.3", body="colon")
+
+    response = fetch_book_delete_page(admin_client, book, page)
+    assert response.status_code == 200
+    html = response.content.decode()
+    assert 'dir="rtl"' in html
+
+    expected_book_link = f'Book: <a href="/admin/testapp/book/{book.pk}/change/">{MIXED_NAME}</a>'
+    assert expected_book_link in html
+    assert f"Review: {FSI}مراجعة v1.2.3{PDI}" in html
+    assert f"Review: {FSI}ملاحظة: /srv/archive/v1.2.3{PDI}" in html
+    assert FSI + FSI not in html
+
+    entries = (
+        response.context["deleted_objects"]
+        if page == "delete"
+        else response.context["deletable_objects"][0]
+    )
+    book_entry, related_entries = entries
+    assert isinstance(book_entry, SafeData)
+    assert str(book_entry) == expected_book_link
+    assert FSI not in book_entry
+    assert all(not isinstance(item, SafeData) for item in related_entries)
+    assert set(related_entries) == {
+        f"Review: {FSI}مراجعة v1.2.3{PDI}",
+        f"Review: {FSI}ملاحظة: /srv/archive/v1.2.3{PDI}",
+    }
+
+
+@pytest.mark.parametrize("page", ["delete", "delete_selected"])
+def test_html_in_related_review_stays_escaped_on_delete_pages(admin_client, page):
+    book = Book.objects.create(title=MIXED_NAME, isbn="978-0-262-03561-3")
+    Review.objects.create(book=book, reviewer="<b>مراجعة</b> /srv/v1.2.3", body="xss")
+
+    response = fetch_book_delete_page(admin_client, book, page)
+    assert response.status_code == 200
+    html = response.content.decode()
+    assert "<b>مراجعة</b>" not in html
+    assert f"Review: {FSI}&lt;b&gt;مراجعة&lt;/b&gt; /srv/v1.2.3{PDI}" in html
+
+    entries = (
+        response.context["deleted_objects"]
+        if page == "delete"
+        else response.context["deletable_objects"][0]
+    )
+    (review_entry,) = entries[1]
+    assert not isinstance(review_entry, SafeData)
+    assert review_entry == f"Review: {FSI}<b>مراجعة</b> /srv/v1.2.3{PDI}"
+
+
+@pytest.mark.parametrize("switch", ["setting", "attribute"])
+@pytest.mark.parametrize("page", ["delete", "delete_selected"])
+def test_switch_off_delete_lists_match_stock(admin_client, switch, page):
+    book = Book.objects.create(title=MIXED_NAME, isbn="978-0-262-03561-3")
+    Review.objects.create(book=book, reviewer="مراجعة v1.2.3", body="plain")
+
+    def scrub_csrf(s):
+        return re.sub(r'name="csrfmiddlewaretoken" value="[^"]+"', 'name="csrfmiddlewaretoken"', s)
+
+    with override_settings(ROOT_URLCONF=book_urlconf(stock_book_admin_cls())):
+        stock_html = scrub_csrf(fetch_book_delete_page(admin_client, book, page).content.decode())
+
+    if switch == "setting":
+        with override_settings(RTL_ADMIN={"ISOLATE_CHANGELIST": False}):
+            off_html = scrub_csrf(fetch_book_delete_page(admin_client, book, page).content.decode())
+    else:
+        off_cls = variant(BookAdmin, bidi_isolate_changelist=False)
+        with override_settings(ROOT_URLCONF=book_urlconf(off_cls)):
+            off_html = scrub_csrf(fetch_book_delete_page(admin_client, book, page).content.decode())
+
+    assert off_html == stock_html
+    assert "Review: مراجعة v1.2.3" in off_html
+    assert FSI not in off_html
+
+
+def test_get_deleted_objects_unit_with_protected_and_nested_lists(admin_user):
+    book_link = format_html(
+        '{}: <a href="{}">{}</a>', "Book", "/admin/testapp/book/1/change/", "مقدمة v1.2.3"
+    )
+    chapter_link = format_html(
+        '{}: <a href="{}">{}</a>', "Chapter", "/admin/testapp/chapter/2/change/", "فصل v2.0"
+    )
+    protected_link = format_html(
+        '{}: <a href="{}">{}</a>', "Category", "/admin/testapp/category/3/change/", "تصنيف v3.0"
+    )
+
+    stub_deleted = [
+        book_link,
+        [
+            "Review: مراجعة v1.2.3",
+            "Review: ملاحظة: /srv/v1.2.3",
+            "Review: <b>x</b> كتاب",
+            f"Review: {FSI}مراجعة v1.2.3{PDI}",
+            "Review: REF-\u202e42\u2069-OK",
+            "Review: ",
+            "Review:    ",
+            "Review: \u202e\u2069",
+            "bare entry",
+            chapter_link,
+            ["Note: حاشية /a/b", ["Tag: وسم 1.0"]],
+        ],
+    ]
+    stub_counts = {"books": 1, "reviews": 8, "notes": 1, "tags": 1}
+    stub_perms = {"secret"}
+    stub_protected = [
+        protected_link,
+        "Audit: سجل /var/log/2024-03-05",
+        "Audit: تنبيه: <b>err</b>",
+        f"Audit: {FSI}سجل v1{PDI}",
+    ]
+
+    class StubParentAdmin(admin.ModelAdmin):
+        def get_deleted_objects(self, objs, request):
+            return stub_deleted, stub_counts, stub_perms, stub_protected
+
+    bidi_cls = type("BidiStubAdmin", (BidiSafeAdminMixin, StubParentAdmin), {})
+    model_admin = bidi_cls(Book, AdminSite())
+    request = request_for(admin_user)
+
+    deleted, counts, perms, protected = model_admin.get_deleted_objects([], request)
+
+    assert deleted == [
+        book_link,
+        [
+            f"Review: {FSI}مراجعة v1.2.3{PDI}",
+            f"Review: {FSI}ملاحظة: /srv/v1.2.3{PDI}",
+            f"Review: {FSI}<b>x</b> كتاب{PDI}",
+            f"Review: {FSI}مراجعة v1.2.3{PDI}",
+            f"Review: {FSI}REF-42-OK{PDI}",
+            "Review: ",
+            "Review:    ",
+            "Review: \u202e\u2069",
+            "bare entry",
+            chapter_link,
+            [f"Note: {FSI}حاشية /a/b{PDI}", [f"Tag: {FSI}وسم 1.0{PDI}"]],
+        ],
+    ]
+    assert deleted[0] is book_link
+    assert deleted[1][9] is chapter_link
+    assert not isinstance(deleted[1][2], SafeData)
+    assert counts is stub_counts
+    assert perms is stub_perms
+    assert protected == [
+        protected_link,
+        f"Audit: {FSI}سجل /var/log/2024-03-05{PDI}",
+        f"Audit: {FSI}تنبيه: <b>err</b>{PDI}",
+        f"Audit: {FSI}سجل v1{PDI}",
+    ]
+    assert protected[0] is protected_link
+    assert all(not isinstance(item, SafeData) for item in protected[1:])
+
+    # No double isolation if the mixin runs again over an already-isolated result.
+    class AlreadyIsolatedParent(admin.ModelAdmin):
+        def get_deleted_objects(self, objs, request):
+            return deleted, counts, perms, protected
+
+    second_cls = type("SecondBidiStubAdmin", (BidiSafeAdminMixin, AlreadyIsolatedParent), {})
+    assert second_cls(Book, AdminSite()).get_deleted_objects([], request) == (
+        deleted,
+        counts,
+        perms,
+        protected,
+    )
+
+    # Direction follows RTL_ADMIN["ISOLATION_DIRECTION"], not bidi_isolation_direction.
+    ltr_cls = type(
+        "LtrBidiStubAdmin",
+        (BidiSafeAdminMixin, StubParentAdmin),
+        {"bidi_isolation_direction": "rtl"},
+    )
+    with override_settings(RTL_ADMIN={"ISOLATION_DIRECTION": "ltr"}):
+        ltr_deleted, _, _, ltr_protected = ltr_cls(Book, AdminSite()).get_deleted_objects(
+            [], request
+        )
+    assert ltr_deleted[1][0] == f"Review: {LRI}مراجعة v1.2.3{PDI}"
+    assert ltr_protected[1] == f"Audit: {LRI}سجل /var/log/2024-03-05{PDI}"
+
+    # Disabled via attribute or setting returns the parent result untouched.
+    off_cls = type(
+        "OffBidiStubAdmin",
+        (BidiSafeAdminMixin, StubParentAdmin),
+        {"bidi_isolate_changelist": False},
+    )
+    assert off_cls(Book, AdminSite()).get_deleted_objects([], request) == (
+        stub_deleted,
+        stub_counts,
+        stub_perms,
+        stub_protected,
+    )
+    with override_settings(RTL_ADMIN={"ISOLATE_CHANGELIST": False}):
+        assert model_admin.get_deleted_objects([], request) == (
+            stub_deleted,
+            stub_counts,
+            stub_perms,
+            stub_protected,
+        )
 
 
 # -- add and change success messages -----------------------------------------

@@ -186,6 +186,7 @@ where the name has an element of its own:
 | Where the name appears | Isolated by | Switch |
 | --- | --- | --- |
 | Delete confirmation question and breadcrumb | Mixin, `render_delete_form()` | `ISOLATE_CHANGELIST` or `bidi_isolate_changelist` |
+| Plain-text related and protected entries on the delete and delete-selected pages | Mixin, `get_deleted_objects()` | `ISOLATE_CHANGELIST` or `bidi_isolate_changelist` |
 | Delete success message | Mixin, `response_delete()` | `ISOLATE_CHANGELIST` or `bidi_isolate_changelist` |
 | "Added" message without change permission (plain text) | Mixin, `response_add()` | `ISOLATE_CHANGELIST` or `bidi_isolate_changelist` |
 | "Added" and "changed" messages with a linked name | Stylesheet | `ISOLATE_TABLE_CELLS` |
@@ -225,10 +226,14 @@ isolates that value as well.
 `response_delete()` passes the isolated name on to Django, which builds the
 "deleted successfully" message from it. The `LogEntry` keeps the plain name.
 
-The lists of related objects on this page, and on the confirmation page of the
-"delete selected" action, come from Django's `get_deleted_objects()`. Their
-links are isolated by the stylesheet. An object without an admin page of its own
-is listed there as plain text and is not isolated.
+The lists of objects to be deleted and of protected objects on this page, and on
+the confirmation page of the "delete selected" action, come from Django's
+`get_deleted_objects()`. Linked entries (`SafeString` values with an admin link)
+stay byte-identical and are isolated by the stylesheet. Plain-text entries—such
+as a related object without an admin page of its own, which Django formats as
+`<Verbose name>: <str(obj)>`—have the name after the first `": "` wrapped with
+`isolate()` as a plain string so Django still escapes any HTML in it, leaving
+list nesting, `model_count` and `perms_needed` unchanged.
 
 ### Add and change messages
 
@@ -285,8 +290,9 @@ then let the mixin isolate its result. See the [Python API](api.md) or
 ## Scope and customization
 
 The mixin hooks into changelist display methods, `render_change_form` for
-read-only fields, and `render_delete_form`, `response_delete`, `response_add`,
-`response_change` and `message_user` for object names. It does not rewrite
+read-only fields, and `get_deleted_objects`, `render_delete_form`,
+`response_delete`, `response_add`, `response_change` and `message_user` for
+object names. It does not rewrite
 editable form widgets or exports. CSS
 isolation remains independent, including on columns and fields the mixin skips.
 
@@ -323,6 +329,7 @@ gives Django's own hooks.
         - get_list_display_links
         - get_sortable_by
         - render_change_form
+        - get_deleted_objects
         - render_delete_form
         - response_delete
         - response_add

@@ -28,10 +28,10 @@ from .bidi import PDI, current_direction, isolate, mark_isolated, mark_isolated_
 from .conf import rtl_settings
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator
+    from collections.abc import Callable, Iterator, Sequence
 
     from django.contrib.admin import ModelAdmin
-    from django.db.models import Field, Model
+    from django.db.models import Field, Model, QuerySet
     from django.db.models.fields.reverse_related import ForeignObjectRel
     from django.http import HttpRequest, HttpResponse
     from django.utils.functional import Promise
@@ -136,6 +136,29 @@ def _isolate_plain_object_name(message: Any, verbose_name: Any, obj_display: str
                 return message
             return format_html(template, name=verbose_name, obj=isolated)
     return message
+
+
+def _isolate_deleted_entry(entry: Any) -> Any:
+    """Isolate the object name in a plain-text ``get_deleted_objects`` entry.
+
+    Django formats an unlinked entry as ``"<Verbose name>: <str(obj)>"``
+    (plain ``str``) and a linked entry with ``format_html`` (``SafeString``).
+    Nested lists are walked recursively; linked entries, empty/whitespace-only
+    names and entries without ``": "`` are returned untouched; the result for
+    a plain entry stays a plain ``str`` so Django's ``unordered_list`` filter
+    still escapes any HTML in the name.
+    """
+    if isinstance(entry, list):
+        return [_isolate_deleted_entry(item) for item in entry]
+    if not isinstance(entry, str) or isinstance(entry, SafeData) or hasattr(entry, "__html__"):
+        return entry
+    prefix, sep, name = entry.partition(": ")
+    if not sep or not name.strip():
+        return entry
+    isolated = isolate(name)
+    if not isolated:
+        return entry
+    return f"{prefix}{sep}{isolated}"
 
 
 class _ResolvedLookup:
@@ -303,12 +326,13 @@ class BidiSafeAdminMixin(_Base):
     fields (rendered as icons), ``SafeString`` HTML values and anything listed
     in ``list_editable`` are left alone.
 
-    The delete confirmation page and the delete success message wrap the
-    object's ``__str__`` in an isolate as well, following the same
-    changelist switch.  So do the "added" and "changed" success messages when
-    they print the name as plain text, which Django does for a user without
-    change permission; the linked form of those messages is left to
-    ``rtl-admin.css``.
+    The delete confirmation page, the plain-text entries of
+    ``get_deleted_objects`` (on the delete and delete-selected confirmation
+    pages) and the delete success message wrap the object's ``__str__`` in an
+    isolate as well, following the same changelist switch.  So do the "added"
+    and "changed" success messages when they print the name as plain text,
+    which Django does for a user without change permission; linked names are
+    left to ``rtl-admin.css``.
 
     Class-level knobs:
 
@@ -422,6 +446,21 @@ class BidiSafeAdminMixin(_Base):
                 context["inline_admin_formsets"] = wrapped_inlines
         return super().render_change_form(
             request, context, add=add, change=change, form_url=form_url, obj=obj
+        )
+
+    def get_deleted_objects(
+        self, objs: Sequence[Any] | QuerySet[Any], request: HttpRequest
+    ) -> tuple[list[Any], dict[str, int], set[str], list[Any]]:
+        deleted_objects, model_count, perms_needed, protected = super().get_deleted_objects(
+            objs, request
+        )
+        if not self.bidi_isolation_enabled(request):
+            return deleted_objects, model_count, perms_needed, protected
+        return (
+            [_isolate_deleted_entry(item) for item in deleted_objects],
+            model_count,
+            perms_needed,
+            [_isolate_deleted_entry(item) for item in protected],
         )
 
     def render_delete_form(self, request: HttpRequest, context: dict[str, Any]) -> HttpResponse:
