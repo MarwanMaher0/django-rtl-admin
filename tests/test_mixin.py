@@ -982,26 +982,14 @@ def test_whitespace_only_str_matches_stock_on_the_delete_page(admin_client):
 
 def stock_book_admin_cls():
     """A stock ModelAdmin with the same configuration as the registered BookAdmin."""
-    return type(
-        "StockBookAdmin",
-        (admin.ModelAdmin,),
-        {
-            name: getattr(BookAdmin, name)
-            for name in (
-                "list_display",
-                "list_filter",
-                "search_fields",
-                "date_hierarchy",
-                "list_per_page",
-                "autocomplete_fields",
-                "actions",
-                "inlines",
-                "readonly_fields",
-                "fieldsets",
-                "mark_published",
-            )
-        },
-    )
+    # Skip dunders and ``media``: Django < 5.0's MediaDefiningClass adds a ``media``
+    # property bound to BookAdmin via ``super(cls, self)``; the new class makes its own.
+    own = {
+        name: value
+        for name, value in vars(BookAdmin).items()
+        if not name.startswith("__") and name != "media"
+    }
+    return type("StockBookAdmin", (admin.ModelAdmin,), own)
 
 
 def book_urlconf(book_admin_cls):

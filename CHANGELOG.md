@@ -9,15 +9,9 @@ All notable changes to this project are documented here. The format follows
 ### Added
 
 - **Plain-text related and protected entries on delete confirmation pages are isolated.**
-  `BidiSafeAdminMixin` now overrides `get_deleted_objects()` so that, when
-  `bidi_isolation_enabled(request)` is true (`RTL_ADMIN["ISOLATE_CHANGELIST"]`
-  or `bidi_isolate_changelist`), plain-text entries (`<Verbose name>: <str(obj)>`)
-  in both the nested `deleted_objects` list and the `protected` list—such as
-  related objects without an admin page of their own on the delete and
-  "delete selected" confirmation pages—have the object name after the first
-  `": "` wrapped with `isolate()` as a plain string. Linked (`SafeString`)
-  entries, list nesting, `model_count`, `perms_needed` and HTML escaping stay
-  unchanged.
+  When `bidi_isolation_enabled(request)` is true, `BidiSafeAdminMixin.get_deleted_objects()`
+  wraps the object name in plain-text `deleted_objects` and `protected` entries with `isolate()`;
+  linked entries, nesting, counts, permissions and escaping are unchanged.
 - **Read-only field isolation on the change form ([#1](https://github.com/MarwanMaher0/django-rtl-admin/issues/1)).**
   `BidiSafeAdminMixin` now isolates embedded opposite-direction runs inside
   `readonly_fields` display values on the change form (and in view-only mode and
