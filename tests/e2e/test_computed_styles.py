@@ -491,13 +491,20 @@ def test_issue_2_delete_page_object_links_are_isolated(isolation_pages, e2e_data
             assert unicode_bidi(link) == expected, case
 
 
-def assert_name_bidi(locator, case, value, *, stock="normal"):
-    """Block elements such as td and li already compute `isolate` in Chromium."""
-    _lang, css, cells = case
+def assert_name_bidi(locator, case, value, *, stock="normal", aligned=False):
+    """Block elements such as td and li already compute `isolate` in Chromium.
+
+    With ``aligned``, the element is one the package switches to ``plaintext``:
+    its text must stay aligned with the UI direction, not the name's.
+    """
+    lang, css, cells = case
     enabled = ISOLATION_CASES[css, cells]
     computed_value, package_rules = unicode_bidi(locator)
     assert computed_value == (value if enabled else stock), case
     assert bool(package_rules) is enabled, case
+    if aligned and enabled:
+        expected = "right" if lang == "ar-eg" else "left"
+        assert locator.evaluate("el => getComputedStyle(el).textAlign") == expected, case
 
 
 def test_recent_actions_object_link_is_isolated(isolation_pages, book_log_entry):
@@ -514,7 +521,7 @@ def test_history_table_values_are_isolated(isolation_pages, book_log_entry):
         row = page.locator("#change-history tbody tr", has_text=book_log_entry.change_message)
         for name in (book_log_entry.user.username, book_log_entry.change_message):
             cell = row.get_by_role("cell", name=name, exact=True)
-            assert_name_bidi(cell, case, "plaintext", stock="isolate")
+            assert_name_bidi(cell, case, "plaintext", stock="isolate", aligned=True)
 
 
 @pytest.mark.parametrize("registered", [True, False], ids=["linked", "unlinked"])
@@ -546,9 +553,9 @@ def test_autocomplete_selection_and_result_are_isolated(isolation_pages, mixed_n
     path = f"/admin/testapp/book/{mixed_name_book.pk}/change/"
     for case, page in isolation_pages(path, open_results).items():
         selection = page.locator(".field-category .select2-selection__rendered", has_text=name)
-        assert_name_bidi(selection, case, "plaintext")
+        assert_name_bidi(selection, case, "plaintext", aligned=True)
         option = page.get_by_role("option", name=name, exact=True)
-        assert_name_bidi(option, case, "plaintext", stock="isolate")
+        assert_name_bidi(option, case, "plaintext", stock="isolate", aligned=True)
 
 
 def test_autocomplete_multiple_selection_is_isolated(isolation_pages, e2e_data, monkeypatch):
@@ -558,4 +565,4 @@ def test_autocomplete_multiple_selection_is_isolated(isolation_pages, e2e_data, 
     monkeypatch.setattr(admin.site._registry[type(user)], "autocomplete_fields", ("groups",))
     for case, page in isolation_pages(f"/admin/auth/user/{user.pk}/change/").items():
         choice = page.locator(".field-groups .select2-selection__choice", has_text=group.name)
-        assert_name_bidi(choice, case, "plaintext", stock="isolate")
+        assert_name_bidi(choice, case, "plaintext", stock="isolate", aligned=True)
