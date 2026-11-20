@@ -67,6 +67,7 @@ only locales the table does not cover fall back to Django plus digit
 transliteration; date/time formatting still uses Django. An explicit `language`
 is respected on every path.
 
+Use `short`, `medium`, `long`, or `full` for portable date/datetime requests.
 The Django fallback looks up patterns in the requested language's locale format
 modules. Project modules in `FORMAT_MODULE_PATH` take precedence over Django's
 built-in modules. For dates and datetimes, `short` selects the short format;

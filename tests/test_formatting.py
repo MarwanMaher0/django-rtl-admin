@@ -461,16 +461,30 @@ def test_custom_and_composed_patterns_respect_numerals_without_babel(monkeypatch
 
 
 @pytest.mark.parametrize("fmt", ["short", "medium", "long", "full"])
-def test_babel_date_time_styles_preserve_localized_babel_output(fmt):
+@pytest.mark.parametrize(
+    ("language", "babel_locale", "digits"),
+    [
+        ("ar", "ar", "latn"),
+        ("ar-eg", "ar_EG", "arab"),
+        ("ur", "ur", "latn"),
+        ("ug", "ug", "latn"),
+        ("fa", "fa", "arabext"),
+        ("he", "he", "latn"),
+        ("en", "en", "latn"),
+    ],
+)
+def test_babel_date_time_styles_preserve_localized_babel_output(
+    language, babel_locale, digits, fmt
+):
     dates = pytest.importorskip("babel.dates")
-    digits = str.maketrans("0123456789", ARABIC_INDIC)
     for helper, babel_helper, value in [
         (format_date, dates.format_date, SAMPLE_DATETIME.date()),
         (format_time, dates.format_time, SAMPLE_DATETIME.time()),
         (format_datetime, dates.format_datetime, SAMPLE_DATETIME),
     ]:
-        expected = babel_helper(value, format=fmt, locale="ar_EG").translate(digits)
-        assert helper(value, fmt, language="ar-eg") == expected
+        raw = babel_helper(value, format=fmt, locale=babel_locale)
+        expected = transliterate_digits(raw, digits)
+        assert helper(value, fmt, language=language) == expected
 
 
 def test_format_date_localises_digits():
