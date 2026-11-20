@@ -2,10 +2,14 @@
 
 import datetime
 import decimal
+import sys
+from types import ModuleType
 
+import django
 import pytest
+from django.conf import global_settings
 from django.test import override_settings
-from django.utils import timezone, translation
+from django.utils import formats, timezone, translation
 
 from django_rtl_admin import formatting
 from django_rtl_admin.formatting import (
@@ -384,6 +388,89 @@ def test_format_currency_rejects_a_non_string_code(use_babel, language):
         pytest.raises(ValueError, match="Currency code must be three ASCII letters, got 5"),
     ):
         format_currency(1, 5, language=language)  # type: ignore[arg-type]
+
+
+SAMPLE_DATETIME = datetime.datetime(2024, 3, 5, 14, 30, 9)
+
+
+@override_settings(RTL_ADMIN={"USE_BABEL": False})
+@pytest.mark.parametrize("fmt", ["short", "medium", "long", "full"])
+@pytest.mark.parametrize(
+    ("language", "date", "short_date", "time", "joiner", "short_joiner"),
+    [
+        ("ar", "5 مارس، 2024", "05\u200f/03\u200f/2024", "2:30 م", " ", " "),
+        ("ar-eg", "٥ مارس، ٢٠٢٤", "٠٥\u200f/٠٣\u200f/٢٠٢٤", "٢:٣٠ م", " ", " "),
+        ("ur", "5 مارچ، 2024", "5/3/24", "2:30 شام", " ", " "),
+        # Django 4.2 has neither Uyghur format patterns nor translated month names.
+        ("ug", "5-March، 2024", "2024-03-05", "14:30", " ", " ")
+        if django.VERSION < (5, 0)
+        else ("ug", "5 مارت 2024", "2024/03/05", "14:30", " ", " "),
+        ("fa", "۵ مارس ۲۰۲۴", "۲۰۲۴/۳/۵", "۱۴:۳۰", "، ساعت ", "،\u200f "),
+        ("he", "5 במרץ 2024", "05/03/2024", "14:30", " ", " "),
+        ("en", "March 5, 2024", "03/05/2024", "2:30 p.m.", ", ", " "),
+    ],
+    ids=["ar", "ar-eg", "ur", "ug", "fa", "he", "en"],
+)
+def test_fallback_date_time_styles(language, date, short_date, time, joiner, short_joiner, fmt):
+    if fmt == "short":
+        date, joiner = short_date, short_joiner
+    assert format_date(SAMPLE_DATETIME.date(), fmt, language=language) == date
+    assert format_time(SAMPLE_DATETIME.time(), fmt, language=language) == time
+    assert format_datetime(SAMPLE_DATETIME, fmt, language=language) == date + joiner + time
+
+
+@override_settings(RTL_ADMIN={"USE_BABEL": False}, FORMAT_MODULE_PATH="project_formats")
+@pytest.mark.parametrize(
+    ("language", "explicit_key", "regular", "short"),
+    [
+        ("ar", "SHORT_DATETIME_FORMAT", "2024.03.05 14-30-09", "03/05/2024 2:30 م"),
+        ("ur", "DATETIME_FORMAT", "مارچ 5, 2024, 2:30 شام", "5/3/24 14-30-09"),
+    ],
+)
+def test_partial_project_formats_compose_only_missing_datetimes(
+    monkeypatch, language, explicit_key, regular, short
+):
+    module = ModuleType(f"project_formats.{language}.formats")
+    module.DATE_FORMAT = "Y.m.d"
+    module.TIME_FORMAT = "H-i-s"
+    # A genuine locale format can have exactly the same value as the global default.
+    setattr(module, explicit_key, getattr(global_settings, explicit_key))
+    monkeypatch.setitem(sys.modules, module.__name__, module)
+    formats.reset_format_cache()
+    try:
+        assert format_date(SAMPLE_DATETIME.date(), language=language) == "2024.03.05"
+        assert format_time(SAMPLE_DATETIME.time(), language=language) == "14-30-09"
+        assert format_datetime(SAMPLE_DATETIME, "medium", language=language) == regular
+        assert format_datetime(SAMPLE_DATETIME, "short", language=language) == short
+    finally:
+        formats.reset_format_cache()
+
+
+@override_settings(RTL_ADMIN={"USE_BABEL": False}, DATETIME_FORMAT="Y.m.d H:i")
+def test_fallback_keeps_django_defaults_for_a_locale_without_data():
+    assert format_datetime(SAMPLE_DATETIME, language="zz-zz") == "2024.03.05 14:30"
+
+
+@override_settings(RTL_ADMIN={"NUMERALS": "arabext"})
+def test_custom_and_composed_patterns_respect_numerals_without_babel(monkeypatch):
+    monkeypatch.setattr(formatting, "HAS_BABEL", False)
+    assert format_datetime(SAMPLE_DATETIME, "short", language="ur") == "۵/۳/۲۴ ۲:۳۰ شام"
+    assert format_date(SAMPLE_DATETIME.date(), "Y-m-d", language="en") == "۲۰۲۴-۰۳-۰۵"
+    assert format_time(SAMPLE_DATETIME.time(), "H.i.s", language="en") == "۱۴.۳۰.۰۹"
+    assert format_datetime(SAMPLE_DATETIME, "d/m H:i:s", language="en") == "۰۵/۰۳ ۱۴:۳۰:۰۹"
+
+
+@pytest.mark.parametrize("fmt", ["short", "medium", "long", "full"])
+def test_babel_date_time_styles_preserve_localized_babel_output(fmt):
+    dates = pytest.importorskip("babel.dates")
+    digits = str.maketrans("0123456789", ARABIC_INDIC)
+    for helper, babel_helper, value in [
+        (format_date, dates.format_date, SAMPLE_DATETIME.date()),
+        (format_time, dates.format_time, SAMPLE_DATETIME.time()),
+        (format_datetime, dates.format_datetime, SAMPLE_DATETIME),
+    ]:
+        expected = babel_helper(value, format=fmt, locale="ar_EG").translate(digits)
+        assert helper(value, fmt, language="ar-eg") == expected
 
 
 def test_format_date_localises_digits():

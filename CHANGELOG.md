@@ -98,6 +98,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- Without Babel, missing datetime patterns now combine the locale's regular or
+  short date with its time instead of inheriting English defaults. CLDR-derived
+  patterns cover Urdu and, on Django 4.2, Uyghur. Project `FORMAT_MODULE_PATH`
+  overrides still take precedence. The time fallback now accepts custom Django
+  format strings; named time styles still use `TIME_FORMAT`.
 - **CSS parity with stock English admin ([#3](https://github.com/MarwanMaher0/django-rtl-admin/issues/3)).**
   The object-tools `li` float/margin fix, including its CSS media-query rule, is
   gated by the `rtl-admin--pre-6-0` body class. Before Django 6.0, RTL items float

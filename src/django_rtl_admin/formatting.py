@@ -7,11 +7,10 @@ usual comma and full stop.  Django's ``USE_THOUSAND_SEPARATOR``/``L10N``
 machinery has no concept of a numbering system at all, so an Arabic admin ends
 up showing Latin digits everywhere no matter what the locale says.
 
-These helpers use `Babel <https://babel.pocoo.org/>`_ when it is installed --
-``pip install django-rtl-admin[babel]`` -- and fall back to a small built-in
-CLDR table (numbering system, separators and grouping per locale) when it is
-not, deferring to Django's own ``django.utils.formats`` only for locales the
-table does not cover.  Nothing here raises if Babel is missing.
+These helpers use `Babel <https://babel.pocoo.org/>`_ when it is installed
+(``pip install django-rtl-admin[babel]``). Without Babel, numbers use built-in
+CLDR tables for digits, separators and grouping. Dates and times use Django's
+locale formats, supplemented with CLDR patterns where locale data is missing.
 """
 
 from __future__ import annotations
@@ -23,7 +22,7 @@ from collections.abc import Callable
 from typing import Any
 
 from django.conf import settings
-from django.utils import formats, timesince, timezone, translation
+from django.utils import dateformat, formats, timesince, timezone, translation
 from django.utils.html import avoid_wrapping
 from django.utils.translation import get_language, gettext, npgettext, pgettext, to_locale
 
@@ -164,6 +163,14 @@ _DJANGO_DATETIME_FORMATS = {
     "medium": "DATETIME_FORMAT",
     "long": "DATETIME_FORMAT",
     "full": "DATETIME_FORMAT",
+}
+
+#: CLDR 47 Gregorian long date, short date and short time, in Django syntax.
+#: Source: unicode-org/cldr, release-47, common/main/{ur,ug}.xml. Django
+#: doesn't ship Urdu formats; its Uyghur format module was added in 5.0.
+_FALLBACK_DATE_TIME_FORMATS = {
+    "ur": {"DATE_FORMAT": "j F، Y", "SHORT_DATE_FORMAT": "j/n/y", "TIME_FORMAT": "g:i A"},
+    "ug": {"DATE_FORMAT": "j-F، Y", "SHORT_DATE_FORMAT": "Y-m-d", "TIME_FORMAT": "H:i"},
 }
 
 #: Babel's duration units and their length in seconds.  Kept in the same order
@@ -681,6 +688,29 @@ def format_filesize(num_bytes: Any, *, binary: bool = False, language: str | Non
     return _localize_digits(avoid_wrapping(text), language)
 
 
+def _django_pattern(name: str) -> str:
+    """Resolve a display pattern inside the caller's active language override."""
+    lang = get_language()
+    # get_format() alone can't distinguish a locale definition from a global
+    # default. Django orders these modules project-first, then region/base.
+    modules = formats.get_format_modules(lang)
+    for module in modules:
+        pattern = getattr(module, name, None)
+        if pattern is not None:
+            return str(pattern)
+
+    base = to_locale(lang or "en").split("_", 1)[0]
+    defaults = _FALLBACK_DATE_TIME_FORMATS.get(base, {})
+    if name in defaults:
+        return defaults[name]
+    if (modules or defaults) and name in ("DATETIME_FORMAT", "SHORT_DATETIME_FORMAT"):
+        date = "SHORT_DATE_FORMAT" if name == "SHORT_DATETIME_FORMAT" else "DATE_FORMAT"
+        return f"{_django_pattern(date)} {_django_pattern('TIME_FORMAT')}"
+
+    # Custom patterns and locales without any format data still use Django.
+    return str(formats.get_format(name, use_l10n=True))
+
+
 def format_date(
     value: datetime.date | None,
     fmt: str = "medium",
@@ -700,7 +730,7 @@ def format_date(
             pass
     django_format = _DJANGO_DATE_FORMATS.get(fmt, fmt)
     with _active(language):
-        text = formats.date_format(value, django_format, use_l10n=True)
+        text = dateformat.format(value, _django_pattern(django_format or "DATE_FORMAT"))
     return _localize_digits(text, language)
 
 
@@ -723,7 +753,7 @@ def _format_datetime(
             pass
     django_format = _DJANGO_DATETIME_FORMATS.get(fmt, fmt)
     with _active(language):
-        text = formats.date_format(value, django_format, use_l10n=True)
+        text = dateformat.format(value, _django_pattern(django_format or "DATE_FORMAT"))
     return _localize_digits(text, language)
 
 
@@ -758,8 +788,9 @@ def _format_time(
             )
         except Exception:  # pragma: no cover - defensive
             pass
+    django_format = "TIME_FORMAT" if fmt in _DJANGO_DATE_FORMATS else fmt
     with _active(language):
-        text = formats.time_format(value, use_l10n=True)
+        text = dateformat.time_format(value, _django_pattern(django_format or "TIME_FORMAT"))
     return _localize_digits(text, language)
 
 

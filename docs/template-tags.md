@@ -211,8 +211,10 @@ Format a time or datetime. The optional style defaults to `"medium"`:
 {{ opening_time|l10n_time:"short" }}
 ```
 
-Babel honors the style; the Django fallback always uses the locale's time format,
-ignoring the argument. `None` and invalid time values render empty.
+Without Babel, all four named styles use the locale's `TIME_FORMAT`. Pass a
+custom Django format string such as `H:i:s` to include seconds explicitly.
+Babel still honors its own styles and custom CLDR patterns. `None` and invalid
+time values render empty.
 
 ### `local_digits`
 
@@ -229,11 +231,20 @@ fails.
 
 ### Backend differences
 
-Without Babel, date/datetime `"short"` uses Django's short format; `"medium"`,
-`"long"`, and `"full"` all use its regular format. Custom Babel CLDR patterns and
-Django format strings are not interchangeable. These filters have no language,
-timezone, or numbering-system argument; use settings, language activation, or
-the [Python formatting API](api.md) where appropriate.
+When Babel is unavailable or `USE_BABEL=False`, the date and time filters read
+the active language's locale format modules. Project modules in
+`FORMAT_MODULE_PATH` take precedence over Django's built-in modules. For dates
+and datetimes, `"short"` selects the short format; `"medium"`, `"long"`, and
+`"full"` select the regular format. If no locale module defines `DATETIME_FORMAT`,
+the fallback combines `DATE_FORMAT` with `TIME_FORMAT`; for a missing
+`SHORT_DATETIME_FORMAT`, it combines `SHORT_DATE_FORMAT` with `TIME_FORMAT`.
+The package supplies CLDR-derived patterns for Urdu (`ur`) and, on Django 4.2
+where its format module is missing, Uyghur (`ug`).
+
+Custom patterns use Django format strings on the fallback path and CLDR syntax
+with Babel. On both paths, digit shapes still follow `NUMERALS`. These filters
+have no language, timezone, or numbering-system argument; use settings, language
+activation, or the [Python formatting API](api.md) where appropriate.
 
 ## Direction and asset tags
 

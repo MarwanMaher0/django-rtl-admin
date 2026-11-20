@@ -67,13 +67,24 @@ only locales the table does not cover fall back to Django plus digit
 transliteration; date/time formatting still uses Django. An explicit `language`
 is respected on every path.
 
-Use `short`, `medium`, `long`, or `full` for portable date/datetime requests.
-Without Babel, `short` uses Django's short date/datetime format and the other
-three use its regular format. Custom patterns are backend-specific: Babel uses
-CLDR patterns and Django uses Django format strings. The time fallback always
-uses Django's locale time format, regardless of `fmt`. When `USE_TZ=True`, aware
-`datetime` values passed to `format_datetime()` and `format_time()` are
-converted to Django's active time zone with `django.utils.timezone.localtime()`
+The Django fallback looks up patterns in the requested language's locale format
+modules. Project modules in `FORMAT_MODULE_PATH` take precedence over Django's
+built-in modules. For dates and datetimes, `short` selects the short format;
+`medium`, `long`, and `full` select the regular format. If the locale does not
+define `DATETIME_FORMAT`, the fallback combines `DATE_FORMAT` with `TIME_FORMAT`.
+If it lacks `SHORT_DATETIME_FORMAT`, it combines `SHORT_DATE_FORMAT` with
+`TIME_FORMAT` instead. Built-in CLDR patterns fill the gaps for Urdu (`ur`) and,
+where Django has no Uyghur format module (4.2), Uyghur (`ug`). If neither the
+locale modules nor the table cover a language, Django's defaults still apply.
+
+On the Django fallback, `format_time()` uses the locale's `TIME_FORMAT` for
+all four named styles. To request a specific layout, pass a Django format
+string as `fmt`, such as `H:i:s` for hours, minutes, and seconds. Babel still
+uses its own named styles and CLDR patterns for dates and times; digit
+transliteration is unchanged on both paths.
+
+When `USE_TZ=True`, `format_datetime()` and `format_time()` convert aware
+`datetime` values to Django's active time zone with `django.utils.timezone.localtime()`
 on both the Babel and Django fallback paths (and the `l10n_datetime` and
 `l10n_time` template filters declare `expects_localtime=True`, respecting
 `{% localtime off %}`); naive `datetime`/`time` values and plain `date` values

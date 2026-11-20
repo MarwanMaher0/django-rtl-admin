@@ -160,6 +160,25 @@ def test_l10n_datetime_and_time_filters():
         assert render("{{ v|l10n_time }}", v=value.time()) != ""
 
 
+@override_settings(RTL_ADMIN={"USE_BABEL": False})
+@pytest.mark.parametrize(
+    ("language", "style", "date", "time", "custom_time"),
+    [
+        ("ar-eg", "medium", "٥ مارس، ٢٠٢٤", "٢:٣٠ م", "١٤:٣٠:٠٩"),
+        ("ar-eg", "short", "٠٥\u200f/٠٣\u200f/٢٠٢٤", "٢:٣٠ م", "١٤:٣٠:٠٩"),
+        ("ur", "medium", "5 مارچ، 2024", "2:30 شام", "14:30:09"),
+        ("ur", "short", "5/3/24", "2:30 شام", "14:30:09"),
+    ],
+)
+def test_date_and_time_filters_without_babel(language, style, date, time, custom_time):
+    value = datetime.datetime(2024, 3, 5, 14, 30, 9)
+    with override_language(language):
+        assert render("{{ v|l10n_date:style }}", v=value.date(), style=style) == date
+        assert render("{{ v|l10n_datetime:style }}", v=value, style=style) == f"{date} {time}"
+        assert render("{{ v|l10n_time:style }}", v=value.time(), style=style) == time
+        assert render('{{ v|l10n_time:"H:i:s" }}', v=value.time()) == custom_time
+
+
 @pytest.mark.parametrize("use_babel", [True, False])
 @pytest.mark.parametrize("language", ["en", "ar-eg"])
 @pytest.mark.parametrize(
