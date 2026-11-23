@@ -48,8 +48,10 @@ markup is present. Source references identify selectors or line ranges in
 The object-tools `li` float/margin rules, including the CSS media-query override,
 are scoped to the body class `rtl-admin--pre-6-0`. They do not replace Django 6.0+
 inline-block/no-float layout in either language, including on 6.1. The separate
-`rtl-admin--pre-6-1` body class gates the older datetime spacing and aligned-form
-help layout; newer versions retain their own stock LTR values and exact RTL mirrors.
+`rtl-admin--pre-6-1` body class gates the older datetime spacing, aligned-form
+label and help padding, and (via `:not(.rtl-admin--pre-6-1)`) Django 6.1's
+radio-label padding; newer versions retain their own stock LTR values and exact
+RTL mirrors.
 
 | Element | Stock Django 5.2 RTL | Package behavior | Source reference |
 | --- | --- | --- | --- |
@@ -63,6 +65,11 @@ help layout; newer versions retain their own stock LTR values and exact RTL mirr
 | Inline view/change links | Generic RTL icon rules omit `.inlineviewlink` and `.inlinechangelink`. | Those classes receive start-side icon padding and RTL background positioning. | 307–328 |
 | Related lookup and file-delete links | Matching links retain a physical 5px left margin. | Their gap moves to inline-start. | 668–673 |
 | Radio-list entries | `form div.radiolist div` retains 7px right padding. | Padding moves to inline-end. | 639–643 |
+| Radio inputs | `form div.radiolist input[type="radio"]` retains a 4px right margin. | Both physical horizontal margins are reset; the 4px gap moves to inline-end. | `form div.radiolist input[type="radio"]` |
+| Radio labels | Before Django 6.1, `rtl.css` gives `.aligned label` 1em (13px) left padding instead of mirroring stock LTR's 10px; Django 6.1 moves `padding: 4px 10px 0 0` onto `form div.radiolist label` with no RTL mirror. | Version-gated logical rules keep stock LTR's 10px right padding and mirror it to 10px left padding in RTL on both pre-6.1 and 6.1+. | `.aligned label`, `form div.radiolist label` |
+| Aligned checkbox labels (above 767px) | `.aligned .vCheckboxLabel` retains 5px left padding above 767px (`responsive_rtl.css` mirrors it only at or below 767px). | Horizontal physical sides are reset and 5px moves to inline-start while preserving stock vertical padding across versions. | `.aligned .vCheckboxLabel` |
+| Delete confirmation cancel link | `.delete-confirmation form .cancel-link` retains `margin: 0 0 0 10px` on both delete confirmation pages. | A compound `.rtl-admin.delete-confirmation` rule resets horizontal margins and moves the 10px gap to inline-start. | `.delete-confirmation form .cancel-link` |
+| Stacked (`filter_vertical`) selector chooser | `.stacked ul.selector-chooser` retains a 40% left margin and `.stacked .selector-chooser li` retains 5px left padding. | Physical sides are reset; the 40% offset moves to inline-start in RTL (scoped to `.rtl-admin--rtl` so English keeps Django 4.2's `margin: 15px auto` centering at or below 1024px; on Django 4.2 at or below 1024px, RTL keeps the 40% start margin instead of centering) and the 5px item padding moves to inline-start (keeping the 3px reset at or below 1024px). | `.stacked ul.selector-chooser`, `.stacked .selector-chooser li` |
 | Blockquotes | Border, padding, and indentation remain on the left. | These move to inline-start, including the module-specific indentation. | 167–182 |
 | Sort-removal decoration | Its pseudo-element remains anchored with `left: 3px`. | Physical sides are reset and the anchor becomes `inset-inline-start: 3px`. | 482–486 |
 | Selected filter entry | Stock RTL leaves padding on both sides. | Only start-side padding remains, alongside the start-side border and negative margin. | 503–513 |
@@ -91,7 +98,8 @@ The README numbers below map to `tests/e2e/test_computed_styles.py`. These are
 explicit computed-value contracts, not screenshot comparisons. Each test checks
 both languages with CSS on and off, and **all measured English computed properties
 must match stock**. A stock RTL negative control is required except for the
-documented parity cases: 2 on Django 6.0+, 5 on all versions, and 6 on Django 6.1+.
+documented parity cases: 2 on Django 6.0+, 5 on all versions, and 6 and 10's
+`aligned-label` on Django 6.1+.
 The object-tools test also runs at 800px to cover the media-query rule: stock
 Django 5.2 already mirrors the float there, but not the first item's margin.
 
@@ -104,15 +112,18 @@ Django 5.2 already mirrors the float there, but not the first item's margin.
 | 5 — Sidebar chevrons | `test_defect_5_sidebar_toggle_chevrons` | Expanded and collapsed `::before` content, direction, `unicode-bidi` and transform remain stock; no negative control is claimed. See [Sidebar chevrons](#sidebar-chevrons). |
 | 6 — Help padding | `test_defect_6_help_text_padding` | Before Django 6.1, RTL left/right padding changes from 10px/10px to 3px/10px, exactly mirroring stock LTR's preserved 10px/3px. On Django 6.1+ both sides remain 0 with CSS on or off in both languages: a stock-parity check, not a negative control. |
 | 8 — Help text and descriptions | `test_defect_8_inner_help_text_unicode_bidi` | Outer `.help`, its actual inner `<div>` (`.field-title #id_title_helptext > div`), and `fieldset .description` change from `unicode-bidi: isolate` to `plaintext` only in RTL; English retains stock `isolate`. This checks the non-inherited property, not the rendered position of a full stop. |
-| 10 — Selected unmirrored rules | `test_defect_10_unmirrored_rules` | Parameters: `colsm` (column margins, main/sidebar floats and sidebar offset), `related-lookup` (5px margin), `chooseall` and `clearall` (text alignment), `radiolist` (7px padding), `sortremove` (`::after` inset: left 3px stock, right 3px with RTL package CSS). |
+| 10 — Selected unmirrored rules | `test_defect_10_unmirrored_rules` | Parameters: `colsm` (column margins, main/sidebar floats and sidebar offset), `related-lookup` (5px margin), `chooseall` and `clearall` (text alignment), `radiolist` (7px padding), `radio-input` (4px margin), `radio-label` (10px end padding), `aligned-label` (four-side padding parity and 10px RTL mirror on a plain aligned label before 6.1; stock-parity zero padding on 6.1+), `checkbox-label` (5px start padding above 767px), `delete-cancel` (10px start margin), `stacked-chooser` (40% chooser margin and 5px/3px item padding), `sortremove` (`::after` inset: left 3px stock, right 3px with RTL package CSS). |
 
-Defect 10 covers those six parameters, not every selector listed in the README.
+Defect 10 covers those twelve parameters, not every selector listed in the README.
 The `.colSM` case uses a tiny test template extending the stock index and overriding
 only its `coltype` block. Raw-ID lookup and radio cases temporarily monkeypatch the
-existing `BookAdmin` to use `Book.category` and `Book.status`; the M2M cases use the
-existing auth `Group.permissions` widget. Defect 8 temporarily wraps the existing
-first fieldset description in a `<div>` to check the direct child as well as its
-container, just as it checks both help-text wrappers. No new model fields are needed.
+existing `BookAdmin` to use `Book.category` and `Book.status`; the checkbox case
+uses the auth `User` change form, the delete-cancel case uses the `Book` delete
+confirmation page, and the horizontal/vertical M2M cases reuse the existing auth
+`Group.permissions` widget (monkeypatching `filter_vertical` for the stacked
+variant). Defect 8 temporarily wraps the existing first fieldset description in a
+`<div>` to check the direct child as well as its container, just as it checks both
+help-text wrappers. No new model fields are needed.
 
 README defects **7 (label punctuation)** and **9 (input-path punctuation)** are
 outside this computed-style suite: computed declarations alone do not establish

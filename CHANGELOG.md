@@ -103,6 +103,20 @@ All notable changes to this project are documented here. The format follows
   patterns cover Urdu and, on Django 4.2, Uyghur. Project `FORMAT_MODULE_PATH`
   overrides still take precedence. The time fallback now accepts custom Django
   format strings; named time styles still use `TIME_FORMAT`.
+- **Five unmirrored form-control gaps in RTL.** `rtl-admin.css` now resets
+  physical horizontal sides and restates with logical properties the 4px end
+  margin on `form div.radiolist input[type="radio"]`, the 10px end padding on
+  all aligned labels (`.aligned label`, now gated to `.rtl-admin--pre-6-1` with
+  10px instead of `1em` so stock vertical padding and LTR parity stay intact
+  before 6.1 and Django 6.1+ keeps zero padding) and on Django 6.1+ radio
+  labels (`form div.radiolist label`), the 5px start padding on
+  `.aligned .vCheckboxLabel` above 767px, the 10px start margin on
+  `.delete-confirmation form .cancel-link` across both delete confirmation
+  pages, and the `filter_vertical` chooser's 40% start margin (scoped to
+  `.rtl-admin--rtl` so Django 4.2 English keeps `margin: 15px auto` below
+  1024px) and 5px start item padding (`.stacked ul.selector-chooser` and
+  `.stacked .selector-chooser li`, preserving the 3px responsive reset at or
+  below 1024px), with computed-style coverage in `test_defect_10_unmirrored_rules`.
 - **CSS parity with stock English admin ([#3](https://github.com/MarwanMaher0/django-rtl-admin/issues/3)).**
   The object-tools `li` float/margin fix, including its CSS media-query rule, is
   gated by the `rtl-admin--pre-6-0` body class. Before Django 6.0, RTL items float

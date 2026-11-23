@@ -250,7 +250,7 @@ body.rtl-admin--rtl {
   background: var(--header-bg, #417690);
 }
 
-.rtl-admin .module ul,
+.rtl-admin .module ul:not(.selector-chooser),
 .rtl-admin .module ol {
   margin-left: 0;
   margin-right: 0;
@@ -761,12 +761,26 @@ body.rtl-admin--rtl {
   --rtl-admin-datetime-margin-start: 5px;
 }
 
-.rtl-admin .aligned label {
-  padding: 0 0 3px 0;
-  padding-inline-end: 1em;
+/* Django 6.1 removed `.aligned label` padding with its stacked form layout;
+   keeping the rule ungated also overrode radio and checkbox label padding.
+   Restate only the horizontal sides so stock vertical padding stays intact. */
+.rtl-admin--pre-6-1 .aligned label {
+  padding-left: 0;
+  padding-right: 0;
+  padding-inline-end: 10px;
 }
 
-.rtl-admin form .aligned ul {
+/* responsive_rtl.css mirrors .vCheckboxLabel only below 767px; above that
+   breakpoint stock leaves the 5px start gap on the outer side in RTL. Only
+   the horizontal sides are restated so Django 4.2/5.0's bottom padding and
+   5.1+'s top padding stay stock. */
+.rtl-admin .aligned .vCheckboxLabel {
+  padding-left: 0;
+  padding-right: 0;
+  padding-inline-start: 5px;
+}
+
+.rtl-admin form .aligned ul:not(.selector-chooser) {
   margin-left: 0;
   margin-right: 0;
   padding-left: 0;
@@ -777,7 +791,7 @@ body.rtl-admin--rtl {
 
 .rtl-admin form div.help ul,
 .rtl-admin form .aligned table p,
-.rtl-admin form .related-widget-wrapper ul,
+.rtl-admin form .related-widget-wrapper ul:not(.selector-chooser),
 .rtl-admin form ul.inline {
   margin-inline-start: 0;
   padding-inline-start: 0;
@@ -840,6 +854,20 @@ body.rtl-admin--rtl {
   padding-inline-end: 7px;
 }
 
+/* Django 6.1 moved the 10px label end padding onto radio labels directly and
+   omitted an RTL mirror for it. */
+.rtl-admin:not(.rtl-admin--pre-6-1) form div.radiolist label {
+  padding-left: 0;
+  padding-right: 0;
+  padding-inline-end: 10px;
+}
+
+.rtl-admin form div.radiolist input[type="radio"] {
+  margin-left: 0;
+  margin-right: 0;
+  margin-inline-end: 4px;
+}
+
 .rtl-admin form ul.inline li {
   float: inline-start;
   padding-left: 0;
@@ -861,6 +889,14 @@ body.rtl-admin--rtl {
   margin-left: 0;
   margin-right: 0;
   margin-inline-start: auto;
+}
+
+/* Both delete confirmation pages put `delete-confirmation` on <body> next to
+   `rtl-admin`, so the classes are compounded. */
+.rtl-admin.delete-confirmation form .cancel-link {
+  margin-left: 0;
+  margin-right: 0;
+  margin-inline-start: 10px;
 }
 
 .rtl-admin .related-lookup,
@@ -1033,8 +1069,20 @@ body.rtl-admin--rtl {
   float: inline-start;
 }
 
+/* Scoped to RTL so Django 4.2's responsive.css centering (`margin: 15px auto`
+   at max-width 1024px) stays completely untouched in English; Django 5.0+
+   keeps the 40% margin at every width. */
+.rtl-admin--rtl .stacked ul.selector-chooser {
+  margin-left: 0;
+  margin-right: 0;
+  margin-inline-start: 40%;
+}
+
 .rtl-admin .stacked .selector-chooser li {
   float: inline-start;
+  padding-left: 3px;
+  padding-right: 3px;
+  padding-inline-start: 5px;
 }
 
 /* The add/remove/choose-all sprite offsets are already mirrored by
@@ -1132,7 +1180,7 @@ body.rtl-admin--rtl {
     margin-inline-start: 290px;
   }
 
-  .rtl-admin form .aligned ul,
+  .rtl-admin form .aligned ul:not(.selector-chooser),
   .rtl-admin form .aligned p.help,
   .rtl-admin form .aligned div.help,
   .rtl-admin form .aligned input + p.help,
@@ -1149,6 +1197,11 @@ body.rtl-admin--rtl {
     margin-inline-start: 0;
   }
 
+  /* responsive.css resets stacked chooser item padding to 3px on all sides. */
+  .rtl-admin .stacked .selector-chooser li {
+    padding-inline-start: 3px;
+  }
+
   .rtl-admin--rtl ul.messagelist li,
   .rtl-admin--rtl ul.messagelist li.success,
   .rtl-admin--rtl ul.messagelist li.warning,
@@ -1162,6 +1215,10 @@ body.rtl-admin--rtl {
 @media (max-width: 767px) {
   .rtl-admin-language-switcher__label {
     display: none;
+  }
+
+  .rtl-admin--pre-6-1 .aligned label {
+    padding-inline-end: 0;
   }
 
   .rtl-admin--rtl ul.messagelist li,

@@ -75,8 +75,12 @@ on newer versions and cases that already match stock:
     `.colSM #content-related`, `.colSM #content-main` (the sidebar-left column
     layout), `#content-related .actionlist li` (recent actions),
     `.related-lookup`, `.file-upload .deletelink`, `form div.radiolist div`,
-    `.selector-chooseall`, `.selector-clearall`,
-    `.selector .selector-filter label`, `.stacked`, `blockquote`, and
+    `form div.radiolist input[type="radio"]`, `form div.radiolist label` (on
+    Django 6.1), `.aligned .vCheckboxLabel` (above 767px),
+    `.delete-confirmation form .cancel-link`, `.selector-chooseall`,
+    `.selector-clearall`, `.selector .selector-filter label`, `.stacked`,
+    `.stacked ul.selector-chooser`, `.stacked .selector-chooser li`,
+    `blockquote`, and
     `table thead th.sorted .sortoptions a.sortremove::after`.
 
 And one more that is not a bug so much as a gap: **Django's l10n has no concept

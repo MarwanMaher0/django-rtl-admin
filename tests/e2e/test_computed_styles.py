@@ -16,6 +16,7 @@ from types import ModuleType
 import django
 import pytest
 from django.contrib import admin
+from django.contrib.auth.models import Group
 from django.urls import path as url_path
 
 from tests.testapp.admin import ChapterAdmin
@@ -66,12 +67,14 @@ def style_pages(settings, open_admin, live_server_app):
     return _open
 
 
-def computed(page, selector, properties, *, pseudo=None):
+def computed(page, selector, properties, *, pseudo=None, typed=False):
     """Read a unique, visible element (including ::before/::after when requested).
 
     Chromium preserves logical float/text-align keywords in computed styles.
     Resolve only those keywords to physical sides so LTR parity compares their
     meaning, not e.g. ``inline-start`` against the equivalent stock ``left``.
+    When ``typed`` is true, read ``computedStyleMap()`` so percentage values
+    such as ``40%`` stay percentage strings instead of viewport-dependent pixels.
     """
     locator = page.locator(selector)
     assert locator.count() == 1, f"{selector}: expected exactly one element"
@@ -79,10 +82,11 @@ def computed(page, selector, properties, *, pseudo=None):
     return locator.evaluate(
         """(el, args) => {
             const cs = getComputedStyle(el, args.pseudo);
+            const map = args.typed ? el.computedStyleMap() : null;
             const start = cs.direction === 'rtl' ? 'right' : 'left';
             const end = cs.direction === 'rtl' ? 'left' : 'right';
             return Object.fromEntries(args.properties.map(property => {
-                let value = cs.getPropertyValue(property);
+                let value = map ? map.get(property).toString() : cs.getPropertyValue(property);
                 if (property === 'float' || property === 'text-align') {
                     if (value === 'inline-start' || value === 'start') value = start;
                     if (value === 'inline-end' || value === 'end') value = end;
@@ -90,7 +94,7 @@ def computed(page, selector, properties, *, pseudo=None):
                 return [property, value];
             }));
         }""",
-        {"properties": list(properties), "pseudo": pseudo},
+        {"properties": list(properties), "pseudo": pseudo, "typed": typed},
     )
 
 
@@ -103,6 +107,7 @@ def assert_contract(
     stock_ltr,
     stock_parity_reason=None,
     pseudo=None,
+    typed=False,
 ):
     """Pin both baselines and the fix; require a real RTL negative control.
 
@@ -118,7 +123,7 @@ def assert_contract(
     measured = {}
     for key, values in expected.items():
         assert values.keys() == rtl.keys(), "all four cases must measure the same properties"
-        measured[key] = computed(pages[key], selector, values, pseudo=pseudo)
+        measured[key] = computed(pages[key], selector, values, pseudo=pseudo, typed=typed)
         assert measured[key] == values, f"{selector}{pseudo or ''} [{key=}]"
     if stock_parity_reason:
         assert measured["ar-eg", True] == measured["ar-eg", False], stock_parity_reason
@@ -271,9 +276,23 @@ def test_defect_8_inner_help_text_unicode_bidi(style_pages, monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "rule", ["colsm", "related-lookup", "chooseall", "clearall", "radiolist", "sortremove"]
+    "rule",
+    [
+        "colsm",
+        "related-lookup",
+        "chooseall",
+        "clearall",
+        "radiolist",
+        "radio-input",
+        "radio-label",
+        "aligned-label",
+        "checkbox-label",
+        "delete-cancel",
+        "stacked-chooser",
+        "sortremove",
+    ],
 )
-def test_defect_10_unmirrored_rules(style_pages, monkeypatch, rule):
+def test_defect_10_unmirrored_rules(style_pages, e2e_data, monkeypatch, rule):
     """Use existing pages and fields; only select the missing widget/layout variants."""
     if rule == "colsm":
         # Django's default dashboard uses colMS. Exercise its stock colSM
@@ -329,6 +348,134 @@ def test_defect_10_unmirrored_rules(style_pages, monkeypatch, rule):
                 rtl={"padding-left": "7px", "padding-right": "0px"},
                 stock_rtl=stock,
                 stock_ltr=stock,
+            )
+    elif rule == "radio-input":
+        monkeypatch.setattr(
+            admin.site._registry[Book], "radio_fields", {"status": admin.HORIZONTAL}
+        )
+        stock = {"margin-left": "0px", "margin-right": "4px"}
+        pages = style_pages(ADD_FORM)
+        for index in (1, 2):
+            assert_contract(
+                pages,
+                f'form div.radiolist#id_status > div:nth-child({index}) input[type="radio"]',
+                rtl={"margin-left": "4px", "margin-right": "0px"},
+                stock_rtl=stock,
+                stock_ltr=stock,
+            )
+    elif rule == "radio-label":
+        monkeypatch.setattr(
+            admin.site._registry[Book], "radio_fields", {"status": admin.HORIZONTAL}
+        )
+        ltr = {"padding-left": "0px", "padding-right": "10px"}
+        # Before Django 6.1, rtl.css's `.aligned label { padding: 0 0 3px 1em }`
+        # reached radio labels with 1em (13px) instead of mirroring LTR's 10px;
+        # Django 6.1 moved the 10px end padding onto radio labels without an RTL rule.
+        stock_rtl = ltr if DJANGO_61 else {"padding-left": "13px", "padding-right": "0px"}
+        pages = style_pages(ADD_FORM)
+        for index in (1, 2):
+            assert_contract(
+                pages,
+                f"form div.radiolist#id_status > div:nth-child({index}) label",
+                rtl={"padding-left": "10px", "padding-right": "0px"},
+                stock_rtl=stock_rtl,
+                stock_ltr=ltr,
+            )
+    elif rule == "aligned-label":
+        # Verify the version-gated `.aligned label` rule on a plain aligned label:
+        # LTR must match stock on all four sides and RTL must mirror horizontally.
+        if DJANGO_61:
+            ltr = stock_rtl = rtl = {
+                "padding-top": "0px",
+                "padding-right": "0px",
+                "padding-bottom": "0px",
+                "padding-left": "0px",
+            }
+        else:
+            ltr = {
+                "padding-top": "4px",
+                "padding-right": "10px",
+                "padding-bottom": "0px",
+                "padding-left": "0px",
+            }
+            stock_rtl = {
+                "padding-top": "0px",
+                "padding-right": "0px",
+                "padding-bottom": "3px",
+                "padding-left": "13px",
+            }
+            rtl = {
+                "padding-top": "0px",
+                "padding-right": "0px",
+                "padding-bottom": "3px",
+                "padding-left": "10px",
+            }
+        assert_contract(
+            style_pages(ADD_FORM),
+            '.aligned label[for="id_title"]',
+            rtl=rtl,
+            stock_rtl=stock_rtl,
+            stock_ltr=ltr,
+            stock_parity_reason="Django 6.1 stacked form labels have no padding"
+            if DJANGO_61
+            else None,
+        )
+    elif rule == "checkbox-label":
+        # Auth User change form has real aligned checkboxes (is_active, is_staff, is_superuser).
+        user = e2e_data["user"]
+        stock = {"padding-left": "5px", "padding-right": "0px"}
+        pages = style_pages(f"/admin/auth/user/{user.pk}/change/")
+        for field_id in ("id_is_active", "id_is_staff", "id_is_superuser"):
+            assert_contract(
+                pages,
+                f'.aligned label.vCheckboxLabel[for="{field_id}"]',
+                rtl={"padding-left": "0px", "padding-right": "5px"},
+                stock_rtl=stock,
+                stock_ltr=stock,
+            )
+    elif rule == "delete-cancel":
+        book = e2e_data["book"]
+        stock = {"margin-left": "10px", "margin-right": "0px"}
+        assert_contract(
+            style_pages(f"/admin/testapp/book/{book.pk}/delete/"),
+            ".delete-confirmation form .cancel-link",
+            rtl={"margin-left": "0px", "margin-right": "10px"},
+            stock_rtl=stock,
+            stock_ltr=stock,
+        )
+    elif rule == "stacked-chooser":
+        # Reuse GroupAdmin.permissions as a filter_vertical M2M widget.
+        group_admin = admin.site._registry[Group]
+        monkeypatch.setattr(group_admin, "filter_horizontal", ())
+        monkeypatch.setattr(group_admin, "filter_vertical", ("permissions",))
+        pages = style_pages("/admin/auth/group/add/")
+        # Read the computed percentage (40%) rather than the resolved pixels,
+        # which depend on whether .stacked flexes in a row (5.2) or column (6.1).
+        chooser_stock = {"margin-left": "40%", "margin-right": "0px"}
+        assert_contract(
+            pages,
+            ".stacked ul.selector-chooser",
+            rtl={"margin-left": "0px", "margin-right": "40%"},
+            stock_rtl=chooser_stock,
+            stock_ltr=chooser_stock,
+            typed=True,
+        )
+        # Also verify used-pixel LTR parity and exact RTL mirroring.
+        ltr_px = computed(pages["en", False], ".stacked ul.selector-chooser", ("margin-left",))
+        assert computed(
+            pages["en", True], ".stacked ul.selector-chooser", ("margin-left", "margin-right")
+        ) == {"margin-left": ltr_px["margin-left"], "margin-right": "0px"}
+        assert computed(
+            pages["ar-eg", True], ".stacked ul.selector-chooser", ("margin-left", "margin-right")
+        ) == {"margin-left": "0px", "margin-right": ltr_px["margin-left"]}
+        item_stock = {"padding-left": "5px", "padding-right": "3px"}
+        for index in (1, 2):
+            assert_contract(
+                pages,
+                f".stacked .selector-chooser li:nth-child({index})",
+                rtl={"padding-left": "3px", "padding-right": "5px"},
+                stock_rtl=item_stock,
+                stock_ltr=item_stock,
             )
     else:
         pages = style_pages(CHANGELIST)
