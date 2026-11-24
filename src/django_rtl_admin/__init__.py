@@ -8,6 +8,7 @@ Public API::
         isolate_runs,
         mark_isolated,
         format_number,
+        normalize_numeric_input,
         format_currency,
         format_percent,
         format_timedelta,
@@ -48,6 +49,7 @@ from .formatting import (
     format_percent,
     format_time,
     format_timedelta,
+    normalize_numeric_input,
     numbering_system,
     transliterate_digits,
 )
@@ -101,6 +103,7 @@ __all__ = [
     "isolate_runs",
     "mark_isolated",
     "mark_isolated_runs",
+    "normalize_numeric_input",
     "numbering_system",
     "rtl_settings",
     "strip_isolates",

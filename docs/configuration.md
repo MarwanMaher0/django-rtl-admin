@@ -1,6 +1,6 @@
 ---
 title: Configuration reference | django-rtl-admin
-description: Configure all 14 RTL_ADMIN settings for logical styling, Unicode isolation, numeral systems, Babel formatting, and admin language-switcher behavior.
+description: Configure RTL_ADMIN settings for logical styling, Unicode isolation, input digits, numeral systems, Babel formatting, and admin language-switcher behavior.
 ---
 
 # Configuration
@@ -19,7 +19,7 @@ RTL_ADMIN = {
 
 ## Complete settings reference
 
-These are all 14 supported keys, defined in `django_rtl_admin.conf.DEFAULTS`.
+The supported keys are defined in `django_rtl_admin.conf.DEFAULTS`.
 
 | Key | Default | Effect |
 | --- | --- | --- |
@@ -31,6 +31,7 @@ These are all 14 supported keys, defined in `django_rtl_admin.conf.DEFAULTS`.
 | `ISOLATE_READONLY_FIELDS` | `True` | Enable run-level isolation for change-form `readonly_fields` in admins that explicitly use `BidiSafeAdminMixin`, unless overridden per admin. |
 | `ISOLATE_TABLE_CELLS` | `True` | Enable CSS isolation for changelist cells and related navigation and data, including dashboard Recent actions links and related-object labels beside `raw_id_fields`. Object history table cells and Select2 autocomplete values get `unicode-bidi: plaintext` with their alignment kept. |
 | `PLAINTEXT_FORM_FIELDS` | `True` | Add the body class enabling first-strong plaintext direction for text-like inputs and textareas. |
+| `NORMALIZE_INPUT_DIGITS` | `True` | Normalize Arabic-Indic and Persian digits when parsing numeric, date, and time fields on mixin-enabled admins and inlines. |
 | `NUMERALS` | `"auto"` | Follow the locale's numbering system, or force `"latn"`, `"arab"`, or `"arabext"` in the formatting helpers. |
 | `USE_BABEL` | `True` | Use Babel when installed; otherwise render numbers from built-in CLDR tables, with Django as a last resort. |
 | `CURRENCY` | `"USD"` | Default currency for `format_currency` and `l10n_currency` when no truthy currency argument is supplied. |
@@ -134,6 +135,18 @@ direction.
 `bidi_isolate_changelist` and `bidi_isolate_readonly` attributes override the
 global switches. CSS isolation and Unicode isolation are independent, so
 disabling one does not disable the other.
+
+## Input digits
+
+`RTL_ADMIN["NORMALIZE_INPUT_DIGITS"]` defaults to `True`. Set it to `False` to
+leave numeric, date, and time input to Django without normalization. Use a
+boolean: `manage.py check` reports `rtl_admin.W005` for other types, including
+strings such as `"False"`. Reading an invalid value raises `ImproperlyConfigured`.
+
+On a [mixin-enabled admin or inline](admin-mixin.md#numeric-and-date-input),
+`bidi_normalize_input = None` inherits this setting; `True` or `False` overrides
+it for that class. This affects parsing in every UI language, independently of
+`NUMERALS`, which controls output.
 
 ## Numbers, currencies, and Babel
 

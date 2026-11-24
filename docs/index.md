@@ -34,6 +34,10 @@ Python API and changelog remain in English.
   support Latin, Arabic-Indic, and Eastern Arabic-Indic digits, with Babel for
   full CLDR patterns and built-in CLDR number tables plus Django date/time
   formatting as a fallback.
+- **Numbers and dates that Django can't parse.** The [admin mixin](admin-mixin.md#numeric-and-date-input)
+  accepts prices like `١٬٢٣٤٫٥٠` and Gregorian dates like `۲۰۲۴-۰۳-۰۵` without
+  switching keyboards or UI languages. Set `bidi_normalize_input = False` on one
+  admin, or turn off [`NORMALIZE_INPUT_DIGITS`](configuration.md#input-digits) globally.
 - **No built-in admin language selector.** A switcher in the header and on the
   login page posts to Django's `set_language` view and preserves the current URL.
 
@@ -73,7 +77,7 @@ locale-aware output; ordinary admin columns are not automatically reformatted.
 
 ## Find a reference
 
-- [Configuration](configuration.md): all 14 `RTL_ADMIN` settings, defaults, and effects.
+- [Configuration](configuration.md): all `RTL_ADMIN` settings, defaults, and effects.
 - [Template tags and filters](template-tags.md): the complete `rtl_admin` library.
 - [System checks](system-checks.md): resolve `rtl_admin.E001` and `rtl_admin.W001`–`rtl_admin.W008`.
 - [Translations and contributing a locale](translations.md): shipped catalogs,

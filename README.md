@@ -164,10 +164,24 @@ opposite-direction runs inside `readonly_fields` on the change form are isolated
 too. Column headers, sort links, `column-<name>` / `field-<name>` CSS classes,
 field labels, help text and the link to the change form are unchanged; boolean
 fields (which render as icons), `SafeString` HTML values and anything in
-`list_editable` are left alone.
+`list_editable` are not wrapped.
 
 The object's name is isolated as well where the admin quotes it: on the delete
 confirmation page and in the "added", "changed" and "deleted" messages.
+
+### Parse prices and dates with Arabic-Indic or Persian digits
+
+With the mixin above, Django can parse `١٬٢٣٤٫٥٠` as `1234.50` or `۲۰۲۴-۰۳-۰۵`
+as `2024-03-05` in any UI language. This works on admin-generated integer,
+decimal, float, date, time, and datetime fields (including split date/time),
+`list_editable` fields, and inlines that themselves use the mixin. Normalization
+runs in the field's `to_python()`, so it preserves the original bound form data
+and uses Django's decimal separator for localized numeric fields. Dates are
+Gregorian only; Jalali and Hijri dates are not converted.
+
+For the same conversion in your own form, import `normalize_numeric_input` from
+`django_rtl_admin`. See the [Python API](https://marwanmaher0.github.io/django-rtl-admin/api/#normalizing-numeric-input)
+for the exact characters it handles.
 
 ### In your own templates
 
@@ -340,6 +354,7 @@ RTL_ADMIN = {
 | `ISOLATE_READONLY_FIELDS` | `True` | Let `BidiSafeAdminMixin` isolate embedded opposite-direction runs in change-form `readonly_fields`. |
 | `ISOLATE_TABLE_CELLS` | `True` | CSS-level `unicode-bidi: isolate` on changelist cells, linked object names in messages, the change-form subtitle and object links on the delete pages. |
 | `PLAINTEXT_FORM_FIELDS` | `True` | CSS-level `unicode-bidi: plaintext` on text inputs and textareas. |
+| `NORMALIZE_INPUT_DIGITS` | `True` | Normalize Arabic-Indic and Persian digits in numeric, date, and time input on mixin-enabled admins. Must be a boolean. |
 | `NUMERALS` | `"auto"` | Numbering system for the formatting helpers: `"auto"` follows the locale, or force `"latn"`, `"arab"` or `"arabext"`. |
 | `USE_BABEL` | `True` | Use Babel when it is installed. `False` skips Babel and uses the built-in CLDR number tables plus Django date/time formatting. |
 | `CURRENCY` | `"USD"` | Default currency for `format_currency` / `l10n_currency`. |
@@ -411,6 +426,7 @@ from django_rtl_admin import (
     is_rtl_language,
     current_direction,
     numbering_system,
+    normalize_numeric_input,
     transliterate_digits,
     format_number,
     format_currency,
@@ -430,6 +446,7 @@ from django_rtl_admin import (
 | --- | --- | --- |
 | `bidi_isolate_changelist` | `None` | `True`/`False` overrides `RTL_ADMIN["ISOLATE_CHANGELIST"]` for this admin. |
 | `bidi_isolate_readonly` | `None` | `True`/`False` overrides `RTL_ADMIN["ISOLATE_READONLY_FIELDS"]` for this admin. |
+| `bidi_normalize_input` | `None` | Inherit `RTL_ADMIN["NORMALIZE_INPUT_DIGITS"]`, or use `True` or `False` to override it for this admin. |
 | `bidi_isolate_fields` | `None` | Restrict changelist isolation to these `list_display` entries. |
 | `bidi_isolate_exclude` | `()` | Leave these `list_display` or `readonly_fields` entries alone. |
 | `bidi_isolation_direction` | `None` | `"auto"`, `"ltr"` or `"rtl"` for changelist cells on this admin. |

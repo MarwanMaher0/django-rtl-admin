@@ -18,6 +18,7 @@ from __future__ import annotations
 import contextlib
 import datetime
 import decimal
+import re
 from collections.abc import Callable
 from typing import Any
 
@@ -26,6 +27,7 @@ from django.utils import dateformat, formats, timesince, timezone, translation
 from django.utils.html import avoid_wrapping
 from django.utils.translation import get_language, gettext, npgettext, pgettext, to_locale
 
+from .bidi import BIDI_CONTROL_CHARS
 from .conf import rtl_settings
 
 try:  # pragma: no cover - exercised by both branches in CI
@@ -151,6 +153,12 @@ _FALLBACK_GROUP_SIZES: dict[str, tuple[int, ...]] = {
 _DIGIT_VALUES: dict[str, int] = {
     digit: value for digits in DIGITS.values() for value, digit in enumerate(digits)
 }
+
+_NUMERIC_INPUT_TABLE = str.maketrans(
+    DIGITS["arab"] + DIGITS["arabext"] + "\u2212",
+    DIGITS["latn"] * 2 + "-",
+    "\u066c" + "".join(BIDI_CONTROL_CHARS),
+)
 
 _DJANGO_DATE_FORMATS = {
     "short": "SHORT_DATE_FORMAT",
@@ -308,6 +316,22 @@ def transliterate_digits(text: str, to: str = "latn") -> str:
         )
     target = DIGITS[to]
     return "".join(target[_DIGIT_VALUES[char]] if char in _DIGIT_VALUES else char for char in text)
+
+
+def normalize_numeric_input(value: Any, *, decimal_separator: str = ".") -> Any:
+    """Normalize localized numeric text without parsing or validating it.
+
+    Convert Arabic-Indic and extended Arabic-Indic digits, the Arabic decimal
+    separator and the Unicode minus sign. Drop bidi controls, Arabic thousands
+    separators and outer whitespace. Nonbreaking, narrow nonbreaking and thin
+    spaces are removed inside the text only when flanked by digits. Leave
+    other punctuation (including commas and periods) and non-string values alone.
+    """
+    if not isinstance(value, str):
+        return value
+    text = value.translate(_NUMERIC_INPUT_TABLE).strip()
+    text = re.sub(r"(?<=\d)[\u00a0\u202f\u2009](?=\d)", "", text)
+    return text.replace("\u066b", decimal_separator)
 
 
 def _localize_digits(text: str, language: str | None) -> str:

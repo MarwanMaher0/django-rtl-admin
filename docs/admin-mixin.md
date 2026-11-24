@@ -10,8 +10,9 @@ embedded opposite-direction runs inside change-form `readonly_fields`, and aroun
 the object's name on the delete confirmation page and in the messages that print
 it as plain text.
 Use it for mixed-direction names, identifiers, emails, paths, and other data
-that should not disturb surrounding text. It affects presentation, not stored
-model values, and works in both LTR and RTL admins.
+that should not disturb surrounding text. Isolation affects presentation, not
+stored model values. The mixin also accepts Arabic-Indic and Persian digits in
+[numeric and date input](#numeric-and-date-input), in any UI language.
 
 ## Add it to a ModelAdmin
 
@@ -45,10 +46,9 @@ shell and CSS setup, follow [Installation](installation.md) and
 
 ## Per-admin configuration
 
-These are all five supported configuration attributes:
-
 | Attribute | Default | Effect |
 | --- | --- | --- |
+| `bidi_normalize_input` | `None` | Inherit `RTL_ADMIN["NORMALIZE_INPUT_DIGITS"]`; `True` or `False` overrides input normalization for this admin. |
 | `bidi_isolate_changelist` | `None` | Follow `RTL_ADMIN["ISOLATE_CHANGELIST"]`; `True` or `False` overrides it for this admin. The same switch covers [object names](#object-names-in-messages-and-on-the-delete-page) on the delete page and in messages. |
 | `bidi_isolate_readonly` | `None` | Follow `RTL_ADMIN["ISOLATE_READONLY_FIELDS"]`; `True` or `False` overrides it for this admin. |
 | `bidi_isolate_fields` | `None` | Consider all eligible string `list_display` entries; otherwise isolate only names in this iterable on the changelist. An empty tuple isolates none. |
@@ -71,9 +71,34 @@ to every changelist value the mixin wraps. For other policies, exclude a column 
 `mark_isolated(value, direction="ltr")` in its display method yourself.
 
 Set `bidi_isolate_changelist=False` or `bidi_isolate_readonly=False` to disable
-either part of the mixin for one admin. A local `True` can re-enable it even
+either kind of isolation for one admin. A local `True` can re-enable it even
 when the corresponding global switch is off. Global defaults and independent CSS
 protection are described in [Configuration](configuration.md).
+
+## Numeric and date input
+
+A price submitted as `١٬٢٣٤٫٥٠` is parsed as `1234.50` even in an English
+admin. The mixin calls [`normalize_numeric_input`](api.md#normalizing-numeric-input)
+in `to_python()` on admin-generated `IntegerField`, `DecimalField`, `FloatField`,
+`DateField`, `TimeField`, and `DateTimeField` form fields, including the date and
+time components of `SplitDateTimeField`. This applies on add and change forms,
+for `list_editable` columns, and in inlines **when the inline class itself uses
+the mixin**. Text fields such as an ISBN are not normalized.
+
+`normalize_numeric_input(value, *, decimal_separator=".")` returns non-strings
+unchanged. In text, it maps Arabic-Indic and Persian digits to ASCII, `−` to
+`-`, and `٫` to the decimal separator. It strips `٬`, bidi controls, and outer
+whitespace. Inside the text, it removes nonbreaking, narrow nonbreaking, and
+thin spaces only between digits. It leaves letters and other punctuation alone.
+
+For localized numeric fields, the mixin maps `٫` to Django's active decimal
+separator rather than forcing a dot. Django still parses and validates the
+result using the field's usual rules. Only the value passed to the parser
+changes: bound form data retains the original input if validation fails.
+
+Dates must use the Gregorian calendar and a format the field accepts. For
+example, `۲۰۲۴-۰۳-۰۵` becomes `2024-03-05`. Django does **not** convert dates
+from the Jalali (Solar Hijri) or Islamic (lunar Hijri) calendar.
 
 ## Named fields and display methods
 
@@ -100,7 +125,7 @@ model fields, named display methods with explicit ordering metadata and, on
 Django 5.1+, related lookups. Changelist links and `sortable_by` entries are mapped to
 the same cached wrapper objects; this mapping does not itself make a column sortable.
 
-The following entries are left alone:
+The following entries are not wrapped for display:
 
 - Names in `bidi_isolate_exclude` or outside a non-`None` allowlist.
 - Names in `list_editable`, even when explicitly allowlisted.
@@ -292,9 +317,12 @@ then let the mixin isolate its result. See the [Python API](api.md) or
 The mixin hooks into changelist display methods, `render_change_form` for
 read-only fields, and `get_deleted_objects`, `render_delete_form`,
 `response_delete`, `response_add`, `response_change` and `message_user` for
-object names. It does not rewrite
-editable form widgets or exports. CSS
-isolation remains independent, including on columns and fields the mixin skips.
+object names. With input normalization enabled, number inputs use `type="text"`
+with `inputmode="numeric"` or `inputmode="decimal"`. This lets the browser
+suggest a numeric keyboard without clearing a localized value on entry or
+redisplay, as `type="number"` can. Django still validates the field on the
+server; other widgets stay as configured. Exports are unchanged. CSS isolation
+remains independent, including on columns and fields the mixin skips.
 
 Keep attributes stable after the admin starts serving requests: wrappers are
 cached per admin instance, and explicit per-admin direction is captured when
@@ -325,6 +353,7 @@ gives Django's own hooks.
       members:
         - bidi_isolation_enabled
         - bidi_readonly_isolation_enabled
+        - formfield_for_dbfield
         - get_list_display
         - get_list_display_links
         - get_sortable_by

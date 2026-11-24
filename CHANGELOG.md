@@ -8,6 +8,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- `BidiSafeAdminMixin` accepts Arabic-Indic and Persian digits in numeric, date,
+  and time fields in any UI language, including `list_editable` and mixin-enabled
+  inlines. Use `normalize_numeric_input()` in custom parsers, or disable the
+  mixin behavior with `RTL_ADMIN["NORMALIZE_INPUT_DIGITS"] = False` globally or
+  `bidi_normalize_input = False` on one admin.
 - **Plain-text related and protected entries on delete confirmation pages are isolated.**
   When `bidi_isolation_enabled(request)` is true, `BidiSafeAdminMixin.get_deleted_objects()`
   wraps the object name in plain-text `deleted_objects` and `protected` entries with `isolate()`;

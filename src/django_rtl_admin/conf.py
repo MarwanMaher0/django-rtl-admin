@@ -57,6 +57,8 @@ DEFAULTS: dict[str, Any] = {
     # "auto" follows the active locale, otherwise force a CLDR numbering
     # system key: "latn", "arab" or "arabext".
     "NUMERALS": "auto",
+    # Accept Arabic-Indic and Persian digits when cleaning admin form fields.
+    "NORMALIZE_INPUT_DIGITS": True,
     # Use Babel when it is installed.  Set to False to always use Django's
     # own l10n machinery.
     "USE_BABEL": True,
@@ -95,6 +97,7 @@ class RTLAdminSettings:
         ISOLATE_TABLE_CELLS: bool
         PLAINTEXT_FORM_FIELDS: bool
         NUMERALS: str
+        NORMALIZE_INPUT_DIGITS: bool
         USE_BABEL: bool
         CURRENCY: str
         LANGUAGE_SWITCHER: bool
@@ -123,6 +126,8 @@ class RTLAdminSettings:
         return getattr(self, name)
 
     def _validate(self, name: str, value: Any) -> Any:
+        if name == "NORMALIZE_INPUT_DIGITS" and not isinstance(value, bool):
+            raise ImproperlyConfigured(f"{SETTINGS_KEY}[{name!r}] must be a bool, got {value!r}.")
         choices = CHOICES.get(name)
         if choices is not None and value not in choices:
             raise ImproperlyConfigured(

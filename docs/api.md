@@ -1,14 +1,41 @@
 ---
 title: Python API | django-rtl-admin
-description: Use Python helpers for whole-value and run-level bidi isolation, digit transliteration, and locale-aware numbers, currencies, percentages, dates, and times.
+description: Use Python helpers for numeric input normalization, bidi isolation, digit transliteration, and locale-aware numbers, currencies, percentages, dates, and times.
 ---
 
 # Python API
 
-Use these helpers in display methods, custom templates, or other presentation
-code. They read Django's active language and the [configuration](configuration.md);
-run them inside a configured Django application. They do not change stored model
-values. The reference below is generated from the Python source with mkdocstrings.
+Use the isolation and formatting helpers in display methods or custom templates.
+They can read Django's active language and the [configuration](configuration.md).
+For incoming form data, use `normalize_numeric_input` instead. None of these
+helpers changes stored model values.
+
+## Normalizing numeric input
+
+`normalize_numeric_input(value, *, decimal_separator=".")` returns non-strings
+unchanged. For strings it:
+
+- Converts Arabic-Indic (`٠١٢٣٤٥٦٧٨٩`) and Persian (`۰۱۲۳۴۵۶۷۸۹`) digits to `0`–`9`.
+- Replaces the Arabic decimal separator `٫` (U+066B) with `decimal_separator`
+  and the minus sign `−` (U+2212) with ASCII `-`.
+- Removes the Arabic thousands separator `٬` (U+066C). Inside the text it also
+  removes nonbreaking space (U+00A0), narrow nonbreaking space (U+202F), and
+  thin space (U+2009), but only when the space is directly between two digits.
+- Strips Unicode `Bidi_Control` characters and trims surrounding whitespace.
+
+```python
+from django_rtl_admin import normalize_numeric_input
+
+assert normalize_numeric_input("−١٬٢٣٤٫٥٠") == "-1234.50"
+assert normalize_numeric_input("۱۲٫۵", decimal_separator=",") == "12,5"
+assert normalize_numeric_input("١٢,٣ USD") == "12,3 USD"
+```
+
+The helper neither parses nor validates a number: it leaves letters and all
+other punctuation alone. In particular, it does not guess whether an ASCII
+comma is a decimal or grouping separator. The [admin mixin](admin-mixin.md#numeric-and-date-input)
+uses it before Django parses a field, supplying Django's active decimal
+separator for localized numeric fields.
 
 ## Choosing an isolation helper
 
@@ -107,6 +134,7 @@ translated unit names are used on both backends.
       heading_level: 2
       members:
         - numbering_system
+        - normalize_numeric_input
         - transliterate_digits
         - format_number
         - format_currency

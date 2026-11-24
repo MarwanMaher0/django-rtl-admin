@@ -92,7 +92,7 @@ RTL_ADMIN = {
 }
 ```
 
-راجع [الإعدادات](configuration.md) للاطلاع على الإعدادات المدعومة الأربعة عشر
+راجع [الإعدادات](configuration.md) للاطلاع على الإعدادات المدعومة
 جميعها. يفحص W002 أسماء المفاتيح فقط؛ ويُبلّغ E001 الخيارات غير الصالحة،
 ويُبلّغ W005 مشكلات الأنواع المذكورة أدناه.
 
@@ -160,7 +160,7 @@ MIDDLEWARE = [
 | `FONT_STACK` | `None`، أو سلسلة نصية، أو تسلسل من السلاسل النصية مثل قائمة أو صف. |
 | `LANGUAGE_SWITCHER_LANGUAGES` | `None` أو تسلسل من رموز اللغات أو أزواج `(code, label)`. |
 | `CURRENCY` | سلسلة من ثلاثة أحرف ASCII. |
-| `ENABLE_CSS`, `ISOLATE_CHANGELIST`, `ISOLATE_READONLY_FIELDS`, `ISOLATE_TABLE_CELLS`, `PLAINTEXT_FORM_FIELDS`, `USE_BABEL`, `LANGUAGE_SWITCHER` | قيمة `bool` حقيقية (`True` أو `False`)، لا بديلًا يُقيَّم منطقيًا إلى صحيح أو خطأ. |
+| `ENABLE_CSS`, `ISOLATE_CHANGELIST`, `ISOLATE_READONLY_FIELDS`, `ISOLATE_TABLE_CELLS`, `PLAINTEXT_FORM_FIELDS`, `NORMALIZE_INPUT_DIGITS`, `USE_BABEL`, `LANGUAGE_SWITCHER` | قيمة `bool` حقيقية (`True` أو `False`)، لا بديلًا يُقيَّم منطقيًا إلى صحيح أو خطأ. |
 
 على سبيل المثال، استخدم `False`، لا `"false"` أو `0`، لمفتاح تفعيل.
 يؤدي حذف `RTL_ADMIN` أو ضبطه على `None` إلى استخدام القيم الافتراضية.

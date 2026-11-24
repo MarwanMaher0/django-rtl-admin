@@ -2,20 +2,24 @@
 
 import json
 import re
+from datetime import date, datetime, time, timezone
+from decimal import Decimal
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
 import django
 import pytest
+from django import forms
 from django.contrib import admin, messages
 from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
 from django.contrib.admin.models import LogEntry
 from django.contrib.admin.sites import AdminSite
 from django.contrib.messages.storage.cookie import CookieStorage
 from django.core.exceptions import ObjectDoesNotExist
+from django.db import models
 from django.test import RequestFactory, override_settings
 from django.urls import include, path
-from django.utils import translation
+from django.utils import formats, translation
 from django.utils.html import format_html
 from django.utils.safestring import SafeData, mark_safe
 from django.utils.translation import gettext
@@ -24,7 +28,7 @@ from django_rtl_admin import BidiSafeAdminMixin
 from django_rtl_admin.bidi import FSI, ISOLATE_OPENERS, LRI, PDI, RLI, isolate
 from django_rtl_admin.mixins import _SUCCESS_MESSAGES
 
-from .testapp.admin import BidiThingAdmin, BookAdmin
+from .testapp.admin import BidiThingAdmin, BookAdmin, InputBookAdmin, LocalizedInputBookAdmin
 from .testapp.models import Book, Category, Chapter, Review, Thing
 
 pytestmark = pytest.mark.django_db
@@ -1576,3 +1580,243 @@ def test_padded_and_bidi_control_names_are_isolated_as_django_prints_them(admin_
     # isolate() drops the embedded override, so it cannot reach past the quotes.
     isolated = FSI + printed.replace("\u202e", "") + PDI
     assert bidi_messages == [f"The thing “{isolated}” was added successfully."]
+
+
+# -- localized input in admin-generated fields -------------------------------
+
+INPUT_LANGUAGES = ("ar", "fa", "he", "en")
+BOOK_ADD_URL = f"{BOOK_CHANGELIST_URL}add/"
+
+
+@pytest.fixture
+def post_book(admin_client, settings):
+    # Without fa in LANGUAGES, LocaleMiddleware silently falls back to English.
+    settings.LANGUAGES = [*settings.LANGUAGES, ("fa", "Persian"), ("de", "German")]
+    settings.ROOT_URLCONF = book_urlconf(InputBookAdmin)
+
+    def post(url, data, language):
+        with translation.override(language):
+            response = admin_client.post(url, data, headers={"accept-language": language})
+        assert response.wsgi_request.LANGUAGE_CODE == language
+        return response
+
+    return post
+
+
+def book_input_data(**overrides):
+    return {
+        "title": "Manuscript",
+        "isbn": "ISBN-\u206712−۳٫٤\u2069",
+        "status": "draft",
+        "published_on": "\u200f٢٠٢٤-٠٣-٠٥",
+        "launch_time": "۱۴:۳۰:۰۹\u200e",
+        "available_from_0": "\u2066۲۰۲۴-۰۶-۱۹\u2069",
+        "available_from_1": "\u061c١٧:٢٨:٣٩",
+        "price": "١٬٢٣٤٫٥٠",
+        "chapter_set-TOTAL_FORMS": "0",
+        "chapter_set-INITIAL_FORMS": "0",
+        "review_set-TOTAL_FORMS": "0",
+        "review_set-INITIAL_FORMS": "0",
+        **overrides,
+    }
+
+
+@pytest.mark.parametrize("language", INPUT_LANGUAGES)
+@pytest.mark.parametrize("view", ["add", "change"])
+def test_book_input_saves_numbers_dates_and_inline_but_preserves_text(post_book, language, view):
+    if view == "change":
+        book = Book.objects.create(title="Old", isbn="old")
+        url = f"{BOOK_CHANGELIST_URL}{book.pk}/change/"
+    else:
+        url = BOOK_ADD_URL
+    data = book_input_data()
+    data.update(
+        {
+            "chapter_set-TOTAL_FORMS": "1",
+            "chapter_set-0-number": "\u2066۱٬۰۲۴\u2069",
+            "chapter_set-0-title": "Chapter ۴۲",
+        }
+    )
+    response = post_book(url, data, language)
+    assert response.status_code == 302, response.context["errors"]
+    if view == "change":
+        book.refresh_from_db()
+    else:
+        book = Book.objects.get()
+    assert book.isbn == data["isbn"]  # CharField, despite its digits and punctuation.
+    assert book.price == Decimal("1234.50")
+    assert book.published_on == date(2024, 3, 5)
+    assert book.launch_time == time(14, 30, 9)
+    assert book.available_from == datetime(2024, 6, 19, 17, 28, 39, tzinfo=timezone.utc)
+    chapter = book.chapter_set.get()
+    assert (chapter.number, chapter.title) == (1024, "Chapter ۴۲")
+
+
+def test_plain_inline_does_not_inherit_book_input_normalization(post_book):
+    data = book_input_data()
+    data.update(
+        {
+            "review_set-TOTAL_FORMS": "1",
+            "review_set-0-reviewer": "Layla",
+            "review_set-0-body": "Manuscript review",
+            "review_set-0-reviewed_at_0": data["available_from_0"],
+            "review_set-0-reviewed_at_1": data["available_from_1"],
+        }
+    )
+    response = post_book(BOOK_ADD_URL, data, "fa")
+    assert response.status_code == 200
+    assert not response.context["adminform"].form.errors
+    review_formset = next(
+        inline.formset
+        for inline in response.context["inline_admin_formsets"]
+        if inline.formset.model is Review
+    )
+    assert set(review_formset.forms[0].errors) == {"reviewed_at"}
+    assert not Book.objects.exists()
+
+
+@pytest.mark.parametrize("language", INPUT_LANGUAGES)
+def test_list_editable_price_accepts_localized_input(post_book, language):
+    book = Book.objects.create(title="Draft", isbn="123", price="1.00")
+    response = post_book(
+        BOOK_CHANGELIST_URL,
+        {
+            "form-TOTAL_FORMS": "1",
+            "form-INITIAL_FORMS": "1",
+            "form-0-id": str(book.pk),
+            "form-0-price": "−۳\u202f۴۵۶٫۷۵",
+            "_save": "1",
+        },
+        language,
+    )
+    assert response.status_code == 302, response.context["cl"].formset.errors
+    book.refresh_from_db()
+    assert book.price == Decimal("-3456.75")
+
+
+@pytest.mark.parametrize("language", [*INPUT_LANGUAGES, "de"])
+@pytest.mark.parametrize("use_thousands", [True, False])
+def test_localized_price_uses_django_decimal_separator(
+    post_book, settings, language, use_thousands
+):
+    settings.USE_THOUSAND_SEPARATOR = use_thousands
+    settings.ROOT_URLCONF = book_urlconf(LocalizedInputBookAdmin)
+    # Django handles its own group separator when enabled; the Arabic group
+    # mark is unambiguous and accepted even with grouping disabled.
+    with translation.override(language):
+        group = formats.get_format("THOUSAND_SEPARATOR") if use_thousands else "٬"
+    response = post_book(BOOK_ADD_URL, book_input_data(price=f"۱{group}۲۳۴٫۵۰"), language)
+    assert response.status_code == 302, response.context["errors"]
+    assert Book.objects.get().price == Decimal("1234.50")
+
+
+@pytest.mark.parametrize(
+    ("invalid_field", "raw"), [("price", "\u200f۳٫۴٫۵"), ("title", "\u200f۳٬۴۵۶٫۷۵")]
+)
+def test_invalid_book_input_redisplays_the_original_values(post_book, invalid_field, raw):
+    data = book_input_data(price=raw)
+    if invalid_field == "title":
+        data["title"] = ""
+    response = post_book(BOOK_ADD_URL, data, "fa")
+    assert response.status_code == 200
+    form = response.context["adminform"].form
+    assert set(form.errors) == {invalid_field}
+    if invalid_field == "price":
+        assert form.errors.as_data()["price"][0].code == "invalid"
+    else:
+        assert form.cleaned_data["price"] == Decimal("3456.75")
+    assert not Book.objects.exists()
+    # A number input sanitizes even a correctly rendered localized value to
+    # empty in the browser. The actual bound control must be able to display it.
+    assert form["price"].field.widget.input_type != "number"
+    assert 'inputmode="decimal"' in str(form["price"])
+    assert form["price"].value() == raw
+    html = response.content.decode()
+    for name in ("price", "published_on", "launch_time", "available_from_0", "available_from_1"):
+        assert f'value="{data[name]}"' in html
+
+
+@pytest.mark.parametrize(
+    ("admin_cls", "global_enabled", "accepts_input"),
+    [
+        pytest.param(admin.ModelAdmin, True, False, id="plain-admin"),
+        pytest.param(InputBookAdmin, False, False, id="global-off"),
+        pytest.param(
+            variant(InputBookAdmin, bidi_normalize_input=False), True, False, id="admin-off"
+        ),
+        pytest.param(
+            variant(InputBookAdmin, bidi_normalize_input=True), False, True, id="admin-on"
+        ),
+    ],
+)
+def test_book_input_respects_admin_opt_in_and_switch_precedence(
+    post_book, settings, admin_cls, global_enabled, accepts_input
+):
+    settings.ROOT_URLCONF = book_urlconf(admin_cls)
+    settings.RTL_ADMIN = {"NORMALIZE_INPUT_DIGITS": global_enabled}
+    data = book_input_data(
+        published_on="", launch_time="", available_from_0="", available_from_1=""
+    )
+    response = post_book(BOOK_ADD_URL, data, "ar")
+    if accepts_input:
+        assert response.status_code == 302, response.context["errors"]
+        assert Book.objects.get().price == Decimal("1234.50")
+    else:
+        assert response.status_code == 200
+        form = response.context["adminform"].form
+        assert set(form.errors) == {"price"}
+        assert form["price"].field.widget.input_type == "number"
+        assert not Book.objects.exists()
+
+
+@pytest.mark.parametrize(
+    ("db_field", "raw", "expected"),
+    [
+        (models.IntegerField(), "−۴۲", -42),
+        (models.FloatField(), "−١٢٫٧٥", -12.75),
+        (
+            models.DateTimeField(),
+            "\u200f۲۰۲۴-۰۳-۰۵ ۱۴:۳۰:۰۹",
+            datetime(2024, 3, 5, 14, 30, 9, tzinfo=timezone.utc),
+        ),
+    ],
+    ids=["signed-integer", "float", "non-split-datetime"],
+)
+def test_generated_fields_normalize_input_before_validation(admin_user, db_field, raw, expected):
+    # No schema changes needed for types absent from the fixture models.
+    db_field.set_attributes_from_name("sample")
+    kwargs = {}
+    if isinstance(db_field, models.DateTimeField):
+        kwargs = {"form_class": forms.DateTimeField, "widget": forms.DateTimeInput}
+    with translation.override("he"):
+        field = make_book_admin().formfield_for_dbfield(db_field, request_for(admin_user), **kwargs)
+        assert field.clean(raw) == expected
+        if isinstance(db_field, models.IntegerField):
+            assert field.widget.input_type == "text"
+            assert field.widget.attrs["inputmode"] == "numeric"
+
+
+def test_normalization_uses_the_form_instances_field_configuration(admin_user):
+    # A wrapper bound to the form class's base_fields would use the wrong
+    # input_formats for one (or both) instances of the same ModelForm.
+    form_class = make_book_admin(fields=("published_on",)).get_form(request_for(admin_user))
+    first = form_class(data={"published_on": "٠٥/٠٣/٢٠٢٤"})
+    second = form_class(data=first.data)
+    first.fields["published_on"].input_formats = ["%d/%m/%Y"]
+    second.fields["published_on"].input_formats = ["%m/%d/%Y"]
+    assert first.is_valid() and second.is_valid()
+    assert first.cleaned_data["published_on"] == date(2024, 3, 5)
+    assert second.cleaned_data["published_on"] == date(2024, 5, 3)
+
+
+@override_settings(USE_THOUSAND_SEPARATOR=True)
+def test_localized_three_decimal_places_are_not_mistaken_for_a_group(admin_user):
+    # In German the hard-coded dot in "1.250" would be silently removed as
+    # grouping, storing 1250 instead of 1.25, not even raising a form error.
+    db_field = models.DecimalField(max_digits=7, decimal_places=3)
+    db_field.set_attributes_from_name("amount")
+    with translation.override("de"):
+        field = make_book_admin().formfield_for_dbfield(
+            db_field, request_for(admin_user), localize=True
+        )
+        assert field.clean("١٫٢٥٠") == Decimal("1.250")

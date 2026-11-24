@@ -13,6 +13,21 @@ def test_every_default_is_readable():
         assert getattr(rtl_settings, key) == value
 
 
+def test_normalize_input_digits_defaults_to_true_and_can_be_disabled():
+    assert rtl_settings.NORMALIZE_INPUT_DIGITS is True
+    with override_settings(RTL_ADMIN={"NORMALIZE_INPUT_DIGITS": False}):
+        assert rtl_settings.NORMALIZE_INPUT_DIGITS is False
+
+
+@pytest.mark.parametrize("value", [0, 1, None, "False"])
+def test_normalize_input_digits_requires_a_bool(value):
+    with (
+        override_settings(RTL_ADMIN={"NORMALIZE_INPUT_DIGITS": value}),
+        pytest.raises(ImproperlyConfigured, match=r"NORMALIZE_INPUT_DIGITS.*bool"),
+    ):
+        rtl_settings.NORMALIZE_INPUT_DIGITS
+
+
 def test_unknown_attributes_raise():
     with pytest.raises(AttributeError, match="Invalid RTL_ADMIN setting"):
         rtl_settings.NOT_A_SETTING

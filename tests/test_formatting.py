@@ -11,7 +11,7 @@ from django.conf import global_settings
 from django.test import override_settings
 from django.utils import formats, timezone, translation
 
-from django_rtl_admin import formatting
+from django_rtl_admin import formatting, normalize_numeric_input
 from django_rtl_admin.formatting import (
     DIGITS,
     format_currency,
@@ -75,6 +75,45 @@ def test_transliterate_digits_leaves_other_characters_alone():
 def test_transliterate_digits_rejects_an_unknown_system():
     with pytest.raises(ValueError, match="Unknown numbering system"):
         transliterate_digits("1", "roman")
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("٠١٢٣٤٥٦٧٨٩", "0123456789"),
+        ("۰۱۲۳۴۵۶۷۸۹", "0123456789"),
+        ("\t\u061c\u2212١٬۲3٤٫۵٠ \n", "-1234.50"),
+        ("  +1.20e-03  ", "+1.20e-03"),
+        ("١,٢.۳،٤؛٥٪!", "1,2.3،4؛5٪!"),
+        ("کد\u200c۱۲/abc–४", "کد\u200c12/abc–४"),  # Keep ZWNJ and other digit systems.
+        ("١ ٢\t٣\n٤", "1 2\t3\n4"),
+        ("a٬b", "ab"),  # The Arabic thousands separator is unconditionally dropped.
+        ("", ""),
+        ("\u2068 \t\n\u2069", ""),
+    ],
+)
+def test_normalize_numeric_input(value, expected):
+    assert normalize_numeric_input(value) == expected
+
+
+def test_normalize_numeric_input_replaces_only_the_arabic_decimal_separator():
+    assert normalize_numeric_input("١.٢,٣٫٤", decimal_separator=",") == "1.2,3,4"
+
+
+@pytest.mark.parametrize("space", ["\xa0", "\u202f", "\u2009"])
+def test_normalize_numeric_input_only_drops_internal_grouping_spaces_between_digits(space):
+    value = f"{space}١{space}2{space}۳{space}USD{space}٤{space}"
+    assert normalize_numeric_input(value) == f"123{space}USD{space}4"
+
+
+def test_normalize_numeric_input_strips_every_bidi_control_before_checking_grouping():
+    controls = "\u061c\u200e\u200f\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069"
+    assert normalize_numeric_input(f"\u2068 ١{controls}\u202f٢ \u2069") == "12"
+
+
+@pytest.mark.parametrize("value", [None, 0, False, decimal.Decimal("2.50"), b"123", ["١"]])
+def test_normalize_numeric_input_preserves_non_string_identity(value):
+    assert normalize_numeric_input(value) is value
 
 
 def test_format_number_uses_arabic_indic_digits_for_ar_eg():

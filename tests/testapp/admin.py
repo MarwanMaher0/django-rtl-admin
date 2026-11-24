@@ -1,3 +1,4 @@
+from django import forms
 from django.contrib import admin, messages
 
 from django_rtl_admin import BidiSafeAdminMixin
@@ -80,3 +81,23 @@ class BookAdmin(BidiSafeAdminMixin, admin.ModelAdmin):
     def mark_published(self, request, queryset):
         updated = queryset.update(status="published")
         self.message_user(request, f"Marked {updated} book(s) as published.", messages.SUCCESS)
+
+
+class InputChapterInline(BidiSafeAdminMixin, ChapterInline):
+    pass
+
+
+class InputBookAdmin(BookAdmin):
+    """Used in the input POST tests' URLconf, not the browser suite's admin site."""
+
+    inlines = (InputChapterInline, ReviewInline)
+    list_editable = ("price",)
+
+
+class LocalizedPriceForm(forms.ModelForm):
+    class Meta:
+        localized_fields = ("price",)
+
+
+class LocalizedInputBookAdmin(InputBookAdmin):
+    form = LocalizedPriceForm

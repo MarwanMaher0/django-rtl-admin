@@ -5,9 +5,11 @@ from __future__ import annotations
 import html
 import re
 from contextlib import contextmanager
+from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
 import django
+from django import forms
 from django.contrib import messages
 from django.contrib.admin import helpers
 from django.contrib.admin.options import IS_POPUP_VAR
@@ -20,12 +22,14 @@ from django.contrib.admin.utils import (
 )
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models.constants import LOOKUP_SEP
+from django.utils.formats import get_format
 from django.utils.html import conditional_escape, format_html
 from django.utils.safestring import SafeData, mark_safe
 from django.utils.translation import gettext
 
 from .bidi import PDI, current_direction, isolate, mark_isolated, mark_isolated_runs, text_direction
 from .conf import rtl_settings
+from .formatting import normalize_numeric_input
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Sequence
@@ -159,6 +163,53 @@ def _isolate_deleted_entry(entry: Any) -> Any:
     if not isolated:
         return entry
     return f"{prefix}{sep}{isolated}"
+
+
+# DecimalField and FloatField are both IntegerField subclasses.
+_NORMALIZED_FIELD_TYPES: tuple[type[forms.Field], ...] = (
+    forms.IntegerField,
+    forms.DateField,
+    forms.TimeField,
+    forms.DateTimeField,
+)
+
+
+@lru_cache
+def _normalized_field_class(field_class: type[forms.Field]) -> type[forms.Field]:
+    """Extend the configured form field, not Django's shared field class.
+
+    Django copies the fields for each form (and each formset row). A method
+    on a subclass reads that copy's localize, input_formats and error_messages;
+    wrapping a bound method on the prototype would keep using the prototype.
+    """
+
+    def to_python(self: forms.Field, value: Any) -> Any:
+        separator = get_format("DECIMAL_SEPARATOR") if self.localize else "."
+        return field_class.to_python(
+            self, normalize_numeric_input(value, decimal_separator=separator)
+        )
+
+    return type(
+        f"Normalized{field_class.__name__}",
+        (field_class,),
+        {"to_python": to_python, "__slots__": ()},
+    )
+
+
+def _enable_input_normalization(field: forms.Field) -> None:
+    if isinstance(field, forms.SplitDateTimeField):
+        for part in field.fields:
+            _enable_input_normalization(part)
+    elif isinstance(field, _NORMALIZED_FIELD_TYPES):
+        # Classes are hashable cache keys; mypy checks the instance's __hash__.
+        field.__class__ = _normalized_field_class(type(field))  # type: ignore[arg-type]
+        widget = field.widget
+        if isinstance(widget, forms.NumberInput) and widget.input_type == "number":
+            # A number input can discard localized text before POST or when
+            # redisplaying an invalid value. Keep the numeric keyboard hint.
+            widget.input_type = "text"
+            fractional = isinstance(field, (forms.DecimalField, forms.FloatField))
+            widget.attrs.setdefault("inputmode", "decimal" if fractional else "numeric")
 
 
 class _ResolvedLookup:
@@ -324,7 +375,8 @@ class BidiSafeAdminMixin(_Base):
     change form, read-only field values have embedded opposite-direction runs
     isolated while labels, help text and CSS classes stay untouched.  Boolean
     fields (rendered as icons), ``SafeString`` HTML values and anything listed
-    in ``list_editable`` are left alone.
+    in ``list_editable`` are not wrapped for display. Numeric and date/time
+    form fields accept Arabic-Indic and Persian digits in any UI language.
 
     The delete confirmation page, the plain-text entries of
     ``get_deleted_objects`` (on the delete and delete-selected confirmation
@@ -336,6 +388,9 @@ class BidiSafeAdminMixin(_Base):
 
     Class-level knobs:
 
+    ``bidi_normalize_input``
+        ``True``/``False`` to override ``RTL_ADMIN["NORMALIZE_INPUT_DIGITS"]``
+        when cleaning numeric and Gregorian date/time form fields.
     ``bidi_isolate_changelist``
         ``True``/``False`` to override ``RTL_ADMIN["ISOLATE_CHANGELIST"]``.
     ``bidi_isolate_readonly``
@@ -349,6 +404,7 @@ class BidiSafeAdminMixin(_Base):
         ``RTL_ADMIN["ISOLATION_DIRECTION"]`` for changelist cells.
     """
 
+    bidi_normalize_input: bool | None = None
     bidi_isolate_changelist: bool | None = None
     bidi_isolate_readonly: bool | None = None
     bidi_isolate_fields: tuple[str, ...] | None = None
@@ -390,6 +446,17 @@ class BidiSafeAdminMixin(_Base):
         return True
 
     # -- ModelAdmin hooks --------------------------------------------------
+
+    def formfield_for_dbfield(
+        self, db_field: Field[Any, Any], request: HttpRequest, **kwargs: Any
+    ) -> forms.Field | None:
+        field = super().formfield_for_dbfield(db_field, request, **kwargs)
+        enabled = self.bidi_normalize_input
+        if enabled is None:
+            enabled = rtl_settings.NORMALIZE_INPUT_DIGITS
+        if enabled and field is not None:
+            _enable_input_normalization(field)
+        return field
 
     def get_list_display(self, request: HttpRequest) -> _ListDisplay:
         display = super().get_list_display(request)
