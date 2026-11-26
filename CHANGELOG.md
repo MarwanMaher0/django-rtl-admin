@@ -19,6 +19,28 @@ All notable changes to this project are documented here. The format follows
   formats, and appends the Hijri era suffix unless `suffix=False`. The
   `{{ value|hijri_date }}` template filter is available from
   `{% load rtl_admin %}`.
+- **CSV export admin actions.** New `django_rtl_admin.actions` module with
+  `export_as_csv`, a Django admin action usable on any `ModelAdmin`
+  (`BidiSafeAdminMixin` is not required), and the
+  `make_csv_export_action(fields=None, *, filename=None, digits="latn",
+  header="verbose", bom=True, delimiter=",")` factory, both exported from the
+  package root. The action exports only the selected rows in `list_display`
+  order (callables, admin methods, properties and related `field__subfield`
+  lookups included, the latter resolved on every supported Django) with
+  translated `short_description`/verbose-name headers, writes UTF-8 with a BOM
+  so Excel detects the encoding, strips Unicode bidi control characters,
+  converts Arabic-Indic and Persian digits via `transliterate_digits()`
+  (`"latn"` or the active locale's `"native"` system) while keeping ISO 8601
+  date/datetime/time cells in ASCII, formats dates and datetimes as ISO 8601 in
+  the current time zone, neutralises spreadsheet formula injection with a
+  leading apostrophe, streams through `StreamingHttpResponse` and
+  `QuerySet.iterator()` so 50,000-row exports never load into memory at once,
+  and sends an RFC 6266 encoded `Content-Disposition` filename
+  (`filename*=UTF-8`) so Arabic model names survive. The label is translated
+  and the action is decorated with `admin.action(permissions=["view"])`, so the
+  admin only offers it to users with the view permission and invoking it
+  otherwise raises `PermissionDenied`. Each factory action gets a distinct
+  `__name__` derived from its options, so several can share one `ModelAdmin`.
 - `BidiSafeAdminMixin` can sort selected text columns by folded Arabic spelling,
   for ascending and descending header sorts and `ModelAdmin.ordering`. Opt in
   with `bidi_arabic_ordering` or disable it globally with

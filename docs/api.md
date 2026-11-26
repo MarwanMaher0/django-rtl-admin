@@ -324,3 +324,42 @@ In templates, use the `hijri_date` filter from `{% load rtl_admin %}`:
         - HijriDate
         - to_hijri
         - from_hijri
+
+
+## CSV export
+
+`export_as_csv(modeladmin, request, queryset)` is a Django admin action that
+exports the selected rows as a spreadsheet-safe UTF-8 CSV stream. It works on
+any `ModelAdmin`; `BidiSafeAdminMixin` is not required. See the
+[admin mixin guide](admin-mixin.md#csv-export) for adding it to `actions` and
+the full behavior list.
+
+`make_csv_export_action(fields=None, *, filename=None, digits="latn",
+header="verbose", bom=True, delimiter=",")` returns the same action with
+custom options. Invalid `digits`, `header`, or `delimiter` values raise
+`ValueError`.
+
+```python
+from django_rtl_admin import export_as_csv, make_csv_export_action
+
+native_digits = make_csv_export_action(digits="native", delimiter=";")
+```
+
+Both actions are decorated with `admin.action(permissions=["view"])` and a
+translated label, check the model's view permission (`PermissionDenied`
+otherwise), stream rows through `StreamingHttpResponse` and
+`QuerySet.iterator()`, strip Unicode bidi control characters, convert
+Arabic-Indic and Persian digits with `transliterate_digits()` (leaving ISO 8601
+date/datetime/time cells in ASCII), format dates and datetimes as ISO 8601 in
+the current time zone, resolve related `field__subfield` lookups on every
+supported Django, prefix cells starting with `=`, `+`, `-`, `@`, tab, or
+carriage return with an apostrophe, and send an RFC 6266 `Content-Disposition`
+filename with a UTF-8 BOM by default. Each factory action gets a distinct
+`__name__` derived from its options, so several can share one `ModelAdmin`.
+
+::: django_rtl_admin.actions
+    options:
+      heading_level: 3
+      members:
+        - export_as_csv
+        - make_csv_export_action

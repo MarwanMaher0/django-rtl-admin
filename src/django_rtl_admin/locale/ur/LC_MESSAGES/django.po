@@ -84,6 +84,10 @@ msgstr "دو لسانی انتظامیہ / دائیں سے بائیں"
 
 # TRANSLATORS: written without a native reviewer; please verify and
 # improve this wording in a follow-up contribution.
+#: actions.py
+msgid "Export selected rows as CSV"
+msgstr "منتخب قطاروں کو CSV کے طور پر برآمد کریں"
+
 #: templatetags/rtl_admin.py
 msgid "Select this object for an action - {}"
 msgstr "کسی کاروائی کے لیے یہ شے منتخب کریں - {}"

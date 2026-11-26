@@ -76,6 +76,10 @@ msgstr "بینین لەسەر پێگە"
 msgid "Bilingual / RTL admin"
 msgstr "بەڕێوەبەرایەتی دووزمانە / ڕاست بۆ چەپ"
 
+#: actions.py
+msgid "Export selected rows as CSV"
+msgstr "هەناردەکردنی ڕیزە هەڵبژێردراوەکان وەک CSV"
+
 #: templatetags/rtl_admin.py
 msgid "Select this object for an action - {}"
 msgstr "ئەم تەنە هەڵبژێرە بۆ کردارێک - {}"

@@ -76,6 +76,10 @@ msgstr "بېكەتتە كۆرۈش"
 msgid "Bilingual / RTL admin"
 msgstr "ئىككى تىللىق / ئوڭدىن سولغا باشقۇرۇش"
 
+#: actions.py
+msgid "Export selected rows as CSV"
+msgstr "تاللانغان قۇرلارنى CSV شەكلىدە چىقىرىش"
+
 #: templatetags/rtl_admin.py
 msgid "Select this object for an action - {}"
 msgstr "مەشغۇلات ئۈچۈن ئوبيېكت تاللىنىدۇ-{}"

@@ -460,6 +460,90 @@ when locale-specific separators or currency patterns are required, then let the
 mixin isolate its result. See the [Python API](api.md) or
 [template filters](template-tags.md) for explicit formatting.
 
+## CSV export
+
+`export_as_csv` is an admin action that exports the selected changelist rows
+as a UTF-8 CSV file that Excel opens correctly. It works on any `ModelAdmin`;
+`BidiSafeAdminMixin` is not required:
+
+```python
+from django.contrib import admin
+
+from django_rtl_admin import export_as_csv
+
+from .models import Book
+
+
+@admin.register(Book)
+class BookAdmin(admin.ModelAdmin):
+    list_display = ("title", "isbn", "published_on")
+    actions = (export_as_csv,)
+```
+
+This is another alternative registration for a `Book` with `title`, `isbn`,
+and `published_on` fields. The action exports only the rows selected on the
+changelist, in `list_display` order, including callables, admin display
+methods, model properties, and related `field__subfield` lookups (resolved on
+every supported Django, not only 5.1+). Column headers use each column's
+`short_description` or verbose name, translated in the active language.
+
+The download is built for spreadsheets:
+
+- UTF-8 with a leading BOM, so Excel detects the encoding instead of showing
+  mojibake.
+- Unicode `Bidi_Control` characters are stripped from every cell, so mixed
+  Arabic and Latin values keep their logical order.
+- Arabic-Indic and Persian digits are converted to ASCII with
+  [`transliterate_digits`](api.md#locale-aware-formatting), so spreadsheets
+  read numbers as numbers rather than text.
+- Dates, datetimes and times are written as ISO 8601 with ASCII digits (even
+  under `digits="native"`); aware datetimes are converted to the current time
+  zone first.
+- Cells starting with `=`, `+`, `-`, `@`, tab, or carriage return get a
+  leading apostrophe, neutralising spreadsheet formula injection.
+- Rows stream through `StreamingHttpResponse` and `QuerySet.iterator()`, so
+  a 50,000-row export never loads into memory at once.
+- The `Content-Disposition` filename is RFC 6266 encoded (`filename*=UTF-8`),
+  so an Arabic model name survives; an ASCII fallback is included for old
+  clients.
+- The action's label is translated in the active language, and it is decorated
+  with `admin.action(permissions=["view"])`, so the admin only offers it to
+  users with the model's view permission; invoking it without that permission
+  raises `PermissionDenied`.
+
+`make_csv_export_action(fields=None, *, filename=None, digits="latn",
+header="verbose", bom=True, delimiter=",")` builds the same action with
+custom options:
+
+```python
+from django_rtl_admin import make_csv_export_action
+
+export_prices = make_csv_export_action(
+    fields=("title", "price"),
+    filename="أسعار الكتب.csv",
+    digits="native",
+    header="verbose",
+    bom=True,
+    delimiter=",",
+)
+```
+
+| Option | Default | Effect |
+| --- | --- | --- |
+| `fields` | `None` | Column names or display callables, in export order; `None` follows `list_display`. |
+| `filename` | `None` | Download filename; `None` uses the translated `verbose_name_plural` plus `.csv`. |
+| `digits` | `"latn"` | `"latn"` converts Arabic-Indic and Persian digits to ASCII; `"native"` converts digits to the active locale's numbering system. ISO 8601 date/datetime/time cells keep ASCII digits either way. |
+| `header` | `"verbose"` | `"verbose"` uses translated `short_description`/verbose names; `"name"` uses raw field or callable names. |
+| `bom` | `True` | Write the UTF-8 BOM first. |
+| `delimiter` | `","` | Single-character field delimiter, for example `";"`. |
+
+Add the returned action to `actions` like any other, for example
+`actions = (export_prices,)`. Each factory action gets a distinct `__name__`
+derived from its options, so several factory actions (and `export_as_csv`) can
+be registered on one `ModelAdmin` without overwriting each other. Invalid
+`digits`, `header`, or `delimiter` values raise `ValueError`. See the
+[Python API](api.md#csv-export) for the generated reference.
+
 ## Scope and customization
 
 The mixin hooks into changelist display methods, `get_search_results` for
@@ -470,8 +554,9 @@ object names. With input normalization enabled, number inputs use `type="text"`
 with `inputmode="numeric"` or `inputmode="decimal"`. This lets the browser
 suggest a numeric keyboard without clearing a localized value on entry or
 redisplay, as `type="number"` can. Django still validates the field on the
-server; other widgets stay as configured. Exports are unchanged. CSS isolation
-remains independent, including on columns and fields the mixin skips.
+server; other widgets stay as configured. The mixin itself leaves exports
+unchanged; [CSV export](#csv-export) is a separate, opt-in admin action. CSS
+isolation remains independent, including on columns and fields the mixin skips.
 
 Keep attributes stable after the admin starts serving requests: wrappers are
 cached per admin instance, and explicit per-admin direction is captured when

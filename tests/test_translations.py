@@ -38,6 +38,7 @@ EXPECTED_MSGIDS = {
     "View on site",
     "Bilingual / RTL admin",
     "Select this object for an action - {}",
+    "Export selected rows as CSV",
     "%(delta)s ago",
     "%(delta)s from now",
     "duration\x04%(num)s second",

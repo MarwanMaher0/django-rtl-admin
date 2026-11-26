@@ -23,11 +23,14 @@ Public API::
         from_hijri,
         to_hijri,
         HijriDate,
+        export_as_csv,
+        make_csv_export_action,
     )
 
-``BidiSafeAdminMixin`` is imported lazily: this package is imported while
-``INSTALLED_APPS`` is still being populated, and reaching into
-``django.contrib.admin`` that early would trip ``AppRegistryNotReady``.
+``BidiSafeAdminMixin``, ``export_as_csv`` and ``make_csv_export_action`` are
+imported lazily: this package is imported while ``INSTALLED_APPS`` is still
+being populated, and reaching into ``django.contrib.admin`` that early would
+trip ``AppRegistryNotReady``.
 """
 
 from typing import TYPE_CHECKING
@@ -71,12 +74,17 @@ from .hijri import HijriDate, from_hijri, to_hijri
 
 if TYPE_CHECKING:
     # Resolved lazily at runtime (see ``__getattr__``); imported here so type
-    # checkers see the real class rather than whatever ``__getattr__`` returns.
+    # checkers see the real objects rather than whatever ``__getattr__`` returns.
+    from .actions import export_as_csv, make_csv_export_action
     from .mixins import BidiSafeAdminMixin
 
 __version__ = "0.2.0"
 
-_LAZY = {"BidiSafeAdminMixin": ".mixins"}
+_LAZY = {
+    "BidiSafeAdminMixin": ".mixins",
+    "export_as_csv": ".actions",
+    "make_csv_export_action": ".actions",
+}
 
 
 def __getattr__(name: str) -> object:
@@ -108,6 +116,7 @@ __all__ = [
     "arabic_sort_expression",
     "arabic_sort_key",
     "current_direction",
+    "export_as_csv",
     "format_currency",
     "format_date",
     "format_datetime",
@@ -123,6 +132,7 @@ __all__ = [
     "is_rtl_language",
     "isolate",
     "isolate_runs",
+    "make_csv_export_action",
     "mark_isolated",
     "mark_isolated_runs",
     "normalize_numeric_input",

@@ -313,3 +313,42 @@ assert format_hijri_date(date(2024, 3, 11), language="en", suffix=False) == "1 R
         - HijriDate
         - to_hijri
         - from_hijri
+
+
+## تصدير CSV { #csv-export }
+
+`export_as_csv(modeladmin, request, queryset)` هو إجراء إدارة في Django يصدّر
+الصفوف المحددة إلى دفق CSV بترميز UTF-8 آمن للجداول الإلكترونية. يعمل مع أي
+`ModelAdmin`؛ ولا يتطلب `BidiSafeAdminMixin`. راجع
+[دليل مزيج الإدارة](admin-mixin.md#csv-export) لمعرفة كيفية إضافته إلى
+`actions` وقائمة السلوك الكاملة.
+
+تعيد `make_csv_export_action(fields=None, *, filename=None, digits="latn",
+header="verbose", bom=True, delimiter=",")` الإجراء نفسه بخيارات مخصصة.
+وترفع قيم `digits` أو `header` أو `delimiter` غير الصالحة `ValueError`.
+
+```python
+from django_rtl_admin import export_as_csv, make_csv_export_action
+
+native_digits = make_csv_export_action(digits="native", delimiter=";")
+```
+
+الإجراءان مزخرفان بـ`admin.action(permissions=["view"])` وبتسمية مترجمة،
+ويتحققان من صلاحية عرض النموذج (`PermissionDenied` خلاف ذلك)، ويبثّان الصفوف
+عبر `StreamingHttpResponse` و`QuerySet.iterator()`، ويزيلان محارف التحكم في
+الاتجاهين في Unicode، ويحوّلان الأرقام العربية-الهندية والفارسية باستخدام
+`transliterate_digits()` (مع إبقاء خلايا التاريخ/التاريخ مع الوقت/الوقت بصيغة
+ISO 8601 بأرقام ASCII)، ويكتبان التواريخ والتواريخ مع الأوقات بصيغة ISO 8601 في
+المنطقة الزمنية الحالية، ويحلّان عمليات البحث المرتبطة `field__subfield` في كل
+إصدارات Django المدعومة، ويضيفان فاصلة عليا بادئة إلى الخلايا التي تبدأ بـ`=`
+أو `+` أو `-` أو `@` أو محرف الجدولة أو إرجاع السطر، ويرسلان اسم ملف
+`Content-Disposition` مرمّزًا وفق RFC 6266 مع بادئة UTF-8 BOM افتراضيًا. ويحصل
+كل إجراء من المصنع على `__name__` مميز مشتق من خياراته، لذا يمكن لعدة إجراءات
+أن تشترك في `ModelAdmin` واحد.
+
+::: django_rtl_admin.actions
+    options:
+      heading_level: 3
+      members:
+        - export_as_csv
+        - make_csv_export_action

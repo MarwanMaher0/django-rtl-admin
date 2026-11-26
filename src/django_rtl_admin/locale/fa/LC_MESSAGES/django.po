@@ -74,6 +74,10 @@ msgstr "مدیریت دوزبانه / راست‌به‌چپ"
 
 # TRANSLATORS: written without a native reviewer; please verify and
 # improve this wording in a follow-up contribution.
+#: actions.py
+msgid "Export selected rows as CSV"
+msgstr "خروجی گرفتن از ردیف‌های انتخاب‌شده به صورت CSV"
+
 #: templatetags/rtl_admin.py
 msgid "Select this object for an action - {}"
 msgstr "انتخاب این شیء برای انجام یک اقدام - {}"

@@ -240,6 +240,32 @@ across admins. Outside the admin, use `arabic_sort_key()` with `sorted()` and
 `arabic_sort_expression()` with `QuerySet.order_by()`; see the
 [Python API](https://marwanmaher0.github.io/django-rtl-admin/api/#arabic-sort-keys).
 
+### Export changelists to Excel-friendly CSV
+
+`export_as_csv` is an admin action for any `ModelAdmin` — the mixin is not
+required. It exports the selected rows in `list_display` order as UTF-8 with
+a BOM, strips bidi controls, converts Arabic-Indic and Persian digits to
+ASCII, writes ISO 8601 dates in the current time zone, neutralises formula
+injection, and streams so large exports never load into memory at once:
+
+```python
+from django.contrib import admin
+
+from django_rtl_admin import export_as_csv, make_csv_export_action
+
+
+@admin.register(Book)
+class BookAdmin(admin.ModelAdmin):
+    list_display = ("title_ar", "isbn", "price")
+    actions = (export_as_csv,)
+```
+
+Use `make_csv_export_action(fields=None, *, filename=None, digits="latn",
+header="verbose", bom=True, delimiter=",")` for custom columns, filenames
+(Arabic names are RFC 6266 encoded), native digits, raw header names, or a
+different delimiter. The view permission is required. See
+[CSV export](https://marwanmaher0.github.io/django-rtl-admin/admin-mixin/#csv-export).
+
 ### In your own templates
 
 ```django
@@ -535,6 +561,8 @@ from django_rtl_admin import (
     from_hijri,
     to_hijri,
     HijriDate,
+    export_as_csv,
+    make_csv_export_action,
     rtl_settings,
 )
 ```

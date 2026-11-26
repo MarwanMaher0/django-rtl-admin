@@ -69,6 +69,10 @@ msgstr "مشاهدة على الموقع"
 msgid "Bilingual / RTL admin"
 msgstr "إدارة ثنائية اللغة / من اليمين إلى اليسار"
 
+#: actions.py
+msgid "Export selected rows as CSV"
+msgstr "تصدير الصفوف المحددة بصيغة CSV"
+
 #: templatetags/rtl_admin.py
 msgid "Select this object for an action - {}"
 msgstr "تحديد هذا العنصر لتنفيذ إجراء - {}"

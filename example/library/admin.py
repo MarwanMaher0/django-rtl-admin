@@ -3,7 +3,7 @@ from django.contrib import admin
 from django.core.exceptions import PermissionDenied
 from django.utils.translation import gettext_lazy as _
 
-from django_rtl_admin import BidiSafeAdminMixin, format_currency, format_number
+from django_rtl_admin import BidiSafeAdminMixin, export_as_csv, format_currency, format_number
 
 from .models import Book, Chapter, Publisher
 
@@ -79,6 +79,7 @@ class BookAdmin(BidiSafeAdminMixin, admin.ModelAdmin):
         "is_featured",
     )
     list_display_links = ("title_ar",)
+    actions = (export_as_csv,)
     list_filter = ("status", "is_featured", "publisher", "published_on")
     search_fields = ("title_en", "title_ar", "author_en", "author_ar", "isbn")
     date_hierarchy = "published_on"

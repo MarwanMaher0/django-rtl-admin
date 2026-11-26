@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib import admin, messages
 
-from django_rtl_admin import BidiSafeAdminMixin
+from django_rtl_admin import BidiSafeAdminMixin, export_as_csv
 
 from .models import Article, ArticleSection, Book, Category, Chapter, Review, Thing
 
@@ -56,7 +56,7 @@ class BookAdmin(BidiSafeAdminMixin, admin.ModelAdmin):
     date_hierarchy = "published_on"
     list_per_page = 5
     autocomplete_fields = ("category",)
-    actions = ("mark_published",)
+    actions = ("mark_published", export_as_csv)
     inlines = (ChapterInline, ReviewInline)
     readonly_fields = ("archive_note",)
     fieldsets = (

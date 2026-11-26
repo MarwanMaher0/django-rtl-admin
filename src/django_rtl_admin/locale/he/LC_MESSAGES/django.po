@@ -69,6 +69,10 @@ msgstr "צפיה באתר"
 msgid "Bilingual / RTL admin"
 msgstr "ממשק דו-לשוני / מימין לשמאל"
 
+#: actions.py
+msgid "Export selected rows as CSV"
+msgstr "ייצוא השורות שנבחרו כ-CSV"
+
 #: templatetags/rtl_admin.py
 msgid "Select this object for an action - {}"
 msgstr "בחירת אובייקט זה עבור פעולה - {}"

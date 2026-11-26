@@ -72,3 +72,30 @@ assert format_hijri_date(date(2024, 3, 11), language="en", suffix=False) == "1 R
 | `PRINT_STYLES` | `True` | ربط ورقة أنماط الطباعة (`django_rtl_admin/css/print.css`) بالسمة `media="print"` بعد ورقة الأنماط الرئيسة لطباعة نظيفة بالاتجاهين RTL وLTR. يجب أن تكون القيمة منطقية. |
 | `TRANSLITERATE_SLUGS` | `True` | ملء معرّفات الروابط الفارغة تلقائيًا من النص العربي أو الفارسي في نماذج الإضافة والصفوف المضمّنة الجديدة. يجب أن تكون القيمة منطقية. |
 | `LANGUAGE_SWITCHER` | `True` | عرض مبدّل اللغة في ترويسة لوحة الإدارة وصفحة تسجيل الدخول. |
+
+## تصدير قائمة السجلات إلى CSV يفتحه Excel بشكل صحيح
+
+`export_as_csv` إجراء إدارة يعمل مع أي `ModelAdmin`، ولا يتطلب المزيج. يصدّر
+الصفوف المحددة بترتيب `list_display` إلى ملف UTF-8 مع بادئة BOM، ويزيل محارف
+التحكم في الاتجاهين، ويحوّل الأرقام العربية-الهندية والفارسية إلى ASCII،
+ويكتب التواريخ بصيغة ISO 8601 في المنطقة الزمنية الحالية، ويُضيف فاصلة عليا
+بادئة إلى الخلايا التي تبدأ كصيغ جدولية، ويبث الصفوف فلا تُحمَّل التصديرات
+الكبيرة إلى الذاكرة دفعة واحدة:
+
+```python
+from django.contrib import admin
+
+from django_rtl_admin import export_as_csv, make_csv_export_action
+
+
+@admin.register(Book)
+class BookAdmin(admin.ModelAdmin):
+    list_display = ("title_ar", "isbn", "price")
+    actions = (export_as_csv,)
+```
+
+استخدم `make_csv_export_action(fields=None, *, filename=None, digits="latn",
+header="verbose", bom=True, delimiter=",")` لتخصيص الأعمدة أو اسم الملف
+(تُرمَّز الأسماء العربية وفق RFC 6266) أو الأرقام المحلية أو رؤوس الأعمدة
+أو الفاصل. صلاحية العرض مطلوبة. انظر
+[تصدير CSV](https://marwanmaher0.github.io/django-rtl-admin/ar/admin-mixin/#csv-export).
