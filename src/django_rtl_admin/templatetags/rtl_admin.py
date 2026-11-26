@@ -491,6 +491,18 @@ def rtl_admin_styles(context: Context | None = None) -> str:
     return html
 
 
+@register.simple_tag(takes_context=True, name="rtl_admin_print_styles")
+def rtl_admin_print_styles(context: Context | None = None) -> str:
+    """The ``<link media="print">`` for the direction-aware print stylesheet."""
+    if not rtl_settings.PRINT_STYLES:
+        return ""
+    return format_html(
+        '<link rel="stylesheet" media="print" href="{}"{}>',
+        static("django_rtl_admin/css/print.css"),
+        _nonce_attr(context),
+    )
+
+
 @register.simple_tag(takes_context=True, name="rtl_admin_scripts")
 def rtl_admin_scripts(context: Context | None = None) -> str:
     """Progressive-enhancement script for the language switcher."""

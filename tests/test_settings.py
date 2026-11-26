@@ -13,6 +13,22 @@ def test_every_default_is_readable():
         assert getattr(rtl_settings, key) == value
 
 
+def test_print_styles_defaults_to_true_and_can_be_disabled():
+    assert DEFAULTS["PRINT_STYLES"] is True
+    assert rtl_settings.PRINT_STYLES is True
+    with override_settings(RTL_ADMIN={"PRINT_STYLES": False}):
+        assert rtl_settings.PRINT_STYLES is False
+
+
+@pytest.mark.parametrize("value", [0, 1, None, "False", "True"])
+def test_print_styles_requires_a_bool(value):
+    with (
+        override_settings(RTL_ADMIN={"PRINT_STYLES": value}),
+        pytest.raises(ImproperlyConfigured, match=r"PRINT_STYLES.*bool"),
+    ):
+        rtl_settings.PRINT_STYLES
+
+
 def test_normalize_input_digits_defaults_to_true_and_can_be_disabled():
     assert rtl_settings.NORMALIZE_INPUT_DIGITS is True
     with override_settings(RTL_ADMIN={"NORMALIZE_INPUT_DIGITS": False}):

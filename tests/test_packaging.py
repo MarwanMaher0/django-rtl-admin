@@ -48,6 +48,7 @@ def _depends_on(jobs, name, target):
 
 def test_the_stylesheet_is_part_of_the_package():
     assert (ROOT / "static" / "django_rtl_admin" / "css" / "rtl-admin.css").is_file()
+    assert (ROOT / "static" / "django_rtl_admin" / "css" / "print.css").is_file()
 
 
 def test_the_switcher_script_is_part_of_the_package():
@@ -92,6 +93,24 @@ def test_the_stylesheet_prefers_logical_properties():
     css = (ROOT / "static" / "django_rtl_admin" / "css" / "rtl-admin.css").read_text()
     logical = css.count("-inline-start") + css.count("-inline-end") + css.count("inset-inline")
     assert logical > 60
+
+
+def test_the_print_stylesheet_uses_logical_properties_only():
+    raw = (ROOT / "static" / "django_rtl_admin" / "css" / "print.css").read_text(encoding="utf-8")
+    css = re.sub(r"/\*.*?\*/", "", raw, flags=re.S)
+    assert "@page" in css
+    assert "table-header-group" in css
+    physical_property = re.compile(
+        r"(?i)(?:^|[;{\s])("
+        r"(?:margin|padding|border)-(?:left|right|top|bottom)\b"
+        r"|(?:min-|max-)?(?:width|height)\s*:"
+        r"|(?:left|right|top|bottom)\s*:"
+        r"|overflow-(?:x|y)\s*:"
+        r"|(?:float|text-align|clear)\s*:\s*(?:left|right)\b"
+        r")"
+    )
+    matches = physical_property.findall(css)
+    assert not matches, f"physical CSS properties found in print.css: {matches}"
 
 
 def test_the_sdist_includes_governance_and_nox_files():

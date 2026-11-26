@@ -89,6 +89,21 @@ def test_isolate_readonly_fields_key_is_recognised_by_w002():
     assert checks.check_settings_types(None) == []
 
 
+@pytest.mark.parametrize("value", [True, False])
+def test_print_styles_key_is_recognised_and_accepts_bool(value):
+    with override_settings(RTL_ADMIN={"PRINT_STYLES": value}):
+        assert checks.check_settings_keys(None) == []
+        assert checks.check_settings_types(None) == []
+
+
+@pytest.mark.parametrize("value", [0, 1, None, "False", "True", []])
+def test_print_styles_non_bool_is_reported(value):
+    with override_settings(RTL_ADMIN={"PRINT_STYLES": value}):
+        warnings = checks.check_settings_types(None)
+    assert ids(warnings) == ["rtl_admin.W005"]
+    assert "PRINT_STYLES" in warnings[0].msg
+
+
 @override_settings(ROOT_URLCONF="tests.urls_without_i18n")
 def test_a_missing_set_language_route_is_reported():
     assert "rtl_admin.W003" in ids(checks.check_language_switcher(None))

@@ -24,6 +24,20 @@ All notable changes to this project are documented here. The format follows
   with `bidi_arabic_ordering` or disable it globally with
   `RTL_ADMIN["ARABIC_ORDERING"] = False`. Use `arabic_sort_key()` in Python and
   `arabic_sort_expression()` in querysets without changing stored text.
+- **Direction-aware print stylesheet (`django_rtl_admin/css/print.css`).**
+  Loaded with `media="print"` from `django_rtl_admin/base_site.html` right
+  after `rtl_admin_styles` and controlled by the new boolean setting
+  `RTL_ADMIN["PRINT_STYLES"]` (default `True`, validated in `conf.py` and
+  covered by the generic boolean system check). Uses CSS logical properties exclusively with `@page` margins
+  suitable for A4 and Letter, hides the navigation sidebar, header and header
+  tools, breadcrumbs, object-tools buttons, changelist action bar and selection
+  checkboxes, filters, search bar, paginator controls, submit rows and inline
+  add/delete controls, and keeps the page title, object fields, read-only
+  values, inline tables and changelist results with repeating table headers
+  (`thead { display: table-header-group; }`), unbroken rows and fieldsets,
+  wrapped Arabic and mixed-direction text, readable links without printed URLs,
+  screen-matching RTL/LTR column order and preserved `unicode-bidi` cell
+  isolation.
 - `BidiSafeAdminMixin` optionally localizes digits in changelist cells of
   integer, decimal, float, date, datetime, time, and duration model fields
   (including related lookups on Django 5.1+) for the active language via

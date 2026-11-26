@@ -24,6 +24,7 @@ The supported keys are defined in `django_rtl_admin.conf.DEFAULTS`.
 | Key | Default | Effect |
 | --- | --- | --- |
 | `ENABLE_CSS` | `True` | Emit the package stylesheet link and any inline font override through `rtl_admin_styles`. |
+| `PRINT_STYLES` | `True` | Emit the logical-property `media="print"` stylesheet link (`django_rtl_admin/css/print.css`) from `base_site.html` after the main stylesheet hook. |
 | `FONT_STACK` | `None` | Override `--rtl-admin-font-stack` with a string or sequence of family names; `None` retains the shipped stack. |
 | `EXTRA_RTL_LANGUAGES` | `()` | Add language codes to the RTL languages already in Django's `LANGUAGES_BIDI`. |
 | `ISOLATION_DIRECTION` | `"auto"` | Default whole-value isolate: `"auto"` (FSI), `"ltr"` (LRI), or `"rtl"` (RLI). |
@@ -116,6 +117,36 @@ is loaded, labels and read-only values always receive plaintext rules in either
 UI direction. Help text and fieldset descriptions receive plaintext rules only
 in an RTL admin. URL widgets, username/password inputs, UUID widgets, and code
 also retain their dedicated LTR/isolation rules.
+
+## Printing
+
+`RTL_ADMIN["PRINT_STYLES"]` is a boolean and defaults to `True`. When enabled,
+`django_rtl_admin/base_site.html` links `django_rtl_admin/css/print.css` with
+`media="print"` right after `rtl_admin_styles`, independently of `ENABLE_CSS`.
+Set it to `False` to omit the print stylesheet link:
+
+```python
+RTL_ADMIN = {
+    "PRINT_STYLES": False,
+}
+```
+
+Use an actual boolean: `manage.py check` reports `rtl_admin.W005` for other
+types such as `"False"`, and reading an invalid value raises
+`ImproperlyConfigured`.
+
+The print stylesheet uses CSS logical properties only and applies to both RTL
+and LTR admin pages. On paper it sets `@page` margins that fit A4 and Letter
+paper, hides the navigation sidebar, header and header tools, breadcrumbs,
+object-tools buttons, changelist action bar and selection checkboxes, filters,
+search toolbar, paginator controls, submit rows, and inline add/delete controls,
+while keeping the page title, object fields, read-only values, inline tables,
+and changelist results. Table headers repeat on each page
+(`thead { display: table-header-group; }`), table rows and fieldsets avoid
+breaking across pages, long Arabic and mixed-direction text wraps instead of
+clipping, links stay readable without printing raw URLs, column order matches
+the screen in both RTL and LTR, and bidirectional cell isolation
+(`unicode-bidi`) is preserved.
 
 ## Unicode isolation
 

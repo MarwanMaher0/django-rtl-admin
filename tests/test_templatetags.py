@@ -43,6 +43,7 @@ EXPECTED_TAGS = {
     "rtl_admin_body_class",
     "rtl_admin_site_name_tag",
     "rtl_admin_styles",
+    "rtl_admin_print_styles",
     "rtl_admin_scripts",
     "rtl_admin_language_switcher",
     "rtl_admin_language_links",
@@ -601,6 +602,26 @@ def test_font_stack_style_carries_the_csp_nonce():
     output = render("{% rtl_admin_styles %}", csp_nonce="abc")
     assert output.endswith(
         '<style nonce="abc">:root { --rtl-admin-font-stack: "Noto Naskh Arabic", serif; }</style>'
+    )
+
+
+def test_print_styles_tag_links_the_print_stylesheet():
+    output = render("{% rtl_admin_print_styles %}")
+    assert output == (
+        '<link rel="stylesheet" media="print" href="/static/django_rtl_admin/css/print.css">'
+    )
+
+
+@override_settings(RTL_ADMIN={"PRINT_STYLES": False})
+def test_print_styles_tag_can_be_turned_off():
+    assert render("{% rtl_admin_print_styles %}") == ""
+
+
+def test_print_styles_tag_carries_csp_nonce():
+    output = render("{% rtl_admin_print_styles %}", csp_nonce="abc123")
+    assert output == (
+        '<link rel="stylesheet" media="print" href="/static/django_rtl_admin/css/print.css"'
+        ' nonce="abc123">'
     )
 
 

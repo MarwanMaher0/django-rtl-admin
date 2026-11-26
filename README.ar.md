@@ -61,3 +61,14 @@ assert format_hijri_date(date(2024, 3, 11), language="en", suffix=False) == "1 R
 `NUMERALS` ونظام ترقيم اللغة، وتضيف لاحقة العصر الهجري ما لم تُضبط
 `suffix=False`. واستخدم في القوالب `{{ book.published_on|hijri_date }}` أو
 `{{ book.published_on|hijri_date:"short" }}`.
+
+## الإعدادات
+
+تُضبط الحزمة عبر القاموس `RTL_ADMIN` في إعدادات Django، ويمكن تعطيل كل ميزة على حدة. راجع [مرجع الإعدادات الكامل](https://marwanmaher0.github.io/django-rtl-admin/ar/configuration/) لجميع الخيارات.
+
+| المفتاح | القيمة الافتراضية | التأثير |
+| --- | --- | --- |
+| `ENABLE_CSS` | `True` | ربط ورقة الأنماط الداعمة للاتجاهين داخل وسم `<head>` في لوحة الإدارة. |
+| `PRINT_STYLES` | `True` | ربط ورقة أنماط الطباعة (`django_rtl_admin/css/print.css`) بالسمة `media="print"` بعد ورقة الأنماط الرئيسة لطباعة نظيفة بالاتجاهين RTL وLTR. يجب أن تكون القيمة منطقية. |
+| `TRANSLITERATE_SLUGS` | `True` | ملء معرّفات الروابط الفارغة تلقائيًا من النص العربي أو الفارسي في نماذج الإضافة والصفوف المضمّنة الجديدة. يجب أن تكون القيمة منطقية. |
+| `LANGUAGE_SWITCHER` | `True` | عرض مبدّل اللغة في ترويسة لوحة الإدارة وصفحة تسجيل الدخول. |

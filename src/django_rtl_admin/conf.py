@@ -29,6 +29,8 @@ DEFAULTS: dict[str, Any] = {
     # -- styling -------------------------------------------------------
     # Load the logical-property stylesheet into the admin <head>.
     "ENABLE_CSS": True,
+    # Load the logical-property print stylesheet (media="print") into the admin <head>.
+    "PRINT_STYLES": True,
     # Extra font-family stack used for the admin in RTL locales.  ``None``
     # keeps the stack shipped with the package.
     "FONT_STACK": None,
@@ -97,6 +99,7 @@ class RTLAdminSettings:
         # What each key in DEFAULTS holds, for type checkers only.  Nothing is
         # assigned here: at runtime every key still goes through __getattr__.
         ENABLE_CSS: bool
+        PRINT_STYLES: bool
         FONT_STACK: str | Sequence[str] | None
         EXTRA_RTL_LANGUAGES: Iterable[str]
         ISOLATION_DIRECTION: str
@@ -139,6 +142,7 @@ class RTLAdminSettings:
 
     def _validate(self, name: str, value: Any) -> Any:
         if name in {
+            "PRINT_STYLES",
             "NORMALIZE_INPUT_DIGITS",
             "LOCALIZE_CHANGELIST_DIGITS",
             "FOLD_ARABIC_SEARCH",

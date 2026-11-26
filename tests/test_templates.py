@@ -94,6 +94,34 @@ def test_the_stylesheet_can_be_turned_off(admin_client):
     assert "django_rtl_admin/css/rtl-admin.css" not in html
 
 
+def test_admin_page_links_the_print_stylesheet_after_the_main_stylesheet(admin_client):
+    html = admin_client.get(INDEX_URL, headers={"accept-language": "ar"}).content.decode()
+    assert (
+        '<link rel="stylesheet" media="print" href="/static/django_rtl_admin/css/print.css">'
+        in html
+    )
+    assert html.index("django_rtl_admin/css/print.css") > html.index(
+        "django_rtl_admin/css/rtl-admin.css"
+    )
+
+
+@override_settings(RTL_ADMIN={"PRINT_STYLES": False})
+def test_the_print_stylesheet_can_be_turned_off(admin_client):
+    html = admin_client.get(INDEX_URL).content.decode()
+    assert "django_rtl_admin/css/print.css" not in html
+    assert "django_rtl_admin/css/rtl-admin.css" in html
+
+
+@override_settings(RTL_ADMIN={"ENABLE_CSS": False, "PRINT_STYLES": True})
+def test_the_print_stylesheet_still_loads_when_screen_css_is_off(admin_client):
+    html = admin_client.get(INDEX_URL).content.decode()
+    assert "django_rtl_admin/css/rtl-admin.css" not in html
+    assert (
+        '<link rel="stylesheet" media="print" href="/static/django_rtl_admin/css/print.css">'
+        in html
+    )
+
+
 def test_body_carries_the_direction_class(admin_client):
     html = admin_client.get(INDEX_URL).content.decode()
     assert "rtl-admin rtl-admin--ltr" in html

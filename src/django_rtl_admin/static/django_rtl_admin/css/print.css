@@ -1,0 +1,385 @@
+/*!
+ * django-rtl-admin -- direction-aware print stylesheet for the Django admin.
+ *
+ * Loaded with media="print" from django_rtl_admin/base_site.html after the
+ * main stylesheet hook.  Uses CSS logical properties exclusively so both RTL
+ * and LTR admin pages print cleanly without physical overrides.
+ */
+
+@page {
+  margin: 15mm;
+}
+
+@media print {
+  /* ========================================================================
+     1. Paper palette and direction
+     ======================================================================== */
+
+  :root,
+  html,
+  html[data-theme="dark"],
+  html[data-theme="light"],
+  body.rtl-admin {
+    --body-bg: #fff;
+    --body-fg: #000;
+    --body-quiet-color: #444;
+    --body-medium-color: #222;
+    --body-loud-color: #000;
+    --darkened-bg: #f6f6f6;
+    --selected-bg: #fff;
+    --selected-row: #fff;
+    --hairline-color: #ccc;
+    --border-color: #999;
+    --link-fg: #000;
+    --link-hover-color: #000;
+    --link-selected-fg: #000;
+    --header-bg: transparent;
+    --header-color: #000;
+    --header-link-color: #000;
+  }
+
+  html,
+  body.rtl-admin {
+    background: #fff;
+    color: #000;
+    margin: 0;
+    padding: 0;
+  }
+
+  body.rtl-admin--rtl {
+    direction: rtl;
+  }
+
+  body.rtl-admin--ltr {
+    direction: ltr;
+  }
+
+  /* ========================================================================
+     2. Hide non-printable navigation, chrome and interactive controls
+     ======================================================================== */
+
+  .skip-to-content-link,
+  #header,
+  #user-tools,
+  #logout-form,
+  .theme-toggle,
+  .rtl-admin-language-switcher,
+  #nav-sidebar,
+  #toggle-nav-sidebar,
+  .toggle-nav-sidebar,
+  nav:has(.breadcrumbs),
+  div.breadcrumbs,
+  ol.breadcrumbs,
+  .breadcrumbs,
+  .object-tools,
+  #toolbar,
+  #changelist-search,
+  #changelist-filter,
+  #changelist .xfull,
+  nav.toplinks,
+  #changelist .actions,
+  #changelist-form .actions,
+  .actions,
+  #result_list .action-checkbox-column,
+  #result_list .action-checkbox,
+  #result_list .sortoptions,
+  .paginator,
+  .changelist-footer,
+  .submit-row,
+  .add-row,
+  .inline-deletelink,
+  .inline-related h3 span.delete,
+  .inline-group .tabular thead th:last-child:not([class*="column-"]),
+  .inline-group .tabular td.delete,
+  .empty-form,
+  .related-widget-wrapper-link,
+  .select2-container,
+  .datetimeshortcuts,
+  .calendarbox,
+  .clockbox,
+  #footer {
+    display: none !important;
+  }
+
+  /* ========================================================================
+     3. Full-width flow without horizontal clipping
+     ======================================================================== */
+
+  .rtl-admin #container,
+  .rtl-admin #main,
+  .rtl-admin .main,
+  .rtl-admin .main > .content,
+  .rtl-admin .main > #nav-sidebar + .content,
+  .rtl-admin .main.shifted > #nav-sidebar + .content,
+  .rtl-admin #content,
+  .rtl-admin #content-main,
+  .rtl-admin #content-related,
+  .rtl-admin .colM,
+  .rtl-admin .colMS,
+  .rtl-admin .colSM,
+  .rtl-admin .colSM #content-main,
+  .rtl-admin .colSM #content-related,
+  .rtl-admin #changelist,
+  .rtl-admin #changelist .changelist-form-container,
+  .rtl-admin #changelist .changelist-form-container > div,
+  .rtl-admin #changelist .changelist-form-container:has(#changelist-filter) > div,
+  .rtl-admin #changelist-form,
+  .rtl-admin #changelist-form .results,
+  .rtl-admin #changelist .results,
+  .rtl-admin .results,
+  .rtl-admin .module,
+  .rtl-admin .inline-group,
+  .rtl-admin .inline-group .tabular,
+  .rtl-admin .inline-group .tabular .wrapper {
+    display: block;
+    float: none;
+    inline-size: auto;
+    min-inline-size: 0;
+    max-inline-size: 100%;
+    margin-inline: 0;
+    padding-inline: 0;
+    overflow: visible;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .rtl-admin .titles-and-tools,
+  .rtl-admin .titles-and-tools > .titles {
+    display: block;
+    margin-inline: 0;
+    padding-inline: 0;
+  }
+
+  .rtl-admin #content h1,
+  .rtl-admin #content h2,
+  .rtl-admin .module h2,
+  .rtl-admin .module.aligned > h2,
+  .rtl-admin .module caption,
+  .rtl-admin .inline-group h2,
+  .rtl-admin .inline-related h2,
+  .rtl-admin .inline-related h3 {
+    background: transparent;
+    color: #000;
+    text-align: start;
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .rtl-admin .module h2,
+  .rtl-admin .module caption,
+  .rtl-admin .inline-group h2,
+  .rtl-admin .inline-related h2 {
+    border-block-end: 1px solid #999;
+    padding-inline: 0;
+    padding-block: 4px;
+    margin-block-end: 6px;
+  }
+
+  /* ========================================================================
+     4. Links: readable text without appended URLs
+     ======================================================================== */
+
+  .rtl-admin a,
+  .rtl-admin a:link,
+  .rtl-admin a:visited,
+  .rtl-admin #content a,
+  .rtl-admin #content a:link,
+  .rtl-admin #content a:visited,
+  .rtl-admin #result_list a,
+  .rtl-admin #result_list a:link,
+  .rtl-admin #result_list a:visited {
+    color: #000;
+    text-decoration: none;
+  }
+
+  .rtl-admin a[href]::after {
+    content: none;
+  }
+
+  /* ========================================================================
+     5. Tables: preserve column order, repeat headers, wrap long text
+     ======================================================================== */
+
+  .rtl-admin table,
+  .rtl-admin #result_list,
+  .rtl-admin #changelist table#result_list,
+  .rtl-admin .inline-group .tabular table {
+    display: table;
+    inline-size: 100%;
+    max-inline-size: 100%;
+    border-collapse: collapse;
+    table-layout: auto;
+    direction: inherit;
+    border-inline: none;
+  }
+
+  .rtl-admin table thead,
+  .rtl-admin #result_list thead,
+  .rtl-admin .inline-group .tabular thead {
+    display: table-header-group;
+  }
+
+  .rtl-admin table tfoot {
+    display: table-footer-group;
+  }
+
+  .rtl-admin table tbody {
+    display: table-row-group;
+  }
+
+  .rtl-admin table tr {
+    display: table-row;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .rtl-admin th,
+  .rtl-admin td,
+  .rtl-admin #result_list th,
+  .rtl-admin #result_list td,
+  .rtl-admin.change-list .filtered table tbody th,
+  .rtl-admin .inline-group .tabular th,
+  .rtl-admin .inline-group .tabular td {
+    display: table-cell;
+    text-align: start;
+    padding-block: 4px;
+    padding-inline: 6px;
+    border-block-end: 1px solid #ccc;
+    background: transparent;
+    color: #000;
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: normal;
+    overflow: visible;
+  }
+
+  .rtl-admin #result_list thead th,
+  .rtl-admin .inline-group .tabular thead th {
+    border-block-end: 2px solid #666;
+    font-weight: 700;
+  }
+
+  .rtl-admin #result_list thead th .text,
+  .rtl-admin #result_list thead th.sorted .text {
+    padding-inline: 0;
+  }
+
+  .rtl-admin #result_list thead th .text a,
+  .rtl-admin #result_list thead th .text span {
+    padding: 0;
+    display: inline;
+  }
+
+  /* ========================================================================
+     6. Forms, fieldsets, readonly values and inlines
+     ======================================================================== */
+
+  .rtl-admin fieldset {
+    border: 0;
+    margin-block-end: 12px;
+    padding-inline: 0;
+    overflow: visible;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Tabular inlines may span pages between rows while repeating thead. */
+  .rtl-admin .inline-group fieldset,
+  .rtl-admin .inline-group .tabular.inline-related {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
+  .rtl-admin .inline-group[data-inline-type="stacked"] .inline-related {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .rtl-admin .form-row {
+    overflow: visible;
+    border-block-end: 1px solid #ddd;
+    padding-block: 6px;
+    padding-inline: 0;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .rtl-admin .nowrap,
+  .rtl-admin .readonly,
+  .rtl-admin div.readonly,
+  .rtl-admin .form-row,
+  .rtl-admin .form-row p,
+  .rtl-admin form .form-row p.datetime,
+  .rtl-admin .form-row label,
+  .rtl-admin .form-row legend,
+  .rtl-admin .help,
+  .rtl-admin fieldset .description {
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: normal;
+    overflow: visible;
+  }
+
+  .rtl-admin input:not([type="checkbox"]):not([type="radio"]),
+  .rtl-admin textarea,
+  .rtl-admin select,
+  .rtl-admin .vTextField,
+  .rtl-admin .vLargeTextField,
+  .rtl-admin .vURLField,
+  .rtl-admin .vUUIDField {
+    max-inline-size: 100%;
+    box-sizing: border-box;
+    background: #fff;
+    color: #000;
+    border-color: #999;
+  }
+
+  .rtl-admin .inline-group .tabular td.original {
+    inline-size: auto;
+  }
+
+  .rtl-admin .inline-group .tabular td.original p {
+    position: static;
+    block-size: auto;
+    inset-inline: auto;
+    padding: 0;
+    margin: 0;
+    white-space: normal;
+    overflow: visible;
+  }
+
+  .rtl-admin .inline-group .tabular tr.has_original td {
+    padding-block-start: 4px;
+  }
+
+  .rtl-admin .inline-group .tabular td input:not([type="checkbox"]):not([type="radio"]),
+  .rtl-admin .inline-group .tabular td textarea,
+  .rtl-admin .inline-group .tabular td select {
+    inline-size: 100%;
+    min-inline-size: 0;
+    max-inline-size: 100%;
+    box-sizing: border-box;
+  }
+
+  /* ========================================================================
+     7. Preserve bidirectional isolation on paper
+     ======================================================================== */
+
+  .rtl-admin--isolate-cells #result_list thead th,
+  .rtl-admin--isolate-cells #result_list tbody td,
+  .rtl-admin--isolate-cells #result_list tbody th,
+  .rtl-admin--isolate-cells .inline-group .tabular th,
+  .rtl-admin--isolate-cells .inline-group .tabular td,
+  .rtl-admin--isolate-cells #content h1,
+  .rtl-admin--isolate-cells #content > h2,
+  .rtl-admin--isolate-cells #content > .titles-and-tools > .titles > h2 {
+    unicode-bidi: isolate;
+  }
+
+  .rtl-admin div.readonly,
+  .rtl-admin div.readonly > *,
+  .rtl-admin .form-row .readonly {
+    unicode-bidi: plaintext;
+    text-align: start;
+  }
+}

@@ -11,7 +11,7 @@ Load the library in each Django template that uses it:
 {% load rtl_admin %}
 ```
 
-The library contains 17 filters and 8 tags. Examples below assume it is loaded
+The library contains 17 filters and 9 tags. Examples below assume it is loaded
 and that variables come from the template context. Number examples use numeric
 values or numeric strings; date/time examples use Python date, datetime, or time
 objects. See [Configuration](configuration.md) for shared defaults and the
@@ -321,6 +321,19 @@ A `csp_nonce` supplied in context is attached to the link and optional style tag
 The font stack is serialized as CSS, not HTML-escaped; see
 [Configuration](configuration.md#styling-and-direction) for quoting rules and
 the values that are skipped.
+
+### `rtl_admin_print_styles`
+
+Emit the `media="print"` link for the direction-aware print stylesheet:
+
+```django
+{% rtl_admin_print_styles %}
+```
+
+Output is empty with `PRINT_STYLES=False`. URLs use Django's static-file
+handling, and a `csp_nonce` supplied in context is attached to the link tag.
+See [Configuration](configuration.md#printing) for what the print stylesheet
+hides and preserves.
 
 ### `rtl_admin_scripts`
 

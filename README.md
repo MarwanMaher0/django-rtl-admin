@@ -432,6 +432,7 @@ RTL_ADMIN = {
 | Key | Default | What it does |
 | --- | --- | --- |
 | `ENABLE_CSS` | `True` | Link the direction-aware stylesheet into the admin `<head>`. |
+| `PRINT_STYLES` | `True` | Link the logical-property print stylesheet (`media="print"`) from `base_site.html` after the main stylesheet hook. Must be a boolean. |
 | `FONT_STACK` | `None` | Override the `--rtl-admin-font-stack` custom property. A string or a sequence of family names. |
 | `EXTRA_RTL_LANGUAGES` | `()` | Language codes to treat as RTL on top of the ones in Django's `LANGUAGES_BIDI`. |
 | `ISOLATION_DIRECTION` | `"auto"` | Default isolate used by `bidi_isolate` and the mixin: `"auto"` (FSI), `"ltr"` (LRI) or `"rtl"` (RLI). |
