@@ -216,6 +216,22 @@ custom Django format string such as `H:i:s` to include seconds explicitly.
 Babel still honors its own styles and custom CLDR patterns. `None` and invalid
 time values render empty.
 
+### `hijri_date`
+
+Format a date or datetime as an Umm al-Qura Hijri date. The optional style is
+`"long"` (the default), `"medium"`, or `"short"`:
+
+```django
+{{ book.published_on|hijri_date }}
+{{ book.published_on|hijri_date:"short" }}
+```
+
+Month names follow the active language (Arabic, Persian, Urdu, or an English
+transliteration), digits follow `NUMERALS`, and the Hijri era suffix is added.
+Aware datetimes are converted to the current time zone first. `None`, non-date
+values, and dates outside 1343–1500 AH render empty; an unknown style falls back
+to `"long"`. See [`format_hijri_date`](api.md) for the Python helper.
+
 ### `local_digits`
 
 Rewrite digit shapes in an already-formatted string, without changing punctuation:
