@@ -54,6 +54,10 @@ def test_the_switcher_script_is_part_of_the_package():
     assert (ROOT / "static" / "django_rtl_admin" / "js" / "language_switcher.js").is_file()
 
 
+def test_the_slug_script_is_part_of_the_package():
+    assert (ROOT / "static" / "django_rtl_admin" / "js" / "slug.js").is_file()
+
+
 def test_the_templates_are_part_of_the_package():
     assert (ROOT / "templates" / "admin" / "base_site.html").is_file()
     assert (ROOT / "templates" / "django_rtl_admin" / "base_site.html").is_file()

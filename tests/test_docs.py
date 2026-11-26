@@ -16,6 +16,7 @@ TRANSLATED = (
     "configuration",
     "template-tags",
     "admin-mixin",
+    "api",
     "system-checks",
     "translations",
     "rtl-defects",
@@ -67,13 +68,12 @@ def test_docs_build_requires_arabic_translations(tmp_path, name):
         SEO["on_pre_build"](SimpleNamespace(docs_dir=tmp_path))
 
 
-def test_docs_build_allows_only_the_english_reference_fallbacks(tmp_path):
-    for name in ("api", "changelog"):
-        (tmp_path / f"{name}.md").write_text("# Title\n", encoding="utf-8")
+def test_docs_build_allows_only_the_changelog_fallback(tmp_path):
+    (tmp_path / "changelog.md").write_text("# Changelog\n", encoding="utf-8")
     SEO["on_pre_build"](SimpleNamespace(docs_dir=tmp_path))
     nested = tmp_path / "guide"
     nested.mkdir()
-    (nested / "api.md").write_text("# Title\n", encoding="utf-8")
+    (nested / "changelog.md").write_text("# Changelog\n", encoding="utf-8")
     with pytest.raises(ValueError, match="Missing Arabic translation"):
         SEO["on_pre_build"](SimpleNamespace(docs_dir=tmp_path))
 
@@ -188,11 +188,10 @@ def test_landing_seo_uses_github_pages_root_and_package_version():
     assert page.meta["seo_sitemap"] == "https://marwanmaher0.github.io/django-rtl-admin/sitemap.xml"
 
 
-@pytest.mark.parametrize("name", ["api", "changelog"])
-def test_untranslated_reference_pages_keep_english_fallback(name):
-    page = SimpleNamespace(file=SimpleNamespace(src_path=f"{name}.md"))
+def test_untranslated_changelog_keeps_english_fallback():
+    page = SimpleNamespace(file=SimpleNamespace(src_path="changelog.md"))
     assert SEO["_is_fallback"](page, "ar")
-    assert not (DOCS / f"{name}.ar.md").exists()
+    assert not (DOCS / "changelog.ar.md").exists()
 
 
 def test_every_seo_value_set_by_the_hook_is_read_by_a_template():

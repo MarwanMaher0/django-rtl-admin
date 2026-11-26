@@ -80,6 +80,7 @@ plugins:
             Template tags and filters: وسوم القوالب ومرشحاتها
             BidiSafeAdminMixin: المزيج BidiSafeAdminMixin
             System checks: فحوصات النظام
+            Python API: واجهة Python البرمجية
             Stock admin RTL defects: عيوب RTL في لوحة الإدارة الافتراضية
             Translations and contributing a locale: الترجمات والمساهمة بإعدادات محلية
   - mkdocstrings:

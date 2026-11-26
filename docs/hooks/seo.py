@@ -185,10 +185,7 @@ def _translation_structure(text):
 def _check_translations(docs_dir):
     docs_dir = Path(docs_dir)
     for english in sorted(docs_dir.rglob("*.md")):
-        if english.name.endswith(".ar.md") or english.relative_to(docs_dir).as_posix() in {
-            "api.md",
-            "changelog.md",
-        }:
+        if english.name.endswith(".ar.md") or english == docs_dir / "changelog.md":
             continue
         translated = english.with_suffix(".ar.md")
         if not translated.is_file():

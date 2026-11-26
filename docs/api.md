@@ -1,15 +1,15 @@
 ---
 title: Python API | django-rtl-admin
-description: Use Python helpers for numeric input normalization, bidi isolation, digit transliteration, and locale-aware numbers, currencies, percentages, dates, and times.
+description: Use Python helpers for numeric input normalization, Arabic slug generation, bidi isolation, digit transliteration, and locale-aware formatting.
 ---
 
 # Python API
 
 Use the isolation and formatting helpers in display methods or custom templates.
 They can read Django's active language and the [configuration](configuration.md).
-For incoming form data, use `normalize_numeric_input` instead, and use
-`arabic_search_regex` when building Arabic-tolerant `iregex` queries. None of
-these helpers changes stored model values.
+For incoming form data, use `normalize_numeric_input`; for Arabic-tolerant
+`iregex` queries, use `arabic_search_regex`; and for slugs from Arabic-script
+text, use `arabic_slugify`. These helpers return values without saving them.
 
 ## Normalizing numeric input
 
@@ -68,6 +68,56 @@ assert re.fullmatch(pattern, "أَحْمَدُ 1446")
 The [admin mixin](admin-mixin.md#arabic-search-folding) uses this helper in
 `get_search_results()` for terms containing an Arabic letter or an Arabic-Indic
 or Persian digit.
+
+## `arabic_slugify` { #arabic-slugify }
+
+`arabic_slugify(value, *, allow_unicode=False, max_length=None)` makes a slug
+from Arabic-script text. In both modes it removes Arabic diacritics
+(U+064B–U+065F and U+0670), tatweel (`ـ`, U+0640), and Unicode `Bidi_Control`
+characters, and converts Arabic-Indic and Persian digits to ASCII.
+
+- With `allow_unicode=True`, Django's Unicode `slugify()` runs on the cleaned
+  text and can keep Arabic-script letters.
+- In the default ASCII mode, compatibility normalization handles Arabic
+  presentation forms. The helper transliterates the letters below before
+  applying Django's ASCII `slugify()`. This is a fixed letter-by-letter mapping,
+  not phonetic romanization. If the input contains Arabic characters but no
+  ASCII slug survives, the result falls back to `arabic`.
+
+| Letters | ASCII | Letters | ASCII | Letters | ASCII |
+| --- | --- | --- | --- | --- | --- |
+| `ا أ إ آ ٱ ء ع ى` | `a` | `ز` | `z` | `ق` | `q` |
+| `ب` | `b` | `س ص` | `s` | `ك ک` | `k` |
+| `ت ط` | `t` | `ش` | `sh` | `ل` | `l` |
+| `ث` | `th` | `ظ` | `z` | `م` | `m` |
+| `ج` | `j` | `غ` | `gh` | `ن` | `n` |
+| `ح ه ة ہ ۀ ە` | `h` | `ف` | `f` | `و ؤ` | `w` |
+| `خ` | `kh` | `پ` | `p` | `ي ی ئ` | `y` |
+| `د ض` | `d` | `چ` | `ch` | `گ` | `g` |
+| `ذ` | `dh` | `ژ` | `zh` | `ر` | `r` |
+
+If the slug exceeds `max_length`, it is cut at the last hyphen at or before
+that limit, omitting the hyphen itself. If the first segment is too long,
+it is cut to the limit. `None` means no limit; zero or a negative limit returns
+an empty string.
+
+```python
+from django_rtl_admin import arabic_slugify
+
+assert arabic_slugify("مُقَدِّمَة ١٢") == "mqdmh-12"
+assert arabic_slugify("مُقَدِّمَة ١٢", allow_unicode=True) == "مقدمة-12"
+assert arabic_slugify("پژوهش ۱۴۰۳") == "pzhwhsh-1403"
+assert arabic_slugify("مقدمة الكتاب", max_length=9) == "mqdmh"
+assert arabic_slugify("مقدمة الكتاب", max_length=3) == "mqd"
+```
+
+This helper does not check uniqueness. See [Arabic slug prepopulation](admin-mixin.md#arabic-slug-prepopulation)
+for admin integration and validation behavior.
+
+::: django_rtl_admin.arabic_slugify
+    options:
+      heading_level: 3
+      show_root_full_path: false
 
 ## Choosing an isolation helper
 

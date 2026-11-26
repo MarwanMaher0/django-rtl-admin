@@ -13,7 +13,12 @@ from django.test import override_settings
 from django.utils import formats, timezone, translation
 
 import django_rtl_admin
-from django_rtl_admin import arabic_search_regex, formatting, normalize_numeric_input
+from django_rtl_admin import (
+    arabic_search_regex,
+    arabic_slugify,
+    formatting,
+    normalize_numeric_input,
+)
 from django_rtl_admin.formatting import (
     DIGITS,
     format_currency,
@@ -30,6 +35,41 @@ from django_rtl_admin.formatting import (
 
 ARABIC_INDIC = DIGITS["arab"]
 EXTENDED = DIGITS["arabext"]
+
+
+@pytest.mark.parametrize(
+    ("value", "ascii_slug", "unicode_slug"),
+    [
+        ("مُقَـدِّمَة ١٢", "mqdmh-12", "مقدمة-12"),
+        ("أ إ آ ٱ ء ؤ ئ", "a-a-a-a-a-w-y", "أ-إ-آ-ٱ-ء-ؤ-ئ"),
+        ("فتى في مدرسة", "fta-fy-mdrsh", "فتى-في-مدرسة"),
+        ("پژوهشِ چک و گنج ۱۴۰۳", "pzhwhsh-chk-w-gnj-1403", "پژوهش-چک-و-گنج-1403"),
+        ("خانۀ ما", "khanh-ma", "خانۀ-ما"),
+        ("ﻻ ٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "la-01234567890123456789", "لا-01234567890123456789"),
+        ("\u2067كِ\u202eتابٌ\u202c\u2069", "ktab", "كتاب"),
+        ("__Café & كتاب___", "cafe-ktab", "café-كتاب"),
+        ("ـَ", "arabic", ""),
+        (None, "", ""),
+        ("", "", ""),
+    ],
+)
+def test_arabic_slugify(value, ascii_slug, unicode_slug):
+    assert django_rtl_admin.arabic_slugify is formatting.arabic_slugify
+    assert "arabic_slugify" in django_rtl_admin.__all__
+    assert arabic_slugify(value) == ascii_slug
+    assert arabic_slugify(value, allow_unicode=True) == unicode_slug
+
+
+@pytest.mark.parametrize(
+    ("limit", "expected"),
+    [(None, "ktab-jdyd"), (9, "ktab-jdyd"), (7, "ktab"), (4, "ktab"), (3, "kta"), (0, "")],
+)
+def test_arabic_slugify_prefers_whole_segments_when_truncating(limit, expected):
+    assert arabic_slugify("كتاب جديد", max_length=limit) == expected
+
+
+def test_arabic_slugify_unicode_limit_counts_characters():
+    assert arabic_slugify("كتاب جديد", allow_unicode=True, max_length=6) == "كتاب"
 
 
 @pytest.mark.parametrize(

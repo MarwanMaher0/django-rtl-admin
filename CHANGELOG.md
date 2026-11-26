@@ -18,6 +18,12 @@ All notable changes to this project are documented here. The format follows
   admin with `bidi_local_digits = True`; opt one admin out with
   `bidi_local_digits = False`, and `RTL_ADMIN["NUMERALS"]` forces the
   numbering system.
+- `BidiSafeAdminMixin` generates blank `prepopulated_fields` slugs from
+  Arabic-script titles on add forms and new inline rows, respecting the
+  `SlugField` Unicode and length options without rewriting existing slugs or
+  making them unique. Use `arabic_slugify()` directly, or opt out with
+  `RTL_ADMIN["TRANSLITERATE_SLUGS"] = False` or `bidi_transliterate_slugs = False`
+  on the admin or inline.
 - `BidiSafeAdminMixin` folds equivalent Arabic letter forms, harakat, tatweel,
   and digits in changelist and autocomplete search across text `search_fields`
   while keeping ASCII and Hebrew queries untouched. Use `arabic_search_regex()`

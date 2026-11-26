@@ -59,6 +59,21 @@ def test_fold_arabic_search_requires_a_bool(value):
         rtl_settings.FOLD_ARABIC_SEARCH
 
 
+def test_transliterate_slugs_defaults_to_true_and_can_be_disabled():
+    assert rtl_settings.TRANSLITERATE_SLUGS is True
+    with override_settings(RTL_ADMIN={"TRANSLITERATE_SLUGS": False}):
+        assert rtl_settings.TRANSLITERATE_SLUGS is False
+
+
+@pytest.mark.parametrize("value", [0, 1, None, "False"])
+def test_transliterate_slugs_requires_a_bool(value):
+    with (
+        override_settings(RTL_ADMIN={"TRANSLITERATE_SLUGS": value}),
+        pytest.raises(ImproperlyConfigured, match=r"TRANSLITERATE_SLUGS.*bool"),
+    ):
+        rtl_settings.TRANSLITERATE_SLUGS
+
+
 def test_unknown_attributes_raise():
     with pytest.raises(AttributeError, match="Invalid RTL_ADMIN setting"):
         rtl_settings.NOT_A_SETTING

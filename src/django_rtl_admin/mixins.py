@@ -25,6 +25,7 @@ from django.contrib.admin.utils import (
 from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist, ValidationError
 from django.db import models
 from django.db.models.constants import LOOKUP_SEP
+from django.utils.datastructures import MultiValueDict
 from django.utils.formats import get_format
 from django.utils.html import conditional_escape, format_html
 from django.utils.safestring import SafeData, mark_safe
@@ -37,18 +38,20 @@ from .formatting import (
     _has_arabic_search_chars,
     _has_foldable_search_chars,
     arabic_search_regex,
+    arabic_slugify,
     normalize_numeric_input,
     numbering_system,
     transliterate_digits,
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator, Sequence
+    from collections.abc import Callable, Iterator, Mapping, Sequence
 
     from django.contrib.admin import ModelAdmin
     from django.db.models import Field, Model, QuerySet
     from django.db.models.fields.reverse_related import ForeignObjectRel
     from django.db.models.options import Options
+    from django.forms.models import BaseInlineFormSet
     from django.http import HttpRequest, HttpResponse
     from django.utils.functional import Promise
     from django.utils.safestring import SafeString
@@ -59,14 +62,16 @@ if TYPE_CHECKING:
     _ListDisplay = list[_Display] | tuple[_Display, ...]
     _ReadonlyEntry = str | Callable[[Any], object]
     _ModelField = Field[Any, Any] | ForeignObjectRel
+    _SlugTargets = dict[str, tuple[Sequence[str], bool, int | None]]
 
     # The mixin calls ``super()`` hooks and reads attributes that only exist
     # once it is combined with a ``ModelAdmin``.  Type checkers are told so;
     # at runtime it stays a plain class, importable before the app registry
     # is ready and with nothing added to the MRO.
     _Base = ModelAdmin[Any]
+    _ModelFormBase = forms.ModelForm[Any]
 else:
-    _Base = object
+    _Base = _ModelFormBase = object
 
 #: Field types whose changelist representation is an icon or a bare number and
 #: therefore has nothing to isolate.
@@ -258,6 +263,122 @@ def _enable_input_normalization(field: forms.Field) -> None:
             widget.input_type = "text"
             fractional = isinstance(field, (forms.DecimalField, forms.FloatField))
             widget.attrs.setdefault("inputmode", "decimal" if fractional else "numeric")
+
+
+class _PrepopulatedSlugForm(_ModelFormBase):
+    _slug_targets: _SlugTargets
+    _needs_slug_media: bool
+
+    @property
+    def media(self) -> forms.Media:
+        media = super().media
+        if self._needs_slug_media:
+            media += forms.Media(js=[_PREPOPULATE_SCRIPT, _SLUG_SCRIPT])
+        return media
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        for name, (_, allow_unicode, max_length) in self._slug_targets.items():
+            field = self.fields.get(name)
+            if field is None:
+                continue
+            widget = field.widget
+            if self.instance._state.adding and not field.disabled:
+                widget.attrs["data-rtl-slug"] = "unicode" if allow_unicode else "ascii"
+                widget.attrs["data-rtl-slug-length"] = "" if max_length is None else max_length
+                # Let the browser submit an empty slug even without JS.
+                widget.use_required_attribute = lambda _initial: False
+            else:
+                widget.attrs["data-rtl-slug"] = "off"
+
+    def full_clean(self) -> None:
+        if (
+            self.is_bound
+            and self.instance._state.adding
+            and (not self.empty_permitted or self.has_changed())
+        ):
+            updates = {}
+            for name, (sources, allow_unicode, max_length) in self._slug_targets.items():
+                field = self.fields.get(name)
+                if field is None or field.disabled:
+                    continue
+                submitted = self[name].data
+                if submitted is not None and str(submitted).strip():
+                    continue
+                values = [self[source].value() for source in sources if source in self.fields]
+                slug = arabic_slugify(
+                    " ".join(str(value) for value in values if value not in (None, "")),
+                    allow_unicode=allow_unicode,
+                    max_length=max_length,
+                )
+                if slug:
+                    updates[self.add_prefix(name)] = slug
+            if updates:
+                # Keep request.POST and other inline rows untouched. Django
+                # validates the generated slug just like a submitted one.
+                data = (
+                    self.data.copy() if isinstance(self.data, MultiValueDict) else dict(self.data)
+                )
+                for key, value in updates.items():
+                    data[key] = value
+                self.data = data
+        super().full_clean()
+
+
+def _slug_form(
+    form: type[forms.ModelForm[Any]],
+    prepopulated: Mapping[str, Sequence[str]],
+    opts: Options[Any],
+    *,
+    needs_media: bool,
+) -> type[forms.ModelForm[Any]]:
+    targets: _SlugTargets = {}
+    for name, sources in prepopulated.items():
+        field = form.base_fields.get(name)
+        if (
+            field is None
+            or not sources
+            or any(source not in form.base_fields for source in sources)
+        ):
+            continue
+        try:
+            model_field = opts.get_field(name)
+        except FieldDoesNotExist:
+            continue
+        if isinstance(model_field, models.SlugField):
+            limits = [
+                limit
+                for limit in (model_field.max_length, getattr(field, "max_length", None))
+                if limit is not None
+            ]
+            # django-stubs doesn't declare SlugField.allow_unicode.
+            targets[name] = (
+                sources,
+                bool(getattr(model_field, "allow_unicode", False)),
+                min(limits, default=None),
+            )
+    if not targets:
+        return form
+    wrapped = cast(
+        "type[forms.ModelForm[Any]]",
+        type(
+            form.__name__,
+            (_PrepopulatedSlugForm, form),
+            {
+                "_slug_targets": targets,
+                "_needs_slug_media": needs_media,
+                "media": _PrepopulatedSlugForm.media,
+            },
+        ),
+    )
+    # The ModelForm metaclass rebuilds base_fields. Keep the fields selected
+    # and customized by the admin's original get_form()/get_formset().
+    wrapped.base_fields = form.base_fields
+    return wrapped
+
+
+_PREPOPULATE_SCRIPT = "admin/js/prepopulate.js"
+_SLUG_SCRIPT = "django_rtl_admin/js/slug.js"
 
 
 _EXPLICIT_TEXT_LOOKUPS: dict[str, str] = {
@@ -533,6 +654,9 @@ class BidiSafeAdminMixin(_Base):
     ``bidi_fold_search``
         ``True``/``False`` to override ``RTL_ADMIN["FOLD_ARABIC_SEARCH"]``
         when searching text fields on the changelist or in autocompletes.
+    ``bidi_transliterate_slugs``
+        ``True``/``False`` to override ``RTL_ADMIN["TRANSLITERATE_SLUGS"]``
+        for prepopulated slug fields on add forms and new inline rows.
     ``bidi_isolate_changelist``
         ``True``/``False`` to override ``RTL_ADMIN["ISOLATE_CHANGELIST"]``.
     ``bidi_isolate_readonly``
@@ -549,6 +673,7 @@ class BidiSafeAdminMixin(_Base):
     bidi_normalize_input: bool | None = None
     bidi_local_digits: bool | None = None
     bidi_fold_search: bool | None = None
+    bidi_transliterate_slugs: bool | None = None
     bidi_isolate_changelist: bool | None = None
     bidi_isolate_readonly: bool | None = None
     bidi_isolate_fields: tuple[str, ...] | None = None
@@ -599,6 +724,53 @@ class BidiSafeAdminMixin(_Base):
             if isinstance(name, str) and name in self.bidi_isolate_exclude:
                 return False
         return True
+
+    # -- ModelAdmin and InlineModelAdmin form hooks ------------------------
+
+    def _bidi_slug_prepopulation_enabled(self) -> bool:
+        enabled = self.bidi_transliterate_slugs
+        if enabled is None:
+            enabled = rtl_settings.TRANSLITERATE_SLUGS
+        return enabled
+
+    @property
+    def media(self) -> forms.Media:
+        media = super().media
+        if self.prepopulated_fields and self._bidi_slug_prepopulation_enabled():
+            # ModelAdmin supplies the stock plugin even for inline-only
+            # prepopulation. Express the order in both model and inline media.
+            media += forms.Media(js=[_PREPOPULATE_SCRIPT, _SLUG_SCRIPT])
+        return media
+
+    def get_form(
+        self, request: HttpRequest, obj: Any = None, change: bool = False, **kwargs: Any
+    ) -> type[forms.ModelForm[Any]]:
+        form = super().get_form(request, obj, change=change, **kwargs)
+        if self._bidi_slug_prepopulation_enabled():
+            return _slug_form(
+                form,
+                self.get_prepopulated_fields(request, obj),
+                self.opts,
+                # Media is otherwise request-independent, so the wrapped form
+                # supplies the script when only the request-aware hook adds targets.
+                needs_media=not self.prepopulated_fields,
+            )
+        return form
+
+    def get_formset(
+        self, request: HttpRequest, obj: Any = None, **kwargs: Any
+    ) -> type[BaseInlineFormSet[Any, Any]]:
+        formset: type[BaseInlineFormSet[Any, Any]] = super().get_formset(  # type: ignore[misc]
+            request, obj, **kwargs
+        )
+        if self._bidi_slug_prepopulation_enabled():
+            formset.form = _slug_form(
+                formset.form,
+                self.get_prepopulated_fields(request, obj),
+                self.opts,
+                needs_media=not self.prepopulated_fields,
+            )
+        return formset
 
     # -- ModelAdmin hooks --------------------------------------------------
 

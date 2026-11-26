@@ -31,7 +31,7 @@ from django_rtl_admin.bidi import FSI, ISOLATE_OPENERS, LRI, PDI, RLI, isolate
 from django_rtl_admin.mixins import _SUCCESS_MESSAGES, _localize_cell_digits
 
 from .testapp.admin import BidiThingAdmin, BookAdmin, InputBookAdmin, LocalizedInputBookAdmin
-from .testapp.models import Book, Category, Chapter, Review, Thing
+from .testapp.models import Article, ArticleSection, Book, Category, Chapter, Review, Thing
 
 pytestmark = pytest.mark.django_db
 
@@ -49,6 +49,124 @@ def request_for(user):
     request = RequestFactory().get(CHANGELIST_URL)
     request.user = user
     return request
+
+
+# -- slug prepopulation ---------------------------------------------------
+
+
+ARTICLE_ADD_URL = "/admin/testapp/article/add/"
+SLUG_SCRIPT = "django_rtl_admin/js/slug.js"
+
+
+def article_data(**overrides):
+    return {
+        "title": "مُقَـدِّمَة ١٢",
+        "subtitle": "جديدة",
+        "slug": "",
+        "unicode_slug": "",
+        "stock_slug": "",
+        "articlesection_set-TOTAL_FORMS": "2",
+        "articlesection_set-INITIAL_FORMS": "0",
+        "articlesection_set-0-title": "پژوهش ۱۴۰۳",
+        "articlesection_set-0-slug": "",
+        "articlesection_set-1-title": "",
+        "articlesection_set-1-slug": "",
+        **overrides,
+    }
+
+
+def test_admin_add_fills_empty_slugs_before_validation(admin_client):
+    form_page = admin_client.get(ARTICLE_ADD_URL)
+    assert tuple(form_page.context["media"]._js).count(SLUG_SCRIPT) == 1
+    form = form_page.context["adminform"].form
+    assert 'data-rtl-slug="ascii"' in str(form["slug"])
+    assert 'data-rtl-slug="unicode"' in str(form["unicode_slug"])
+    assert "required" not in str(form["slug"])
+    assert form.fields["slug"].required
+    assert "data-rtl-slug" not in str(form["stock_slug"])
+    assert SLUG_SCRIPT not in make_admin().media._js
+
+    response = admin_client.post(ARTICLE_ADD_URL, article_data())
+    assert response.status_code == 302
+    article = Article.objects.get()
+    assert article.title == "مُقَـدِّمَة ١٢"
+    assert article.slug == "mqdmh-12-jdydh"
+    assert article.unicode_slug == "مقدمة-12"
+    assert article.stock_slug == ""
+    assert list(ArticleSection.objects.values_list("article_id", "slug")) == [
+        (article.pk, "پژوهش-1403")
+    ]
+
+
+def test_explicit_slug_is_preserved_and_existing_slugs_are_not_regenerated(admin_client):
+    response = admin_client.post(ARTICLE_ADD_URL, article_data(slug="my-manual-slug"))
+    assert response.status_code == 302
+    article = Article.objects.get(slug="my-manual-slug")
+    change_url = f"/admin/testapp/article/{article.pk}/change/"
+    form = admin_client.get(change_url).context["adminform"].form
+    assert 'data-rtl-slug="off"' in str(form["slug"])
+
+    data = article_data(title="عنوان جديد", unicode_slug=article.unicode_slug)
+    data.update({"articlesection_set-TOTAL_FORMS": "0"})
+    response = admin_client.post(change_url, data)
+    assert response.context["adminform"].form.errors.as_data()["slug"][0].code == "required"
+    article.refresh_from_db()
+    assert article.slug == "my-manual-slug"
+
+
+def test_custom_admin_form_fields_are_preserved(admin_user):
+    class CustomFormAdmin(admin.ModelAdmin):
+        def get_form(self, request, obj=None, change=False, **kwargs):
+            form = super().get_form(request, obj, change=change, **kwargs)
+            form.base_fields["slug"].disabled = True
+            return form
+
+    class CustomArticleAdmin(BidiSafeAdminMixin, CustomFormAdmin):
+        prepopulated_fields = {"slug": ("title",)}
+
+    model_admin = CustomArticleAdmin(Article, AdminSite())
+    form = model_admin.get_form(request_for(admin_user), fields=("title", "slug"))()
+    assert form.fields["slug"].disabled
+    assert 'data-rtl-slug="off"' in str(form["slug"])
+
+
+def test_request_specific_prepopulated_fields_load_script(admin_client, monkeypatch):
+    model_admin = admin.site._registry[Article]
+    monkeypatch.setattr(model_admin, "prepopulated_fields", {})
+    monkeypatch.setattr(model_admin, "get_prepopulated_fields", lambda *_: {"slug": ("title",)})
+    monkeypatch.setattr(model_admin, "inlines", ())
+    assert SLUG_SCRIPT not in model_admin.media._js
+    page = admin_client.get(ARTICLE_ADD_URL)
+    assert SLUG_SCRIPT in page.context["media"]._js
+    assert 'data-rtl-slug="ascii"' in str(page.context["adminform"].form["slug"])
+
+
+def test_generated_slug_goes_through_uniqueness_validation(admin_client):
+    Article.objects.create(title="مقدمة", slug="mqdmh-12-jdydh")
+    response = admin_client.post(ARTICLE_ADD_URL, article_data())
+    assert response.context["adminform"].form.errors.as_data()["slug"][0].code == "unique"
+    assert Article.objects.count() == 1
+    assert not ArticleSection.objects.exists()
+
+
+@pytest.mark.parametrize(
+    ("global_setting", "override"), [(False, None), (True, False), (False, True)]
+)
+def test_admin_slug_setting_can_be_overridden(admin_client, monkeypatch, global_setting, override):
+    model_admin = admin.site._registry[Article]
+    monkeypatch.setattr(model_admin, "bidi_transliterate_slugs", override)
+    with override_settings(RTL_ADMIN={"TRANSLITERATE_SLUGS": global_setting}):
+        assert (SLUG_SCRIPT in model_admin.media._js) is (override is True)
+        response = admin_client.post(
+            ARTICLE_ADD_URL, article_data(**{"articlesection_set-TOTAL_FORMS": "0"})
+        )
+    if override is True:
+        assert response.status_code == 302
+        assert Article.objects.get().slug == "mqdmh-12-jdydh"
+    else:
+        form = response.context["adminform"].form
+        assert form.errors.as_data()["slug"][0].code == "required"
+        assert "data-rtl-slug" not in str(form["slug"])
 
 
 # -- list_display rewriting ------------------------------------------------

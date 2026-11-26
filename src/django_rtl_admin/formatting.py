@@ -26,6 +26,7 @@ from typing import Any
 from django.conf import settings
 from django.utils import dateformat, formats, timesince, timezone, translation
 from django.utils.html import avoid_wrapping
+from django.utils.text import slugify
 from django.utils.translation import get_language, gettext, npgettext, pgettext, to_locale
 
 from .bidi import BIDI_CONTROL_CHARS
@@ -182,6 +183,50 @@ _DIGIT_SEARCH_CLASS: dict[str, str] = {
     for char in (latn, arab, ext)
 }
 _ARABIC_DIGITS = frozenset(DIGITS["arab"] + DIGITS["arabext"])
+
+# Stable, letter-by-letter romanisation, not a phonetic transcription. Keep
+# the table in sync with static/django_rtl_admin/js/slug.js and the API docs.
+_ARABIC_ROMANIZATION = str.maketrans(
+    {
+        char: latin
+        for letters, latin in (
+            ("اأإآٱءعى", "a"),
+            ("ب", "b"),
+            ("تط", "t"),
+            ("ث", "th"),
+            ("ج", "j"),
+            ("حةهہۀە", "h"),
+            ("خ", "kh"),
+            ("دض", "d"),
+            ("ذ", "dh"),
+            ("ر", "r"),
+            ("زظ", "z"),
+            ("سص", "s"),
+            ("ش", "sh"),
+            ("غ", "gh"),
+            ("ف", "f"),
+            ("ق", "q"),
+            ("كک", "k"),
+            ("ل", "l"),
+            ("م", "m"),
+            ("ن", "n"),
+            ("وؤ", "w"),
+            ("يیئ", "y"),
+            ("پ", "p"),
+            ("چ", "ch"),
+            ("ژ", "zh"),
+            ("گ", "g"),
+        )
+        for char in letters
+    }
+)
+_SLUG_CLEANUP = str.maketrans(
+    DIGITS["arab"] + DIGITS["arabext"], DIGITS["latn"] * 2, "".join(_ARABIC_SEARCH_DROPPED)
+)
+_ARABIC_SLUG_INPUT = re.compile(
+    r"[\u0600-\u06ff\u0750-\u077f\u0870-\u08ff\ufb50-\ufdff\ufe70-\ufefc"
+    r"\U00010ec0-\U00010eff\U0001ee00-\U0001eeff]"
+)
 
 _DJANGO_DATE_FORMATS = {
     "short": "SHORT_DATE_FORMAT",
@@ -406,6 +451,40 @@ def arabic_search_regex(term: str) -> str:
         else:
             parts.append(char)
     return "".join(parts)
+
+
+def arabic_slugify(
+    value: Any, *, allow_unicode: bool = False, max_length: int | None = None
+) -> str:
+    """Make a slug from Arabic or Persian text, independent of the UI locale.
+
+    Remove harakat, tatweel and bidi controls, and convert both Arabic digit
+    sets to ASCII. With ``allow_unicode=True`` the remaining text is passed to
+    Django's Unicode slugifier. Otherwise Arabic and Persian letters are
+    romanised with a fixed letter-by-letter table before Django slugifies them.
+    Arabic input that would otherwise produce an empty ASCII slug yields
+    ``"arabic"``.
+
+    When shortening, keep complete hyphen-separated segments if possible;
+    hard-cut the first segment if it cannot fit. A nonpositive limit yields
+    the empty string. ``None`` and empty strings always return an empty slug.
+    """
+    if value is None or (isinstance(value, str) and not value):
+        return ""
+    text = str(value)
+    if allow_unicode:
+        slug = slugify(text.translate(_SLUG_CLEANUP), allow_unicode=True)
+    else:
+        cleaned = unicodedata.normalize("NFKC", text).translate(_SLUG_CLEANUP)
+        slug = slugify(cleaned.translate(_ARABIC_ROMANIZATION))
+        if not slug and _ARABIC_SLUG_INPUT.search(text):
+            slug = "arabic"
+    if max_length is None or len(slug) <= max_length:
+        return slug
+    if max_length <= 0:
+        return ""
+    boundary = slug.rfind("-", 0, max_length + 1)
+    return slug[: max_length if boundary == -1 else boundary].rstrip("-_")
 
 
 def _localize_digits(text: str, language: str | None) -> str:

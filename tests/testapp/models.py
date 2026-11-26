@@ -96,3 +96,23 @@ class Review(models.Model):
 
     def __str__(self):
         return self.reviewer
+
+
+class Article(models.Model):
+    title = models.CharField(max_length=100)
+    subtitle = models.CharField(max_length=100, blank=True)
+    slug = models.SlugField(max_length=20, unique=True)
+    unicode_slug = models.SlugField(max_length=20, allow_unicode=True)
+    stock_slug = models.CharField(max_length=20, blank=True)
+
+    def __str__(self):
+        return self.title
+
+
+class ArticleSection(models.Model):
+    article = models.ForeignKey(Article, on_delete=models.CASCADE)
+    title = models.CharField(max_length=100)
+    slug = models.SlugField(max_length=20, allow_unicode=True)
+
+    def __str__(self):
+        return self.title

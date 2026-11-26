@@ -34,6 +34,7 @@ The supported keys are defined in `django_rtl_admin.conf.DEFAULTS`.
 | `NORMALIZE_INPUT_DIGITS` | `True` | Normalize Arabic-Indic and Persian digits when parsing numeric, date, and time fields on mixin-enabled admins and inlines. |
 | `LOCALIZE_CHANGELIST_DIGITS` | `False` | Rewrite digits in eligible numeric and temporal changelist cells on mixin-enabled admins for the active locale's numbering system, keeping Django's separators. |
 | `FOLD_ARABIC_SEARCH` | `True` | Fold equivalent Arabic letter forms, diacritics, tatweel, and digits when searching text fields and autocompletes on mixin-enabled admins. |
+| `TRANSLITERATE_SLUGS` | `True` | Prepopulate blank slugs from Arabic-script text on mixin-enabled add forms and new inline rows. |
 | `NUMERALS` | `"auto"` | Follow the locale's numbering system, or force `"latn"`, `"arab"`, or `"arabext"` in the formatting helpers. |
 | `USE_BABEL` | `True` | Use Babel when installed; otherwise render numbers from built-in CLDR tables, with Django as a last resort. |
 | `CURRENCY` | `"USD"` | Default currency for `format_currency` and `l10n_currency` when no truthy currency argument is supplied. |
@@ -179,6 +180,18 @@ On a [mixin-enabled admin](admin-mixin.md#arabic-search-folding),
 `bidi_fold_search = None` inherits this setting; `True` or `False` overrides it
 for that admin class, including its target autocomplete endpoint. Plain
 `ModelAdmin` classes are unaffected.
+
+## Arabic slug prepopulation
+
+`RTL_ADMIN["TRANSLITERATE_SLUGS"]` is a boolean and defaults to `True`. Set
+it to `False` to leave slug prepopulation to Django. Use an actual boolean,
+not a string such as `"False"`.
+
+On an [admin or inline that uses the mixin](admin-mixin.md#arabic-slug-prepopulation),
+`bidi_transliterate_slugs = None` inherits the global setting. Set it to
+`True` or `False` to override the setting for that class. An inline uses its
+own override, not its parent's. The setting has no effect on direct calls to
+[`arabic_slugify`](api.md#arabic-slugify).
 
 ## Numbers, currencies, and Babel
 

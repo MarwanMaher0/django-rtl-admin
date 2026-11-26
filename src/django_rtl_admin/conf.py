@@ -63,6 +63,8 @@ DEFAULTS: dict[str, Any] = {
     "LOCALIZE_CHANGELIST_DIGITS": False,
     # Match equivalent Arabic letter forms, diacritics and digits in admin search.
     "FOLD_ARABIC_SEARCH": True,
+    # Prepopulate SlugFields from Arabic and Persian text in admin add forms.
+    "TRANSLITERATE_SLUGS": True,
     # Use Babel when it is installed.  Set to False to always use Django's
     # own l10n machinery.
     "USE_BABEL": True,
@@ -104,6 +106,7 @@ class RTLAdminSettings:
         NORMALIZE_INPUT_DIGITS: bool
         LOCALIZE_CHANGELIST_DIGITS: bool
         FOLD_ARABIC_SEARCH: bool
+        TRANSLITERATE_SLUGS: bool
         USE_BABEL: bool
         CURRENCY: str
         LANGUAGE_SWITCHER: bool
@@ -136,6 +139,7 @@ class RTLAdminSettings:
             "NORMALIZE_INPUT_DIGITS",
             "LOCALIZE_CHANGELIST_DIGITS",
             "FOLD_ARABIC_SEARCH",
+            "TRANSLITERATE_SLUGS",
         } and not isinstance(value, bool):
             raise ImproperlyConfigured(f"{SETTINGS_KEY}[{name!r}] must be a bool, got {value!r}.")
         choices = CHOICES.get(name)

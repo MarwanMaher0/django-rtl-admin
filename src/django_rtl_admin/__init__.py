@@ -5,6 +5,7 @@ Public API::
     from django_rtl_admin import (
         BidiSafeAdminMixin,
         arabic_search_regex,
+        arabic_slugify,
         isolate,
         isolate_runs,
         mark_isolated,
@@ -43,6 +44,7 @@ from .bidi import (
 from .conf import DEFAULTS, rtl_settings
 from .formatting import (
     arabic_search_regex,
+    arabic_slugify,
     format_currency,
     format_date,
     format_datetime,
@@ -90,6 +92,7 @@ __all__ = [
     "BidiSafeAdminMixin",
     "__version__",
     "arabic_search_regex",
+    "arabic_slugify",
     "current_direction",
     "format_currency",
     "format_date",

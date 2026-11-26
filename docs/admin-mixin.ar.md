@@ -13,7 +13,8 @@ description: أضف عزل Unicode اختياريًا إلى خلايا قائم
 يمسّ القيم المخزّنة. ويتيح المزيج أيضًا [إدخال الأعداد والتواريخ](#numeric-and-date-input)
 بالأرقام العربية الهندية أو الفارسية، و[توطين الأرقام في قائمة السجلات](#changelist-digit-localization)
 اختياريًا للحقول العددية والزمنية، و[مطابقة الصور المكافئة في البحث العربي](#arabic-search-folding)
-للأحرف والتشكيل والتطويل والأرقام، مهما كانت لغة الواجهة.
+للأحرف والتشكيل والتطويل والأرقام، مهما كانت لغة الواجهة. ويملأ أيضًا
+[معرّفات الروابط من عناوين مكتوبة بالحرف العربي](#arabic-slug-prepopulation).
 
 ## إضافته إلى ModelAdmin { #add-it-to-a-modeladmin }
 
@@ -51,6 +52,7 @@ from django_rtl_admin.mixins import BidiSafeAdminMixin
 | `bidi_normalize_input` | `None` | تتبع `RTL_ADMIN["NORMALIZE_INPUT_DIGITS"]`؛ استخدم `True` أو `False` لتفعيل تحويل الأرقام عند الإدخال أو تعطيله في هذه الفئة. |
 | `bidi_local_digits` | `None` | تتبع `RTL_ADMIN["LOCALIZE_CHANGELIST_DIGITS"]`؛ استخدم `True` أو `False` لتفعيل [توطين الأرقام في قائمة السجلات](#changelist-digit-localization) أو تعطيله في هذه الفئة. |
 | `bidi_fold_search` | `None` | تتبع `RTL_ADMIN["FOLD_ARABIC_SEARCH"]`؛ استخدم `True` أو `False` لتفعيل [مطابقة الصور المكافئة في البحث العربي](#arabic-search-folding) أو تعطيلها في هذه الفئة. |
+| `bidi_transliterate_slugs` | `None` | تتبع `RTL_ADMIN["TRANSLITERATE_SLUGS"]`؛ استخدم `True` أو `False` لتفعيل [ملء معرّفات الروابط من النص العربي](#arabic-slug-prepopulation) أو تعطيله في فئة الإدارة العادية أو المضمّنة. |
 | `bidi_isolate_changelist` | `None` | تتبع `RTL_ADMIN["ISOLATE_CHANGELIST"]`؛ وتتجاوزها `True` أو `False` لفئة الإدارة هذه. يشمل المفتاح نفسه [أسماء الكائنات](#object-names-in-messages-and-on-the-delete-page) في صفحة الحذف وفي الرسائل. |
 | `bidi_isolate_readonly` | `None` | تتبع `RTL_ADMIN["ISOLATE_READONLY_FIELDS"]`؛ وتتجاوزها `True` أو `False` لفئة الإدارة هذه. |
 | `bidi_isolate_fields` | `None` | تنظر في جميع مدخلات `list_display` النصية المؤهلة؛ وإلا تعزل فقط الأسماء الموجودة في هذا الكائن القابل للتكرار في قائمة السجلات. لا يعزل الصف الفارغ أي مدخل. |
@@ -163,6 +165,52 @@ Django** (فعلى سبيل المثال تصبح `1234,50` في `ar-eg` على 
 `RTL_ADMIN["FOLD_ARABIC_SEARCH"] = False`، أو لفئة إدارة بعينها اضبط
 `bidi_fold_search = False`؛ واضبط `bidi_fold_search = True` للإبقاء على المطابقة في فئة
 واحدة حين يكون الإعداد العام `False`.
+
+## ملء معرّفات الروابط من النص العربي { #arabic-slug-prepopulation }
+
+استخدم `prepopulated_fields` في Django لتحديد حقل `SlugField` المراد ملؤه والحقول
+التي يُشتقّ منها. يجب أن ترث فئة الإدارة المضمّنة `BidiSafeAdminMixin` بنفسها،
+حتى لو ورثته فئة الإدارة الأم أيضًا:
+
+```python
+from django.contrib import admin
+
+from django_rtl_admin import BidiSafeAdminMixin
+
+from .models import Book, Chapter
+
+
+class ChapterInline(BidiSafeAdminMixin, admin.TabularInline):
+    model = Chapter
+    prepopulated_fields = {"slug": ("title",)}
+
+
+@admin.register(Book)
+class BookAdmin(BidiSafeAdminMixin, admin.ModelAdmin):
+    prepopulated_fields = {"slug": ("title", "subtitle")}
+    inlines = [ChapterInline]
+```
+
+هذا التسجيل بديل عن التسجيل السابق. يفترض أن `Book` يحتوي على الحقول `title`
+و`subtitle` و`slug`، وأن `Chapter` يحتوي على الحقلين `title` و`slug` ومفتاح
+أجنبي يشير إلى `Book`. عند تحديد أكثر من حقل مصدر، تُجمع القيم بمسافات وفق
+الترتيب المحدد قبل توليد المعرّف. فمثلًا، ينتج عن العنوان `مُقَدِّمَة` والعنوان
+الفرعي `١٢` المعرّف `mqdmh-12` في حقل `SlugField` الذي لا يقبل إلا محارف ASCII،
+أو `مقدمة-12` عند ضبط `allow_unicode=True`. ويراعي المعرّف الناتج حد طول الحقل؛
+راجع [`arabic_slugify`](api.md#arabic-slugify) لمعرفة قواعد الاقتطاع.
+
+تقتصر المعاينة في المتصفح والملء على الخادم على نماذج الإضافة والصفوف المضمّنة
+الجديدة، بما فيها الصفوف الجديدة في نموذج تعديل السجل الأم. لهذه السجلات الجديدة،
+يملأ الخادم المعرّف الفارغ قبل التحقق حتى دون JavaScript، ولا يستبدل معرّفًا غير
+فارغ. عند تعديل سجل أو صف مضمّن موجود، لا يملأ المزيج المعرّف الذي أفرغته:
+يظل Django يرفض القيمة الفارغة إذا كان الحقل مطلوبًا. تخضع المعرّفات الناتجة
+لقواعد Django المعتادة للتحقق من الحقل والنموذج والتفرّد. أدخل معرّفًا مختلفًا
+إذا أظهر التحقق وجود قيمة مكررة؛ لا يضيف المزيج لاحقة.
+
+لترك ملء المعرّفات لـDjango، اضبط `RTL_ADMIN["TRANSLITERATE_SLUGS"] = False`
+على مستوى المشروع، أو اضبط `bidi_transliterate_slugs = False` في فئة الإدارة
+العادية أو المضمّنة المعنية. لتفعيل الميزة في فئة واحدة حتى عند تعطيلها عمومًا،
+اضبط `bidi_transliterate_slugs = True` فيها.
 
 ## الحقول المسمّاة وطرائق العرض { #named-fields-and-display-methods }
 

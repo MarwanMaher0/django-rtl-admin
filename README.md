@@ -6,6 +6,8 @@
 [![Django](https://img.shields.io/badge/django-4.2%20%7C%205.x%20%7C%206.x-092e20)](https://www.djangoproject.com/)
 [![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/MarwanMaher0/django-rtl-admin/blob/main/LICENSE)
 
+[اقرأ بالعربية](README.ar.md)
+
 The Django admin is *nearly* bilingual. Switch it to Arabic, Hebrew, Persian or
 Urdu and the page does flip — but a specific, repeatable set of things stays
 pointing the wrong way, and any value that mixes scripts (an ISBN, an email, a
@@ -195,6 +197,27 @@ keep Django's exact stock SQL. Use `arabic_search_regex` from `django_rtl_admin`
 in custom queries; see the
 [Python API](https://marwanmaher0.github.io/django-rtl-admin/api/#arabic-search-folding).
 
+### Prepopulate slugs from Arabic-script titles
+
+On a mixin-enabled admin with `prepopulated_fields = {"slug": ("title_ar",)}`,
+a blank slug on the add form can be generated from `مُقَدِّمَة ١٢`: `mqdmh-12`
+for an ASCII `SlugField`, or `مقدمة-12` with `allow_unicode=True`. This also
+works for new rows on mixin-enabled inlines, including on a parent's change
+form. Existing records and nonblank slugs are left alone, and normal Django
+validation still applies; slugs are not made unique automatically.
+
+```python
+from django_rtl_admin import arabic_slugify
+
+assert arabic_slugify("مُقَدِّمَة ١٢") == "mqdmh-12"
+assert arabic_slugify("مُقَدِّمَة ١٢", allow_unicode=True) == "مقدمة-12"
+assert arabic_slugify("پژوهش ۱۴۰۳") == "pzhwhsh-1403"
+```
+
+See [Arabic slug prepopulation](https://marwanmaher0.github.io/django-rtl-admin/admin-mixin/#arabic-slug-prepopulation)
+for inline setup and opt-outs, or the [Python API](https://marwanmaher0.github.io/django-rtl-admin/api/#arabic-slugify)
+for the helper's cleanup and length rules.
+
 ### In your own templates
 
 ```django
@@ -369,6 +392,7 @@ RTL_ADMIN = {
 | `NORMALIZE_INPUT_DIGITS` | `True` | Normalize Arabic-Indic and Persian digits in numeric, date, and time input on mixin-enabled admins. Must be a boolean. |
 | `LOCALIZE_CHANGELIST_DIGITS` | `False` | Rewrite digits in eligible numeric and temporal changelist cells on mixin-enabled admins using the active locale's numbering system, keeping Django's separators. Must be a boolean. |
 | `FOLD_ARABIC_SEARCH` | `True` | Fold equivalent Arabic letter forms, diacritics, tatweel, and digits in changelist and autocomplete search on mixin-enabled admins. Must be a boolean. |
+| `TRANSLITERATE_SLUGS` | `True` | Prepopulate blank slugs from Arabic-script text on mixin-enabled add forms and new inline rows. Must be a boolean. |
 | `NUMERALS` | `"auto"` | Numbering system for the formatting helpers: `"auto"` follows the locale, or force `"latn"`, `"arab"` or `"arabext"`. |
 | `USE_BABEL` | `True` | Use Babel when it is installed. `False` skips Babel and uses the built-in CLDR number tables plus Django date/time formatting. |
 | `CURRENCY` | `"USD"` | Default currency for `format_currency` / `l10n_currency`. |
@@ -426,6 +450,7 @@ invalid choice at runtime also raises `ImproperlyConfigured`.
 from django_rtl_admin import (
     BidiSafeAdminMixin,
     arabic_search_regex,
+    arabic_slugify,
     LRI,
     RLI,
     FSI,
@@ -464,6 +489,7 @@ from django_rtl_admin import (
 | `bidi_normalize_input` | `None` | Inherit `RTL_ADMIN["NORMALIZE_INPUT_DIGITS"]`, or use `True` or `False` to override it for this admin. |
 | `bidi_local_digits` | `None` | Inherit `RTL_ADMIN["LOCALIZE_CHANGELIST_DIGITS"]`, or use `True` or `False` to override changelist digit localization for this admin. |
 | `bidi_fold_search` | `None` | Inherit `RTL_ADMIN["FOLD_ARABIC_SEARCH"]`, or use `True` or `False` to override Arabic search folding for this admin. |
+| `bidi_transliterate_slugs` | `None` | Inherit `RTL_ADMIN["TRANSLITERATE_SLUGS"]`, or use `True` or `False` to override it for this admin or inline. |
 | `bidi_isolate_fields` | `None` | Restrict changelist isolation to these `list_display` entries. |
 | `bidi_isolate_exclude` | `()` | Leave these `list_display` or `readonly_fields` entries alone. |
 | `bidi_isolation_direction` | `None` | `"auto"`, `"ltr"` or `"rtl"` for changelist cells on this admin. |

@@ -3,7 +3,7 @@ from django.contrib import admin, messages
 
 from django_rtl_admin import BidiSafeAdminMixin
 
-from .models import Book, Category, Chapter, Review, Thing
+from .models import Article, ArticleSection, Book, Category, Chapter, Review, Thing
 
 
 class BidiThingAdmin(BidiSafeAdminMixin, admin.ModelAdmin):
@@ -101,3 +101,19 @@ class LocalizedPriceForm(forms.ModelForm):
 
 class LocalizedInputBookAdmin(InputBookAdmin):
     form = LocalizedPriceForm
+
+
+class ArticleSectionInline(BidiSafeAdminMixin, admin.TabularInline):
+    model = ArticleSection
+    prepopulated_fields = {"slug": ("title",)}
+    extra = 1
+
+
+@admin.register(Article)
+class ArticleAdmin(BidiSafeAdminMixin, admin.ModelAdmin):
+    prepopulated_fields = {
+        "slug": ("title", "subtitle"),
+        "unicode_slug": ("title",),
+        "stock_slug": ("title",),
+    }
+    inlines = (ArticleSectionInline,)

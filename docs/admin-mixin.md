@@ -16,7 +16,8 @@ stored model values. The mixin also accepts Arabic-Indic and Persian digits in
 and temporal cells on the changelist via
 [changelist digit localization](#changelist-digit-localization), and folds
 equivalent Arabic letter forms, diacritics, tatweel, and digits in
-[admin search](#arabic-search-folding), in any UI language.
+[admin search](#arabic-search-folding), in any UI language. It can also
+[prepopulate slugs from Arabic-script titles](#arabic-slug-prepopulation).
 
 ## Add it to a ModelAdmin
 
@@ -55,6 +56,7 @@ shell and CSS setup, follow [Installation](installation.md) and
 | `bidi_normalize_input` | `None` | Inherit `RTL_ADMIN["NORMALIZE_INPUT_DIGITS"]`; `True` or `False` overrides input normalization for this admin. |
 | `bidi_local_digits` | `None` | Inherit `RTL_ADMIN["LOCALIZE_CHANGELIST_DIGITS"]`; `True` or `False` overrides [changelist digit localization](#changelist-digit-localization) for this admin. |
 | `bidi_fold_search` | `None` | Inherit `RTL_ADMIN["FOLD_ARABIC_SEARCH"]`; `True` or `False` overrides [Arabic search folding](#arabic-search-folding) for this admin. |
+| `bidi_transliterate_slugs` | `None` | Inherit `RTL_ADMIN["TRANSLITERATE_SLUGS"]`; `True` or `False` overrides [Arabic slug prepopulation](#arabic-slug-prepopulation) for this admin or inline. |
 | `bidi_isolate_changelist` | `None` | Follow `RTL_ADMIN["ISOLATE_CHANGELIST"]`; `True` or `False` overrides it for this admin. The same switch covers [object names](#object-names-in-messages-and-on-the-delete-page) on the delete page and in messages. |
 | `bidi_isolate_readonly` | `None` | Follow `RTL_ADMIN["ISOLATE_READONLY_FIELDS"]`; `True` or `False` overrides it for this admin. |
 | `bidi_isolate_fields` | `None` | Consider all eligible string `list_display` entries; otherwise isolate only names in this iterable on the changelist. An empty tuple isolates none. |
@@ -168,6 +170,53 @@ results and SQL untouched. Disable folding globally with
 `RTL_ADMIN["FOLD_ARABIC_SEARCH"] = False` or on a single admin with
 `bidi_fold_search = False`; set `bidi_fold_search = True` to keep folding on one
 admin when the global setting is `False`.
+
+## Arabic slug prepopulation
+
+Use Django's `prepopulated_fields` to choose the target `SlugField` and its
+source fields. An inline must use `BidiSafeAdminMixin` itself, even when its
+parent admin also uses the mixin:
+
+```python
+from django.contrib import admin
+
+from django_rtl_admin import BidiSafeAdminMixin
+
+from .models import Book, Chapter
+
+
+class ChapterInline(BidiSafeAdminMixin, admin.TabularInline):
+    model = Chapter
+    prepopulated_fields = {"slug": ("title",)}
+
+
+@admin.register(Book)
+class BookAdmin(BidiSafeAdminMixin, admin.ModelAdmin):
+    prepopulated_fields = {"slug": ("title", "subtitle")}
+    inlines = [ChapterInline]
+```
+
+This is an alternative to the earlier registration. It assumes `Book` has
+`title`, `subtitle`, and `slug` fields and `Chapter` has `title`, `slug`, and a
+foreign key to `Book`. Multiple source values are joined with spaces in the
+configured order before slugification. For example, a title of `مُقَدِّمَة` and
+a subtitle of `١٢` produce `mqdmh-12` on an ASCII `SlugField` or `مقدمة-12`
+when `allow_unicode=True`. The generated slug also respects the field's length
+limit; see [`arabic_slugify`](api.md#arabic-slugify) for the truncation rules.
+
+The browser preview and server-side fill apply only to add forms and new inline
+rows, including new rows on a parent's change form. For those new records, the
+server fills a blank slug before validation even without JavaScript. It never
+replaces a nonblank slug. On a change form for an existing record or inline row,
+the mixin does not fill an emptied slug: Django still rejects it if the field is
+required. Generated slugs must pass normal Django field, model, and uniqueness
+validation. Enter a different slug if validation reports a collision; the mixin
+does not add a suffix.
+
+To leave prepopulation to Django, set `RTL_ADMIN["TRANSLITERATE_SLUGS"] = False`
+globally or `bidi_transliterate_slugs = False` on the relevant admin or inline.
+Set `bidi_transliterate_slugs = True` on a class to enable it there even if the
+global setting is off.
 
 ## Named fields and display methods
 
