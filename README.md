@@ -267,6 +267,34 @@ format_number(1234567.891, language="ar-eg")  # '١٬٢٣٤٬٥٦٧٫٨٩١'
 format_currency("349.90", "EGP", language="ar-eg")
 ```
 
+### Hijri dates (Umm al-Qura)
+
+Saudi and Gulf admin sites need the Umm al-Qura calendar, which Babel does not
+provide. The package has a built-in table for 1343–1500 AH (1924-08-01 to
+2077-11-16 CE), so conversion needs no extra runtime dependency:
+
+```python
+from datetime import date
+
+from django_rtl_admin import format_hijri_date, from_hijri, to_hijri
+
+hijri = to_hijri(date(2024, 3, 11))
+assert (hijri.year, hijri.month, hijri.day) == (1445, 9, 1)
+assert from_hijri(1445, 9, 1) == date(2024, 3, 11)
+assert format_hijri_date(date(2024, 3, 11), language="ar-eg") == "١ رمضان ١٤٤٥ هـ"
+assert format_hijri_date(date(2024, 3, 11), language="en", suffix=False) == "1 Ramadan 1445"
+```
+
+`to_hijri()` returns a frozen `HijriDate` (`year`, `month`, `day`,
+`month_length`) and accepts plain dates or datetimes; aware datetimes are
+converted to the active time zone when `USE_TZ=True`. Dates outside the range
+raise `ValueError`. `format_hijri_date()` uses full Arabic month names for
+`ar`, Persian for `fa`, Urdu for `ur`, and English transliterations otherwise.
+Its `fmt` is `long`, `medium`, or `short`, digits follow `NUMERALS` and the
+locale's numbering system, and the Hijri era suffix is included unless
+`suffix=False`. In templates, use `{{ book.published_on|hijri_date }}` or
+`{{ book.published_on|hijri_date:"short" }}`.
+
 ---
 
 ## What you get
@@ -447,6 +475,7 @@ invalid choice at runtime also raises `ImproperlyConfigured`.
 | `l10n_timesince` | `{{ published_at\|l10n_timesince }}` | Localized relative time with past/future wording. |
 | `l10n_filesize` | `{{ upload.size\|l10n_filesize }}` | Locale-aware file size; pass `"binary"` for powers of 1024. |
 | `l10n_date` | `{{ d\|l10n_date:"long" }}` | `short`, `medium`, `long`, `full`. |
+| `hijri_date` | `{{ d\|hijri_date }}`, `{{ d\|hijri_date:"short" }}` | Umm al-Qura Hijri date with the active language's month name and digits; `long`, `medium`, `short`. |
 | `l10n_datetime` | `{{ dt\|l10n_datetime }}` | |
 | `l10n_time` | `{{ t\|l10n_time }}` | |
 | `local_digits` | `{{ "REF-2024"\|local_digits }}` | Rewrite digits in a ready-made string. |
@@ -501,6 +530,10 @@ from django_rtl_admin import (
     format_date,
     format_datetime,
     format_time,
+    format_hijri_date,
+    from_hijri,
+    to_hijri,
+    HijriDate,
     rtl_settings,
 )
 ```

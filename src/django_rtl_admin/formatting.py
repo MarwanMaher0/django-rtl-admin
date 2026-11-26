@@ -21,7 +21,7 @@ import decimal
 import re
 import unicodedata
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from django.conf import settings
 from django.db.models import Expression, TextField, Value
@@ -34,6 +34,7 @@ from django.utils.translation import get_language, gettext, npgettext, pgettext,
 
 from .bidi import BIDI_CONTROL_CHARS
 from .conf import rtl_settings
+from .hijri import ERA_SUFFIXES, MONTH_NAMES, to_hijri
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -990,6 +991,57 @@ def format_date(
     with _active(language):
         text = dateformat.format(value, _django_pattern(django_format or "DATE_FORMAT"))
     return _localize_digits(text, language)
+
+
+_HIJRI_DATE_FORMATS = ("long", "medium", "short")
+
+
+def _hijri_language(language: str | None) -> str:
+    """Calendar language for ``language``: ``ar``, ``fa``, ``ur`` or ``en``."""
+    code = to_locale(language or get_language() or "en")
+    base = code.split("_", 1)[0].lower()
+    return base if base in MONTH_NAMES else "en"
+
+
+def format_hijri_date(
+    value: datetime.date | datetime.datetime | None,
+    *,
+    language: str | None = None,
+    fmt: Literal["long", "medium", "short"] = "long",
+    suffix: bool = True,
+) -> str:
+    """Format a Gregorian date as an Umm al-Qura Hijri date.
+
+    ``long`` writes the day, the full month name and the year; ``medium``
+    zero-pads the day; ``short`` writes ``dd/mm/yyyy``.  The month name is
+    Arabic for ``ar``, Persian for ``fa``, Urdu for ``ur``, and an English
+    transliteration otherwise.  Digits follow :func:`numbering_system` and
+    :func:`transliterate_digits`.  When ``suffix`` is true the language's
+    Hijri era suffix (``هـ``, ``هجری قمری``, ``ہجری`` or ``AH``) is appended.
+
+    Datetimes are converted to the current time zone when ``USE_TZ`` is
+    enabled, like the other date/time helpers.  Dates outside the supported
+    Umm al-Qura range raise :class:`ValueError`.
+    """
+    if value is None or value == "":
+        return ""
+    if fmt not in _HIJRI_DATE_FORMATS:
+        raise ValueError(
+            f"Unknown Hijri date format {fmt!r}; expected 'long', 'medium' or 'short'."
+        )
+
+    hijri = to_hijri(value)
+    base = _hijri_language(language)
+    month = MONTH_NAMES[base][hijri.month - 1]
+    if fmt == "short":
+        text = f"{hijri.day:02d}/{hijri.month:02d}/{hijri.year:04d}"
+    elif fmt == "medium":
+        text = f"{hijri.day:02d} {month} {hijri.year:04d}"
+    else:
+        text = f"{hijri.day} {month} {hijri.year:04d}"
+    if suffix:
+        text = f"{text} {ERA_SUFFIXES[base]}"
+    return transliterate_digits(text, numbering_system(language))
 
 
 def _format_datetime(

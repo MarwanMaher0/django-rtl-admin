@@ -8,6 +8,17 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Umm al-Qura Hijri calendar support without a new runtime dependency.
+  `to_hijri()` converts a Gregorian `date` or `datetime` to a frozen
+  `HijriDate` (`year`, `month`, `day`, `month_length`) and `from_hijri()` goes
+  back, using the official table for 1343–1500 AH (1924-08-01–2077-11-16 CE);
+  values outside that range raise `ValueError`. `format_hijri_date()` renders
+  full Arabic, Persian, or Urdu month names (English transliteration
+  elsewhere), follows `NUMERALS`/`numbering_system()` and
+  `transliterate_digits()` for digits, supports `long`, `medium`, and `short`
+  formats, and appends the Hijri era suffix unless `suffix=False`. The
+  `{{ value|hijri_date }}` template filter is available from
+  `{% load rtl_admin %}`.
 - `BidiSafeAdminMixin` can sort selected text columns by folded Arabic spelling,
   for ascending and descending header sorts and `ModelAdmin.ordering`. Opt in
   with `bidi_arabic_ordering` or disable it globally with

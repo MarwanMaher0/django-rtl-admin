@@ -6,7 +6,7 @@ import datetime
 import logging
 import unicodedata
 from collections.abc import Sequence as SequenceABC
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, Any, Literal, TypedDict, cast
 
 import django
 from django import template
@@ -194,6 +194,30 @@ def l10n_date(value: datetime.date | None, fmt: str = "medium") -> str:
         return ""
     try:
         return formatting.format_date(value, fmt)
+    except (AttributeError, TypeError, ValueError):
+        return ""
+
+
+_HIJRI_FILTER_FORMATS = {"long", "medium", "short"}
+
+
+@register.filter(name="hijri_date")
+def hijri_date(value: datetime.date | None, fmt: str = "long") -> str:
+    """Umm al-Qura Hijri date: ``{{ book.published_on|hijri_date:"medium" }}``.
+
+    The optional argument is ``long``, ``medium`` or ``short``.  Month names
+    follow the active language, digits follow the configured numbering system,
+    and the Hijri era suffix is included.  Invalid values render as an empty
+    string.
+    """
+    if not isinstance(value, datetime.date):
+        return ""
+    if fmt not in _HIJRI_FILTER_FORMATS:
+        fmt = "long"
+    try:
+        return formatting.format_hijri_date(
+            value, fmt=cast(Literal["long", "medium", "short"], fmt)
+        )
     except (AttributeError, TypeError, ValueError):
         return ""
 

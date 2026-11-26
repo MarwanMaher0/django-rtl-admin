@@ -278,3 +278,49 @@ translated unit names are used on both backends.
         - format_date
         - format_datetime
         - format_time
+        - format_hijri_date
+
+## Hijri dates { #hijri-dates }
+
+Saudi and Gulf admins usually need the Umm al-Qura calendar, which Babel does
+not provide. `to_hijri()` and `from_hijri()` convert between Gregorian dates
+and the official Umm al-Qura table for 1343–1500 AH (1 August 1924 to
+16 November 2077 CE) without adding a runtime dependency. Dates outside that
+range raise `ValueError`; `to_hijri()` also accepts a `datetime`, converting
+aware values to the active time zone when `USE_TZ=True`.
+
+`HijriDate` is a frozen dataclass with `year`, `month`, `day`, and
+`month_length`. `format_hijri_date()` renders it with full month names:
+Arabic for `ar`, Persian for `fa`, Urdu for `ur`, and an English
+transliteration otherwise. `long` writes the day, month, and year; `medium`
+zero-pads the day; `short` writes `dd/mm/yyyy`. Digits follow `NUMERALS` and
+the locale's numbering system, and the era suffix (`هـ`, `هجری قمری`, `ہجری`,
+or `AH`) is included unless `suffix=False`.
+
+```python
+from datetime import date
+
+from django_rtl_admin import format_hijri_date, from_hijri, to_hijri
+
+hijri = to_hijri(date(2024, 3, 11))
+assert (hijri.year, hijri.month, hijri.day) == (1445, 9, 1)
+assert from_hijri(1445, 9, 1) == date(2024, 3, 11)
+assert format_hijri_date(date(2024, 3, 11), language="ar-eg") == "١ رمضان ١٤٤٥ هـ"
+assert format_hijri_date(date(2024, 3, 11), language="en", suffix=False) == "1 Ramadan 1445"
+```
+
+In templates, use the `hijri_date` filter from `{% load rtl_admin %}`:
+
+```html
+{% load rtl_admin %}
+{{ book.published_on|hijri_date }}
+{{ book.published_on|hijri_date:"short" }}
+```
+
+::: django_rtl_admin.hijri
+    options:
+      heading_level: 3
+      members:
+        - HijriDate
+        - to_hijri
+        - from_hijri

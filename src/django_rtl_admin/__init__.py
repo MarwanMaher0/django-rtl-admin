@@ -18,6 +18,11 @@ Public API::
         format_timedelta,
         format_filesize,
         format_date,
+        format_datetime,
+        format_hijri_date,
+        from_hijri,
+        to_hijri,
+        HijriDate,
     )
 
 ``BidiSafeAdminMixin`` is imported lazily: this package is imported while
@@ -53,6 +58,7 @@ from .formatting import (
     format_date,
     format_datetime,
     format_filesize,
+    format_hijri_date,
     format_number,
     format_percent,
     format_time,
@@ -61,6 +67,7 @@ from .formatting import (
     numbering_system,
     transliterate_digits,
 )
+from .hijri import HijriDate, from_hijri, to_hijri
 
 if TYPE_CHECKING:
     # Resolved lazily at runtime (see ``__getattr__``); imported here so type
@@ -94,6 +101,7 @@ __all__ = [
     "PDI",
     "RLI",
     "BidiSafeAdminMixin",
+    "HijriDate",
     "__version__",
     "arabic_search_regex",
     "arabic_slugify",
@@ -104,10 +112,12 @@ __all__ = [
     "format_date",
     "format_datetime",
     "format_filesize",
+    "format_hijri_date",
     "format_number",
     "format_percent",
     "format_time",
     "format_timedelta",
+    "from_hijri",
     "has_mixed_direction",
     "is_isolated",
     "is_rtl_language",
@@ -120,5 +130,6 @@ __all__ = [
     "rtl_settings",
     "strip_isolates",
     "text_direction",
+    "to_hijri",
     "transliterate_digits",
 ]

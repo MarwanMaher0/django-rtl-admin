@@ -266,3 +266,50 @@ with translation.override("ar-eg"):
         - format_date
         - format_datetime
         - format_time
+        - format_hijri_date
+
+## التواريخ الهجرية { #hijri-dates }
+
+تحتاج مواقع الإدارة في السعودية والخليج عادةً إلى تقويم أم القرى، وهو تقويم
+لا توفّره Babel. تحوّل الدالتان `to_hijri()` و`from_hijri()` بين التاريخ
+الميلادي والجدول الرسمي لتقويم أم القرى للسنوات 1343–1500 هـ
+(1 أغسطس 1924 إلى 16 نوفمبر 2077 م) دون إضافة أي اعتماد وقت التشغيل. وترفع
+التواريخ خارج هذا النطاق `ValueError`، وتقبل `to_hijri()` أيضًا قيمة
+`datetime`، فتحوّل القيم الواعية بالمنطقة الزمنية إلى المنطقة النشطة عند
+ضبط `USE_TZ=True`.
+
+`HijriDate` فئة بيانات مجمّدة تضم `year` و`month` و`day` و`month_length`.
+وتعرض `format_hijri_date()` أسماء الأشهر كاملة: بالعربية لـ`ar`، والفارسية
+لـ`fa`، والأردية لـ`ur`، وبالنقحرة الإنجليزية لغيرها. يكتب النمط `long`
+اليوم والشهر والسنة، ويضيف `medium` صفرًا بادئًا لليوم، ويكتب `short`
+بالصيغة `dd/mm/yyyy`. وتتبع الأرقام `NUMERALS` ونظام ترقيم اللغة، وتُضاف
+لاحقة العصر (`هـ` أو `هجری قمری` أو `ہجری` أو `AH`) ما لم تُضبط
+`suffix=False`.
+
+```python
+from datetime import date
+
+from django_rtl_admin import format_hijri_date, from_hijri, to_hijri
+
+hijri = to_hijri(date(2024, 3, 11))
+assert (hijri.year, hijri.month, hijri.day) == (1445, 9, 1)
+assert from_hijri(1445, 9, 1) == date(2024, 3, 11)
+assert format_hijri_date(date(2024, 3, 11), language="ar-eg") == "١ رمضان ١٤٤٥ هـ"
+assert format_hijri_date(date(2024, 3, 11), language="en", suffix=False) == "1 Ramadan 1445"
+```
+
+استخدم في القوالب المرشّح `hijri_date` بعد `{% load rtl_admin %}`:
+
+```html
+{% load rtl_admin %}
+{{ book.published_on|hijri_date }}
+{{ book.published_on|hijri_date:"short" }}
+```
+
+::: django_rtl_admin.hijri
+    options:
+      heading_level: 3
+      members:
+        - HijriDate
+        - to_hijri
+        - from_hijri
