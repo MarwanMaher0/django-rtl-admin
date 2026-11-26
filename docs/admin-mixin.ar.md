@@ -53,6 +53,7 @@ from django_rtl_admin.mixins import BidiSafeAdminMixin
 | `bidi_local_digits` | `None` | تتبع `RTL_ADMIN["LOCALIZE_CHANGELIST_DIGITS"]`؛ استخدم `True` أو `False` لتفعيل [توطين الأرقام في قائمة السجلات](#changelist-digit-localization) أو تعطيله في هذه الفئة. |
 | `bidi_fold_search` | `None` | تتبع `RTL_ADMIN["FOLD_ARABIC_SEARCH"]`؛ استخدم `True` أو `False` لتفعيل [مطابقة الصور المكافئة في البحث العربي](#arabic-search-folding) أو تعطيلها في هذه الفئة. |
 | `bidi_transliterate_slugs` | `None` | تتبع `RTL_ADMIN["TRANSLITERATE_SLUGS"]`؛ استخدم `True` أو `False` لتفعيل [ملء معرّفات الروابط من النص العربي](#arabic-slug-prepopulation) أو تعطيله في فئة الإدارة العادية أو المضمّنة. |
+| `bidi_arabic_ordering` | `()` | حدّد الحقول النصية [لفرزها بعد توحيد صور الحروف](#arabic-changelist-ordering)، أو اترك القائمة فارغة للإبقاء على الفرز المعتاد. يتطلب ذلك تفعيل `RTL_ADMIN["ARABIC_ORDERING"]` (قيمته الافتراضية `True`). |
 | `bidi_isolate_changelist` | `None` | تتبع `RTL_ADMIN["ISOLATE_CHANGELIST"]`؛ وتتجاوزها `True` أو `False` لفئة الإدارة هذه. يشمل المفتاح نفسه [أسماء الكائنات](#object-names-in-messages-and-on-the-delete-page) في صفحة الحذف وفي الرسائل. |
 | `bidi_isolate_readonly` | `None` | تتبع `RTL_ADMIN["ISOLATE_READONLY_FIELDS"]`؛ وتتجاوزها `True` أو `False` لفئة الإدارة هذه. |
 | `bidi_isolate_fields` | `None` | تنظر في جميع مدخلات `list_display` النصية المؤهلة؛ وإلا تعزل فقط الأسماء الموجودة في هذا الكائن القابل للتكرار في قائمة السجلات. لا يعزل الصف الفارغ أي مدخل. |
@@ -211,6 +212,21 @@ class BookAdmin(BidiSafeAdminMixin, admin.ModelAdmin):
 على مستوى المشروع، أو اضبط `bidi_transliterate_slugs = False` في فئة الإدارة
 العادية أو المضمّنة المعنية. لتفعيل الميزة في فئة واحدة حتى عند تعطيلها عمومًا،
 اضبط `bidi_transliterate_slugs = True` فيها.
+
+## فرز النص العربي في قائمة السجلات { #arabic-changelist-ordering }
+
+أدرج اسم حقل من النوع `CharField` أو `TextField` في `bidi_arabic_ordering` لفرزه بعد توحيد صور الحروف، وأدرجه في `list_display` لإتاحة رابط لفرز العمود. لا يغيّر الفرز القيمة المخزّنة ولا طريقة عرضها. لنفترض مثلًا أن `Book.title` يحوي عناوين عربية:
+
+```python
+class BookAdmin(BidiSafeAdminMixin, admin.ModelAdmin):
+    list_display = ("title", "isbn")
+    bidi_arabic_ordering = ("title",)
+    ordering = ("-title", "isbn")
+```
+
+عند فتح القائمة، ترتّب `ModelAdmin.ordering` هنا العناوين تنازليًا بمفاتيح الفرز، وعند تساوي مفتاحين يُحتكَم إلى الترتيب المعتاد لحقل `isbn`. وعند النقر على ترويسة العنوان يُستخدم المفتاح نفسه للفرز تصاعديًا أو تنازليًا (`?o=`). يجري الفرز في قاعدة البيانات **قبل تقسيم النتائج إلى صفحات**، سواء كانت الواجهة عربية أم إنجليزية. ويظل فرز عمود ISBN كما هو في Django. إذا بقيت قائمة الحقول فارغة أو لم تستخدم فئة `ModelAdmin` المزيج، فلن يتغيّر فرز أيّ عمود.
+
+عند المقارنة مثلًا يُقرأ `أُصول اللغة` على صورة `اصول اللغه`، فيُرتَّب حرفه الأول مع صور الألف الأخرى بدلًا من تكوين مجموعة منفصلة. وتظل قواعد الفرز المعتمدة في قاعدة البيانات هي التي تحدد ترتيب النصوص بعد التحويل. للفرز خارج لوحة الإدارة، راجع [مفاتيح فرز النص العربي](api.md#arabic-sort-keys).
 
 ## الحقول المسمّاة وطرائق العرض { #named-fields-and-display-methods }
 
@@ -459,6 +475,7 @@ Babel أو أنماط الفواصل والعملات الخاصة بـCLDR في
         - bidi_isolation_enabled
         - bidi_readonly_isolation_enabled
         - formfield_for_dbfield
+        - get_changelist
         - get_search_results
         - get_list_display
         - get_list_display_links

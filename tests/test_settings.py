@@ -74,6 +74,16 @@ def test_transliterate_slugs_requires_a_bool(value):
         rtl_settings.TRANSLITERATE_SLUGS
 
 
+@pytest.mark.parametrize("value", [0, 1, None, "False"])
+def test_arabic_ordering_requires_a_bool(value):
+    assert rtl_settings.ARABIC_ORDERING is True
+    with (
+        override_settings(RTL_ADMIN={"ARABIC_ORDERING": value}),
+        pytest.raises(ImproperlyConfigured, match=r"ARABIC_ORDERING.*bool"),
+    ):
+        rtl_settings.ARABIC_ORDERING
+
+
 def test_unknown_attributes_raise():
     with pytest.raises(AttributeError, match="Invalid RTL_ADMIN setting"):
         rtl_settings.NOT_A_SETTING

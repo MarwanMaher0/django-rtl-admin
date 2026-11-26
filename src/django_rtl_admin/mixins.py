@@ -22,6 +22,7 @@ from django.contrib.admin.utils import (
     lookup_field,
     lookup_spawns_duplicates,
 )
+from django.contrib.admin.views.main import ChangeList
 from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist, ValidationError
 from django.db import models
 from django.db.models.constants import LOOKUP_SEP
@@ -39,6 +40,7 @@ from .formatting import (
     _has_foldable_search_chars,
     arabic_search_regex,
     arabic_slugify,
+    arabic_sort_expression,
     normalize_numeric_input,
     numbering_system,
     transliterate_digits,
@@ -49,6 +51,7 @@ if TYPE_CHECKING:
 
     from django.contrib.admin import ModelAdmin
     from django.db.models import Field, Model, QuerySet
+    from django.db.models.expressions import Combinable
     from django.db.models.fields.reverse_related import ForeignObjectRel
     from django.db.models.options import Options
     from django.forms.models import BaseInlineFormSet
@@ -613,6 +616,40 @@ class _DisplayWrapper(Protocol):
     def __call__(self, obj: Model) -> str: ...
 
 
+class _ArabicOrderingChangeList(ChangeList):
+    def get_ordering(self, request: HttpRequest, queryset: QuerySet[Any]) -> list[str | Combinable]:
+        # Let Django resolve header indexes, display callables, the admin's
+        # ordering and sort directions before substituting the actual SQL key.
+        ordering = list(super().get_ordering(request, queryset))
+        model_admin = cast("BidiSafeAdminMixin", self.model_admin)
+        changed = False
+        for i, term in enumerate(ordering):
+            field = term.expression if isinstance(term, models.OrderBy) else term
+            if type(field) is models.F:
+                name = field.name  # type: ignore[attr-defined]  # missing from django-stubs
+            elif isinstance(field, str):
+                name = field.removeprefix("-")
+            else:
+                continue
+            if name not in model_admin.bidi_arabic_ordering or not isinstance(
+                model_admin._bidi_model_field(name), (models.CharField, models.TextField)
+            ):
+                continue
+            key = arabic_sort_expression(name)
+            if isinstance(term, models.OrderBy):
+                # Keep descending and explicit NULL placement on F() orderings.
+                order_by = term.copy()
+                order_by.expression = key
+                ordering[i] = order_by
+            else:
+                ordering[i] = key.desc() if isinstance(term, str) and term.startswith("-") else key
+            changed = True
+        # Even a unique text column may cease to be unique once folded.
+        if changed and "-pk" not in ordering and "pk" not in ordering:
+            ordering.append("-pk")
+        return ordering
+
+
 class BidiSafeAdminMixin(_Base):
     """Isolate changelist cells and change-form read-only field values.
 
@@ -651,6 +688,9 @@ class BidiSafeAdminMixin(_Base):
         ``True``/``False`` to override
         ``RTL_ADMIN["LOCALIZE_CHANGELIST_DIGITS"]`` when rendering numeric and
         temporal model fields on the changelist.
+    ``bidi_arabic_ordering``
+        Text fields to sort by their folded Arabic keys on the changelist.
+        The default is empty; ``RTL_ADMIN["ARABIC_ORDERING"] = False`` disables it.
     ``bidi_fold_search``
         ``True``/``False`` to override ``RTL_ADMIN["FOLD_ARABIC_SEARCH"]``
         when searching text fields on the changelist or in autocompletes.
@@ -674,6 +714,7 @@ class BidiSafeAdminMixin(_Base):
     bidi_local_digits: bool | None = None
     bidi_fold_search: bool | None = None
     bidi_transliterate_slugs: bool | None = None
+    bidi_arabic_ordering: tuple[str, ...] = ()
     bidi_isolate_changelist: bool | None = None
     bidi_isolate_readonly: bool | None = None
     bidi_isolate_fields: tuple[str, ...] | None = None
@@ -773,6 +814,15 @@ class BidiSafeAdminMixin(_Base):
         return formset
 
     # -- ModelAdmin hooks --------------------------------------------------
+
+    def get_changelist(self, request: HttpRequest, **kwargs: Any) -> type[ChangeList]:
+        base = super().get_changelist(request, **kwargs)
+        if not self.bidi_arabic_ordering or not rtl_settings.ARABIC_ORDERING:
+            return base
+        if base is ChangeList:
+            return _ArabicOrderingChangeList
+        # Compose with (rather than replace) a project's custom ChangeList.
+        return type(f"ArabicOrdered{base.__name__}", (_ArabicOrderingChangeList, base), {})
 
     def formfield_for_dbfield(
         self, db_field: Field[Any, Any], request: HttpRequest, **kwargs: Any

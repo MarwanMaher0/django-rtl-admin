@@ -8,6 +8,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- `BidiSafeAdminMixin` can sort selected text columns by folded Arabic spelling,
+  for ascending and descending header sorts and `ModelAdmin.ordering`. Opt in
+  with `bidi_arabic_ordering` or disable it globally with
+  `RTL_ADMIN["ARABIC_ORDERING"] = False`. Use `arabic_sort_key()` in Python and
+  `arabic_sort_expression()` in querysets without changing stored text.
 - `BidiSafeAdminMixin` optionally localizes digits in changelist cells of
   integer, decimal, float, date, datetime, time, and duration model fields
   (including related lookups on Django 5.1+) for the active language via

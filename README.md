@@ -217,6 +217,28 @@ assert arabic_slugify("پژوهش ۱۴۰۳") == "pzhwhsh-1403"
 See [Arabic slug prepopulation](https://marwanmaher0.github.io/django-rtl-admin/admin-mixin/#arabic-slug-prepopulation)
 for inline setup and opt-outs, or the [Python API](https://marwanmaher0.github.io/django-rtl-admin/api/#arabic-slugify)
 for the helper's cleanup and length rules.
+### Sort Arabic titles in the changelist
+
+On a `BidiSafeAdminMixin` admin, list the text columns that should use an Arabic
+sort key. For example, to sort book titles without treating `أ`, `إ`, and `آ`
+as separate initial letters:
+
+```python
+class BookAdmin(BidiSafeAdminMixin, admin.ModelAdmin):
+    list_display = ("title_ar", "isbn")
+    bidi_arabic_ordering = ("title_ar",)
+    ordering = ("title_ar", "isbn")
+```
+
+The initial list uses the folded title, then the ordinary ISBN for ties. Clicking
+the title header sorts on the same key in either direction, in an English or an
+Arabic UI. Readers still see `أبواب المدينة`, `إدارة الوقت`, and `آفاق العلم`
+as entered. The database compares the keys using its own collation; the mixin
+does not install an Arabic dictionary collation. Omit `bidi_arabic_ordering` to
+keep stock sorting, or set `RTL_ADMIN["ARABIC_ORDERING"] = False` to disable it
+across admins. Outside the admin, use `arabic_sort_key()` with `sorted()` and
+`arabic_sort_expression()` with `QuerySet.order_by()`; see the
+[Python API](https://marwanmaher0.github.io/django-rtl-admin/api/#arabic-sort-keys).
 
 ### In your own templates
 
@@ -393,6 +415,7 @@ RTL_ADMIN = {
 | `LOCALIZE_CHANGELIST_DIGITS` | `False` | Rewrite digits in eligible numeric and temporal changelist cells on mixin-enabled admins using the active locale's numbering system, keeping Django's separators. Must be a boolean. |
 | `FOLD_ARABIC_SEARCH` | `True` | Fold equivalent Arabic letter forms, diacritics, tatweel, and digits in changelist and autocomplete search on mixin-enabled admins. Must be a boolean. |
 | `TRANSLITERATE_SLUGS` | `True` | Prepopulate blank slugs from Arabic-script text on mixin-enabled add forms and new inline rows. Must be a boolean. |
+| `ARABIC_ORDERING` | `True` | Allow folded sorting on explicitly listed `bidi_arabic_ordering` fields. Set to `False` for stock ordering on all admins. Must be a boolean. |
 | `NUMERALS` | `"auto"` | Numbering system for the formatting helpers: `"auto"` follows the locale, or force `"latn"`, `"arab"` or `"arabext"`. |
 | `USE_BABEL` | `True` | Use Babel when it is installed. `False` skips Babel and uses the built-in CLDR number tables plus Django date/time formatting. |
 | `CURRENCY` | `"USD"` | Default currency for `format_currency` / `l10n_currency`. |
@@ -451,6 +474,8 @@ from django_rtl_admin import (
     BidiSafeAdminMixin,
     arabic_search_regex,
     arabic_slugify,
+    arabic_sort_key,
+    arabic_sort_expression,
     LRI,
     RLI,
     FSI,
@@ -490,6 +515,7 @@ from django_rtl_admin import (
 | `bidi_local_digits` | `None` | Inherit `RTL_ADMIN["LOCALIZE_CHANGELIST_DIGITS"]`, or use `True` or `False` to override changelist digit localization for this admin. |
 | `bidi_fold_search` | `None` | Inherit `RTL_ADMIN["FOLD_ARABIC_SEARCH"]`, or use `True` or `False` to override Arabic search folding for this admin. |
 | `bidi_transliterate_slugs` | `None` | Inherit `RTL_ADMIN["TRANSLITERATE_SLUGS"]`, or use `True` or `False` to override it for this admin or inline. |
+| `bidi_arabic_ordering` | `()` | Text fields to sort by their folded Arabic spelling; unlisted columns keep Django's ordering. |
 | `bidi_isolate_fields` | `None` | Restrict changelist isolation to these `list_display` entries. |
 | `bidi_isolate_exclude` | `()` | Leave these `list_display` or `readonly_fields` entries alone. |
 | `bidi_isolation_direction` | `None` | `"auto"`, `"ltr"` or `"rtl"` for changelist cells on this admin. |

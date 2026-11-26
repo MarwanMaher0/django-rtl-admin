@@ -117,6 +117,46 @@ assert arabic_slugify("مقدمة الكتاب", max_length=3) == "mqd"
       heading_level: 3
       show_root_full_path: false
 
+## مفاتيح الفرز العربية { #arabic-sort-keys }
+
+استخدم `arabic_sort_key(value)` مفتاحًا (`key`) للدالة `sorted()` في بايثون. تعيد نصًا
+بأحرف صغيرة، أو نصًا فارغًا (`""`) عند `None`. تحذف الحركات (U+064B–U+065F وU+0670)
+والتطويل (`ـ`) ومحارف `Bidi_Control` في يونيكود، وتحوّل `آ` و`أ` و`إ` و`ٱ` إلى `ا`،
+و`ة` إلى `ه`، و`ى` و`ئ` إلى `ي`، و`ؤ` إلى `و`، والأرقام العربية الهندية والفارسية إلى
+أرقام ASCII. الناتج مفتاح نصي للمقارنة، لا قيمة عددية ولا بديل عن الكتابة الأصلية.
+
+```python
+from django_rtl_admin import arabic_sort_key
+
+assert arabic_sort_key("مَكْتَبَة ١٢") == arabic_sort_key("مكتبه ۱۲") == "مكتبه 12"
+assert arabic_sort_key(None) == ""
+titles = ["آفاق العلم", "أبواب المدينة", "إدارة الوقت"]
+assert sorted(titles, key=arabic_sort_key) == ["أبواب المدينة", "إدارة الوقت", "آفاق العلم"]
+```
+
+ولفرز `QuerySet`، تبني `arabic_sort_expression(field_name)` تعبيرًا في Django ORM يطبّق
+الاستبدالات نفسها بـ`Replace` ثم يحوّل الناتج إلى أحرف صغيرة بـ`Lower`. مثلًا، لنموذج
+`Book` فيه حقل نصي باسم `title_ar`:
+
+```python
+from django_rtl_admin import arabic_sort_expression
+
+by_title = arabic_sort_expression("title_ar")
+ascending = Book.objects.order_by(by_title.asc(), "pk")
+descending = Book.objects.order_by(by_title.desc(), "pk")
+```
+
+يستخدم PostgreSQL وMySQL 8 استدعاءات `REPLACE` متداخلة ثم `LOWER`. أما SQLite فيستخدم
+استعلامًا فرعيًا `WITH` لتفادي حد عمق المحلل في الإصدارات الأقدم: تمرّر سلاسل `REPLACE`
+قصيرة نتائجها من مرحلة إلى التالية، ثم يطبّق `SELECT` الأخير `LOWER`.
+
+لا تُثبَّت أي collation مخصّصة. يحسب الاستعلام المفتاح لكل صف، لذلك قد لا يسرّع فهرس
+عادي على العنوان هذا الفرز، ويعطي `pk` الثانوي العناوين المتساوية ترتيبًا ثابتًا.
+وتبقى قاعدة البيانات هي التي تحدد الـcollation وتحويل حالة الأحرف وموضع `NULL`: بخلاف
+دالة بايثون، يترك التعبير `NULL` كما هي. لا تفترض ترتيبًا متطابقًا بين قواعد البيانات
+المختلفة ولا فرزًا قاموسيًا كاملًا. ولا تحتاج أيٌّ من الدالتين
+[مزيج الإدارة](admin-mixin.md#arabic-changelist-ordering) ولا تغيّر النص المخزّن.
+
 ## اختيار دالة العزل { #choosing-an-isolation-helper }
 
 - تزيل `isolate()` أي محارف Unicode موجودة من نوع `Bidi_Control` وتحيط القيمة
@@ -213,6 +253,8 @@ with translation.override("ar-eg"):
       heading_level: 2
       members:
         - arabic_search_regex
+        - arabic_sort_key
+        - arabic_sort_expression
         - numbering_system
         - normalize_numeric_input
         - transliterate_digits

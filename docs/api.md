@@ -1,6 +1,6 @@
 ---
 title: Python API | django-rtl-admin
-description: Use Python helpers for numeric input normalization, Arabic slug generation, bidi isolation, digit transliteration, and locale-aware formatting.
+description: Use Python and ORM helpers for Arabic sorting, search, and slugs, numeric input normalization, bidi isolation, digit transliteration, and locale-aware formatting.
 ---
 
 # Python API
@@ -119,6 +119,51 @@ for admin integration and validation behavior.
       heading_level: 3
       show_root_full_path: false
 
+## Arabic sort keys
+
+Use `arabic_sort_key(value)` as the `key` for Python's `sorted()`. It returns a
+lowercase string, or the empty string (`""`) for `None`. It strips harakat
+(U+064B–U+065F and U+0670), tatweel (`ـ`), and Unicode `Bidi_Control` characters.
+It maps `آ`, `أ`, `إ`, and `ٱ` to `ا`; `ة` to `ه`; `ى` and `ئ` to `ي`; and
+`ؤ` to `و`. Arabic-Indic and Persian digits become ASCII digits. The result is a text
+key, not a numeric value or a replacement for the original spelling.
+
+```python
+from django_rtl_admin import arabic_sort_key
+
+assert arabic_sort_key("مَكْتَبَة ١٢") == arabic_sort_key("مكتبه ۱۲") == "مكتبه 12"
+assert arabic_sort_key(None) == ""
+titles = ["آفاق العلم", "أبواب المدينة", "إدارة الوقت"]
+assert sorted(titles, key=arabic_sort_key) == ["أبواب المدينة", "إدارة الوقت", "آفاق العلم"]
+```
+
+For a queryset, `arabic_sort_expression(field_name)` builds a Django ORM
+expression that applies the same substitutions with `Replace` and lowercases
+the result with `Lower`. For example, given a `Book` model with a text field
+`title_ar`:
+
+```python
+from django_rtl_admin import arabic_sort_expression
+
+by_title = arabic_sort_expression("title_ar")
+ascending = Book.objects.order_by(by_title.asc(), "pk")
+descending = Book.objects.order_by(by_title.desc(), "pk")
+```
+
+PostgreSQL and MySQL 8 use nested `REPLACE` calls followed by `LOWER`. SQLite
+uses a scalar `WITH` subquery to avoid the parser stack limit on older versions:
+shorter chains of `REPLACE` calls pass their results to the next stage, and the
+final `SELECT` applies `LOWER`.
+
+No custom collation is installed. The query computes the key for each row, so a
+normal index on the title may not speed up this sort. The secondary `pk` gives
+tied titles a predictable order.
+The database still supplies the collation, case conversion, and `NULL` placement:
+unlike the Python helper, the expression leaves `NULL` as `NULL`. Don't assume
+identical ordering across backends or a full locale-specific dictionary sort.
+Neither helper needs the [admin mixin](admin-mixin.md#arabic-changelist-ordering)
+or changes the stored text.
+
 ## Choosing an isolation helper
 
 - `isolate()` strips any existing Unicode `Bidi_Control` characters and wraps an
@@ -220,6 +265,8 @@ translated unit names are used on both backends.
       heading_level: 2
       members:
         - arabic_search_regex
+        - arabic_sort_key
+        - arabic_sort_expression
         - numbering_system
         - normalize_numeric_input
         - transliterate_digits

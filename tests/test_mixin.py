@@ -2227,6 +2227,163 @@ def test_ascii_and_hebrew_queries_produce_identical_sql_to_stock_modeladmin(admi
     assert bidi_qs.query.sql_with_params() == stock_qs.query.sql_with_params()
 
 
+# -- Arabic changelist ordering ----------------------------------------------
+
+
+@pytest.fixture
+def arabic_titles(db):
+    # Expected dictionary order after folding alef variants and vowel marks.
+    # Raw code-point order puts آفاق first, not after أُصول.
+    titles = ("أبواب المدينة", "إدارة الوقت", "أُصول اللغة", "آفاق العلم", "بَحر الشعر", "بلاد النيل")
+    for i, title in enumerate(titles[::2] + titles[1::2]):
+        Book.objects.create(title=title, isbn=str(i))
+    return titles
+
+
+@pytest.mark.parametrize("language", ["ar", "en"])
+@pytest.mark.parametrize("order", ["1", "-1"])
+def test_arabic_ordering_title_sort_link(admin_client, arabic_titles, language, order):
+    response = admin_client.get(
+        BOOK_CHANGELIST_URL, {"o": order}, headers={"accept-language": language}
+    )
+    assert response.status_code == 200
+    assert response.wsgi_request.LANGUAGE_CODE == language
+    direction = "ascending" if order == "1" else "descending"
+    assert f"column-title sorted {direction}" in response.content.decode()
+    cl = response.context["cl"]
+    expected = list(arabic_titles if order == "1" else reversed(arabic_titles))
+    # Check the database order as well as the first rendered page: sorting
+    # only the rows already fetched by the paginator gives the wrong page.
+    assert list(cl.queryset.values_list("title", flat=True)) == expected
+    assert [book.title for book in cl.result_list] == expected[: BookAdmin.list_per_page]
+
+
+@pytest.mark.parametrize("order", ["1", "-1"])
+def test_arabic_ordering_equivalent_titles_use_descending_pk(admin_user, order):
+    # Each pair differs by just one letter: hamzated alef, ta marbuta,
+    # or alef maqsura. Both the pairs and their members are in raw SQL order.
+    pairs = [
+        ("أيام العرب", "ايام العرب"),
+        ("رحلة الشتاء", "رحله الشتاء"),
+        ("صدى الجبال", "صدي الجبال"),
+    ]
+    if order == "-1":
+        pairs = [pair[::-1] for pair in reversed(pairs)]
+
+    raw_pks = []
+    folded_pks = []
+    for titles in pairs:
+        # Insert in the requested raw order, so *every* pair must swap places
+        # when its keys tie and Django's -pk tiebreaker takes over.
+        pks = [Book.objects.create(title=title, isbn="1").pk for title in titles]
+        raw_pks.extend(pks)
+        folded_pks.extend(reversed(pks))
+
+    def changelist_pks(admin_class):
+        response = render_book_changelist(admin_class(Book, admin.site), admin_user, o=order)
+        return list(response.context_data["cl"].queryset.values_list("pk", flat=True))
+
+    assert changelist_pks(stock_book_admin_cls()) == raw_pks
+    assert changelist_pks(BookAdmin) == folded_pks
+
+
+def test_arabic_ordering_textfield_with_isolation_off(admin_user):
+    first = Book.objects.create(title="Z", isbn="2", summary="أبواب المدينة")
+    second = Book.objects.create(title="A", isbn="1", summary="آفاق العلم")
+    model_admin = make_book_admin(
+        list_display=("isbn", "summary"),
+        bidi_arabic_ordering=("summary",),
+        bidi_isolate_changelist=False,
+    )
+    response = render_book_changelist(model_admin, admin_user, o="1")
+    assert list(response.context_data["cl"].result_list) == [first, second]
+
+
+def test_arabic_ordering_honours_modeladmin_ordering(admin_user, arabic_titles):
+    model_admin = make_book_admin(
+        list_display=("title", "isbn"), bidi_arabic_ordering=("title",), ordering=("-title", "isbn")
+    )
+    # A later pk would win Django's default tiebreaker, but must not win
+    # ahead of the explicitly configured secondary ordering field.
+    tied_title = arabic_titles[-1]
+    Book.objects.create(title=tied_title, isbn="999")
+    response = render_book_changelist(model_admin, admin_user)
+    rows = list(response.context_data["cl"].result_list)
+    assert [book.title for book in rows] == [tied_title, *reversed(arabic_titles)]
+    assert rows[0].isbn < rows[1].isbn
+
+
+@pytest.mark.parametrize(
+    ("fields", "order", "global_enabled"),
+    [
+        pytest.param(("title",), "2", True, id="unlisted-isbn"),
+        pytest.param((), "1", True, id="no-fields"),
+        pytest.param(("title",), "1", False, id="global-off"),
+    ],
+)
+def test_arabic_ordering_inactive_sort_matches_stock_sql(
+    admin_user, arabic_titles, fields, order, global_enabled
+):
+    class PlainBookAdmin(admin.ModelAdmin):
+        list_display = ("title", "isbn")
+
+    class BidiBookAdmin(BidiSafeAdminMixin, PlainBookAdmin):
+        bidi_arabic_ordering = fields
+
+    def queryset(admin_class):
+        response = render_book_changelist(admin_class(Book, admin.site), admin_user, o=order)
+        return response.context_data["cl"].queryset
+
+    with (
+        override_settings(RTL_ADMIN={"ARABIC_ORDERING": global_enabled}),
+        translation.override("ar"),
+    ):
+        stock = queryset(PlainBookAdmin)
+        bidi = queryset(BidiBookAdmin)
+        assert bidi.query.sql_with_params() == stock.query.sql_with_params()
+        assert list(bidi) == list(stock)
+        if order == "1":
+            raw_titles = list(Book.objects.order_by("title").values_list("title", flat=True))
+            assert raw_titles != list(arabic_titles)
+            assert [book.title for book in bidi] == raw_titles
+
+
+def test_arabic_ordering_preserves_custom_changelist_and_orderby(admin_user, arabic_titles):
+    from django.contrib.admin.views.main import ChangeList
+
+    title_desc = models.F("title").desc(nulls_last=True)
+
+    class CustomChangeList(ChangeList):
+        def get_ordering(self, request, queryset):
+            return [title_desc]
+
+    class CustomAdmin(admin.ModelAdmin):
+        def get_changelist(self, request, **kwargs):
+            return CustomChangeList
+
+    class OrderedAdmin(BidiSafeAdminMixin, CustomAdmin):
+        bidi_arabic_ordering = ("title",)
+
+    response = render_book_changelist(OrderedAdmin(Book, admin.site), admin_user)
+    cl = response.context_data["cl"]
+    assert isinstance(cl, CustomChangeList)
+    assert [book.title for book in cl.result_list] == list(reversed(arabic_titles))
+    folded, tiebreaker = cl.queryset.query.order_by
+    assert folded.descending and folded.nulls_last
+    assert tiebreaker == "-pk"
+    assert title_desc.expression == models.F("title")  # The custom ordering wasn't mutated.
+
+
+def test_plain_modeladmin_ignores_arabic_ordering(admin_user, arabic_titles):
+    # This plain admin copies BookAdmin's opt-in attribute, but not the mixin.
+    plain = stock_book_admin_cls()(Book, admin.site)
+    with translation.override("ar"):
+        response = render_book_changelist(plain, admin_user, o="1")
+    qs = response.context_data["cl"].queryset
+    raw_titles = list(Book.objects.order_by("title").values_list("title", flat=True))
+    assert list(qs.values_list("title", flat=True)) == raw_titles
+
+
 # -- changelist digit localization -------------------------------------------
 
 

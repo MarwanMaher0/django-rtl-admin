@@ -21,9 +21,12 @@ import decimal
 import re
 import unicodedata
 from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from django.conf import settings
+from django.db.models import Expression, TextField, Value
+from django.db.models.expressions import Ref
+from django.db.models.functions import Lower, Replace
 from django.utils import dateformat, formats, timesince, timezone, translation
 from django.utils.html import avoid_wrapping
 from django.utils.text import slugify
@@ -31,6 +34,12 @@ from django.utils.translation import get_language, gettext, npgettext, pgettext,
 
 from .bidi import BIDI_CONTROL_CHARS
 from .conf import rtl_settings
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from django.db.backends.base.base import BaseDatabaseWrapper
+    from django.db.models.sql.compiler import SQLCompiler, _AsSqlType
 
 try:  # pragma: no cover - exercised by both branches in CI
     from babel import Locale, UnknownLocaleError
@@ -166,7 +175,21 @@ _ARABIC_DIACRITICS_AND_TATWEEL = (
     "\u0640" + "".join(chr(cp) for cp in range(0x064B, 0x0660)) + "\u0670"
 )
 _ARABIC_DIACRITICS_RE = "[\u0640\u064b-\u065f\u0670]*"
-_ARABIC_SEARCH_DROPPED = frozenset(_ARABIC_DIACRITICS_AND_TATWEEL) | BIDI_CONTROL_CHARS
+_ARABIC_DROPPED = frozenset(_ARABIC_DIACRITICS_AND_TATWEEL) | BIDI_CONTROL_CHARS
+# Both keys use these substitutions, in a stable order for parameterized SQL.
+_ARABIC_SORT_REPLACEMENTS = (
+    ("آ", "ا"),
+    ("أ", "ا"),
+    ("إ", "ا"),
+    ("ٱ", "ا"),
+    ("ة", "ه"),
+    ("ى", "ي"),
+    ("ؤ", "و"),
+    ("ئ", "ي"),
+    *((char, str(_DIGIT_VALUES[char])) for char in DIGITS["arab"] + DIGITS["arabext"]),
+    *((char, "") for char in sorted(_ARABIC_DROPPED)),
+)
+_ARABIC_SORT_TABLE = str.maketrans(dict(_ARABIC_SORT_REPLACEMENTS))
 _ARABIC_LETTER_GROUPS: tuple[str, ...] = (
     "\u0622\u0623\u0625\u0627\u0671",  # آ أ إ ا ٱ
     "\u0629\u0647",  # ة ه
@@ -221,7 +244,7 @@ _ARABIC_ROMANIZATION = str.maketrans(
     }
 )
 _SLUG_CLEANUP = str.maketrans(
-    DIGITS["arab"] + DIGITS["arabext"], DIGITS["latn"] * 2, "".join(_ARABIC_SEARCH_DROPPED)
+    DIGITS["arab"] + DIGITS["arabext"], DIGITS["latn"] * 2, "".join(_ARABIC_DROPPED)
 )
 _ARABIC_SLUG_INPUT = re.compile(
     r"[\u0600-\u06ff\u0750-\u077f\u0870-\u08ff\ufb50-\ufdff\ufe70-\ufefc"
@@ -437,7 +460,7 @@ def arabic_search_regex(term: str) -> str:
     """
     parts: list[str] = []
     for char in term:
-        if char in _ARABIC_SEARCH_DROPPED:
+        if char in _ARABIC_DROPPED:
             continue
         letter_class = _ARABIC_LETTER_CLASS.get(char)
         if letter_class is not None:
@@ -485,6 +508,64 @@ def arabic_slugify(
         return ""
     boundary = slug.rfind("-", 0, max_length + 1)
     return slug[: max_length if boundary == -1 else boundary].rstrip("-_")
+
+
+def arabic_sort_key(value: str | None) -> str:
+    """Return a lowercase sort key, ignoring Arabic spelling variants and marks.
+
+    Fold alef variants and hamza carriers to their base letters, ta marbuta to
+    ha, alef maqsura to ya, and Arabic-Indic and Persian digits to ASCII. Drop
+    harakat, tatweel and bidi controls. ``None`` gets the empty-string key.
+    """
+    return "" if value is None else value.translate(_ARABIC_SORT_TABLE).lower()
+
+
+def _replacements(expr: Expression, pairs: Sequence[tuple[str, str]]) -> Expression:
+    for source, target in pairs:
+        expr = Replace(expr, Value(source), Value(target), output_field=TextField())
+    return expr
+
+
+class _ArabicSortExpression(Lower):
+    def as_sql(
+        self, compiler: SQLCompiler, connection: BaseDatabaseWrapper, *args: Any, **kwargs: Any
+    ) -> _AsSqlType:
+        return Lower(_replacements(self.lhs, _ARABIC_SORT_REPLACEMENTS)).as_sql(
+            compiler, connection, *args, **kwargs
+        )
+
+    def as_sqlite(
+        self, compiler: SQLCompiler, connection: BaseDatabaseWrapper, **extra_context: Any
+    ) -> _AsSqlType:
+        # Older SQLite parsers overflow their stack on 60+ nested REPLACEs.
+        # Name each partial result in a scalar WITH query so the next stage
+        # needs only a column reference. No UDF or connection setup required.
+        source, source_params = compiler.compile(self.lhs)
+        stages = [f"rtl0(v) AS (SELECT {source})"]
+        params = list(source_params)
+        value = Ref("v", self.lhs)
+        size = 12
+        for offset in range(0, len(_ARABIC_SORT_REPLACEMENTS), size):
+            pairs = _ARABIC_SORT_REPLACEMENTS[offset : offset + size]
+            sql, args = compiler.compile(_replacements(value, pairs))
+            index = len(stages)
+            stages.append(f"rtl{index}(v) AS (SELECT {sql} FROM rtl{index - 1})")
+            params.extend(args)
+        lower, _ = compiler.compile(Lower(value))
+        return f"(WITH {', '.join(stages)} SELECT {lower} FROM rtl{len(stages) - 1})", tuple(params)
+
+
+def arabic_sort_expression(field_name: str) -> Lower:
+    """Return a database sort key for a text field.
+
+    PostgreSQL and MySQL 8 use nested REPLACE calls followed by LOWER. SQLite
+    evaluates the same functions in short stages inside a scalar WITH subquery
+    to avoid the parser stack limit on older SQLite versions.
+
+    Database collation, non-ASCII lowercasing and NULL placement still follow
+    the backend. The expression doesn't modify the stored value.
+    """
+    return _ArabicSortExpression(field_name, output_field=TextField())
 
 
 def _localize_digits(text: str, language: str | None) -> str:

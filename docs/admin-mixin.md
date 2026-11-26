@@ -57,6 +57,7 @@ shell and CSS setup, follow [Installation](installation.md) and
 | `bidi_local_digits` | `None` | Inherit `RTL_ADMIN["LOCALIZE_CHANGELIST_DIGITS"]`; `True` or `False` overrides [changelist digit localization](#changelist-digit-localization) for this admin. |
 | `bidi_fold_search` | `None` | Inherit `RTL_ADMIN["FOLD_ARABIC_SEARCH"]`; `True` or `False` overrides [Arabic search folding](#arabic-search-folding) for this admin. |
 | `bidi_transliterate_slugs` | `None` | Inherit `RTL_ADMIN["TRANSLITERATE_SLUGS"]`; `True` or `False` overrides [Arabic slug prepopulation](#arabic-slug-prepopulation) for this admin or inline. |
+| `bidi_arabic_ordering` | `()` | Name text fields to [sort by folded Arabic spelling](#arabic-changelist-ordering); leave empty for stock ordering. Requires `RTL_ADMIN["ARABIC_ORDERING"]` (default `True`). |
 | `bidi_isolate_changelist` | `None` | Follow `RTL_ADMIN["ISOLATE_CHANGELIST"]`; `True` or `False` overrides it for this admin. The same switch covers [object names](#object-names-in-messages-and-on-the-delete-page) on the delete page and in messages. |
 | `bidi_isolate_readonly` | `None` | Follow `RTL_ADMIN["ISOLATE_READONLY_FIELDS"]`; `True` or `False` overrides it for this admin. |
 | `bidi_isolate_fields` | `None` | Consider all eligible string `list_display` entries; otherwise isolate only names in this iterable on the changelist. An empty tuple isolates none. |
@@ -217,6 +218,32 @@ To leave prepopulation to Django, set `RTL_ADMIN["TRANSLITERATE_SLUGS"] = False`
 globally or `bidi_transliterate_slugs = False` on the relevant admin or inline.
 Set `bidi_transliterate_slugs = True` on a class to enable it there even if the
 global setting is off.
+
+## Arabic changelist ordering
+
+List a `CharField` or `TextField` in `bidi_arabic_ordering` to sort it by its
+folded spelling. Include it in `list_display` to offer a sort link. Sorting does
+not change the stored or displayed value. For example, if `Book.title` holds
+Arabic titles:
+
+```python
+class BookAdmin(BidiSafeAdminMixin, admin.ModelAdmin):
+    list_display = ("title", "isbn")
+    bidi_arabic_ordering = ("title",)
+    ordering = ("-title", "isbn")
+```
+
+`ModelAdmin.ordering` here puts the folded titles in descending order when the
+list opens; `isbn` breaks ties using its usual ordering. Clicking the title
+header sorts by the same key, ascending or descending (`?o=`). Sorting takes
+place in the database **before pagination**, in both Arabic and English UIs.
+The ISBN column keeps Django's normal sorting. An empty field list or a plain
+`ModelAdmin` keeps stock ordering for every column.
+
+For example, `أُصول اللغة` is compared as `اصول اللغه`, so its first letter
+sorts with the other forms of alef rather than in a separate group. The
+database collation still decides the order of the folded strings. For explicit
+ordering outside the admin, see [Arabic sort keys](api.md#arabic-sort-keys).
 
 ## Named fields and display methods
 
@@ -476,6 +503,7 @@ gives Django's own hooks.
         - bidi_isolation_enabled
         - bidi_readonly_isolation_enabled
         - formfield_for_dbfield
+        - get_changelist
         - get_search_results
         - get_list_display
         - get_list_display_links

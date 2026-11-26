@@ -16,6 +16,8 @@ import django_rtl_admin
 from django_rtl_admin import (
     arabic_search_regex,
     arabic_slugify,
+    arabic_sort_expression,
+    arabic_sort_key,
     formatting,
     normalize_numeric_input,
 )
@@ -979,6 +981,71 @@ def test_django_filesizeformat_is_unchanged_by_the_package_catalogs(language, ex
 
 def test_a_language_the_package_does_not_ship_uses_django_units():
     assert format_filesize(2_000, language="de") == "2,0\xa0KB"
+
+
+# -- Arabic sort keys ---------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("variant", "base"),
+    [
+        ("آفاق", "افاق"),
+        ("أحمد", "احمد"),
+        ("إيمان", "ايمان"),
+        ("ٱلكتاب", "الكتاب"),
+        ("مدرسة", "مدرسه"),
+        ("هدى", "هدي"),
+        ("فؤاد", "فواد"),
+        ("بئر", "بير"),
+    ],
+)
+def test_arabic_sort_key_folds_letters(variant, base):
+    assert arabic_sort_key(variant) == arabic_sort_key(base) == base
+
+
+def test_arabic_sort_key_strips_marks_tatweel_and_controls():
+    marks = "".join(chr(cp) for cp in range(0x064B, 0x0660))
+    controls = "\u061c\u200e\u200f\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069"
+    assert arabic_sort_key(f"{controls}رَحْـمٰن{marks}") == "رحمن"
+
+
+def test_arabic_sort_key_normalizes_digits_and_mixed_latin():
+    assert (
+        arabic_sort_key("VOL.١: كِتَاب ٠١٢٣٤٥٦٧٨٩/۰۱۲۳۴۵۶۷۸۹") == "vol.1: كتاب 0123456789/0123456789"
+    )
+
+
+def test_arabic_sort_key_none_sorts_before_titles():
+    assert arabic_sort_key(None) == ""
+    assert sorted(["آفاق", None, "أبواب"], key=arabic_sort_key) == [None, "أبواب", "آفاق"]
+
+
+def test_arabic_sort_helpers_are_exported():
+    assert {"arabic_sort_key", "arabic_sort_expression"} <= set(django_rtl_admin.__all__)
+
+
+@pytest.mark.django_db
+def test_arabic_sort_expression_returns_the_python_key_for_folded_text():
+    from .testapp.models import Book
+
+    # Exercise TextField as well as CharField, including mixed scripts and all
+    # digit substitutions (not numeric sorting). Normalization is for sorting only.
+    titles = [
+        "أُصـول",
+        "فؤاد",
+        "\u2067مدرسة\u2069",
+        "VOL.٢/۲: بئر",
+        "إلى آفَاق",
+        "ٱلكتاب",
+        "٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹",
+    ]
+    Book.objects.bulk_create([Book(title=s, summary=s, isbn="1") for s in titles])
+    rows = Book.objects.annotate(
+        title_key=arabic_sort_expression("title"), summary_key=arabic_sort_expression("summary")
+    ).order_by("title_key")
+    assert [(b.title, b.title_key, b.summary_key) for b in rows] == [
+        (s, arabic_sort_key(s), arabic_sort_key(s)) for s in sorted(titles, key=arabic_sort_key)
+    ]
 
 
 # -- Arabic search regex folding ---------------------------------------------

@@ -49,6 +49,7 @@ class ReviewInline(admin.StackedInline):
 
 @admin.register(Book)
 class BookAdmin(BidiSafeAdminMixin, admin.ModelAdmin):
+    bidi_arabic_ordering = ("title",)
     list_display = ("title", "isbn", "category", "status", "published_on", "price")
     list_filter = ("status", "category", "published_on")
     search_fields = ("title", "isbn")
