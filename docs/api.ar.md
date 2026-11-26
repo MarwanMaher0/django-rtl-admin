@@ -196,7 +196,10 @@ with translation.override("ar-eg"):
 
 يتحكم `NUMERALS` في أشكال الأرقام، لا في جميع الفواصل. تحوّل
 `transliterate_digits()` الأرقام بين `latn` و`arab` و`arabext` دون تغيير علامات
-الترقيم. تعيد دوال التنسيق نصًا؛ طبّق العزل عليه بشكل مستقل عند الحاجة.
+الترقيم. ويستدعي [مزيج الإدارة](admin-mixin.md#changelist-digit-localization)
+`transliterate_digits(text, numbering_system())` على خلايا قائمة السجلات العددية
+والزمنية المؤهلة عند تفعيل `LOCALIZE_CHANGELIST_DIGITS` أو `bidi_local_digits`،
+مع الإبقاء على فواصل Django كما هي. تعيد دوال التنسيق نصًا؛ طبّق العزل عليه بشكل مستقل عند الحاجة.
 
 تنسّق `format_timedelta()` مدةً من نوع `timedelta` أو عددًا من الثواني وفق أنماط
 الوحدات في CLDR. وفي غياب Babel تستخدم نصوص `timesince` المترجمة في Django.
