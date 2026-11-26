@@ -15,7 +15,9 @@ All notable changes to this project are documented here. The format follows
   separators, `latn` locales, text/choice/foreign-key/callable columns, and
   `list_editable` inputs, filters, paginator, and action counter untouched.
   Enable globally with `RTL_ADMIN["LOCALIZE_CHANGELIST_DIGITS"] = True` or per
-  admin with `bidi_local_digits = True`.
+  admin with `bidi_local_digits = True`; opt one admin out with
+  `bidi_local_digits = False`, and `RTL_ADMIN["NUMERALS"]` forces the
+  numbering system.
 - `BidiSafeAdminMixin` folds equivalent Arabic letter forms, harakat, tatweel,
   and digits in changelist and autocomplete search across text `search_fields`
   while keeping ASCII and Hebrew queries untouched. Use `arabic_search_regex()`
