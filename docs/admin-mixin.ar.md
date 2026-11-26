@@ -11,7 +11,8 @@ description: أضف عزل Unicode اختياريًا إلى خلايا قائم
 استخدمه للأسماء مختلطة الاتجاه والمعرّفات وعناوين البريد الإلكتروني والمسارات وغيرها
 من البيانات التي ينبغي ألا تؤثر في النص المحيط بها. يقتصر أثر العزل على العرض ولا
 يمسّ القيم المخزّنة. ويتيح المزيج أيضًا [إدخال الأعداد والتواريخ](#numeric-and-date-input)
-بالأرقام العربية الهندية أو الفارسية، و[مطابقة الصور المكافئة في البحث العربي](#arabic-search-folding)
+بالأرقام العربية الهندية أو الفارسية، و[توطين الأرقام في قائمة السجلات](#changelist-digit-localization)
+اختياريًا للحقول العددية والزمنية، و[مطابقة الصور المكافئة في البحث العربي](#arabic-search-folding)
 للأحرف والتشكيل والتطويل والأرقام، مهما كانت لغة الواجهة.
 
 ## إضافته إلى ModelAdmin { #add-it-to-a-modeladmin }
@@ -48,6 +49,7 @@ from django_rtl_admin.mixins import BidiSafeAdminMixin
 | الخاصية | القيمة الافتراضية | التأثير |
 | --- | --- | --- |
 | `bidi_normalize_input` | `None` | تتبع `RTL_ADMIN["NORMALIZE_INPUT_DIGITS"]`؛ استخدم `True` أو `False` لتفعيل تحويل الأرقام عند الإدخال أو تعطيله في هذه الفئة. |
+| `bidi_local_digits` | `None` | تتبع `RTL_ADMIN["LOCALIZE_CHANGELIST_DIGITS"]`؛ استخدم `True` أو `False` لتفعيل [توطين الأرقام في قائمة السجلات](#changelist-digit-localization) أو تعطيله في هذه الفئة. |
 | `bidi_fold_search` | `None` | تتبع `RTL_ADMIN["FOLD_ARABIC_SEARCH"]`؛ استخدم `True` أو `False` لتفعيل [مطابقة الصور المكافئة في البحث العربي](#arabic-search-folding) أو تعطيلها في هذه الفئة. |
 | `bidi_isolate_changelist` | `None` | تتبع `RTL_ADMIN["ISOLATE_CHANGELIST"]`؛ وتتجاوزها `True` أو `False` لفئة الإدارة هذه. يشمل المفتاح نفسه [أسماء الكائنات](#object-names-in-messages-and-on-the-delete-page) في صفحة الحذف وفي الرسائل. |
 | `bidi_isolate_readonly` | `None` | تتبع `RTL_ADMIN["ISOLATE_READONLY_FIELDS"]`؛ وتتجاوزها `True` أو `False` لفئة الإدارة هذه. |
@@ -100,6 +102,40 @@ class BookAdmin(BidiSafeAdminMixin, admin.ModelAdmin):
 يجب إدخال التاريخ بالتقويم الميلادي وبصيغة يقبلها الحقل. فمثلًا يتحول `۲۰۲۴-۰۳-۰۵`
 إلى `2024-03-05`، لكن المزيج **لا يحوّل** التواريخ من التقويم الجلالي (الهجري الشمسي)
 أو الهجري القمري إلى التقويم الميلادي.
+
+## توطين الأرقام في قائمة السجلات { #changelist-digit-localization }
+
+فعّل `RTL_ADMIN["LOCALIZE_CHANGELIST_DIGITS"] = True` عمومًا أو `bidi_local_digits = True`
+في فئة `ModelAdmin` واحدة لإعادة كتابة الأرقام في خلايا قائمة السجلات لحقول النماذج
+العددية والزمنية المؤهلة وفق اللغة النشطة (وتعطّل `bidi_local_digits = False` الميزة في
+فئة واحدة حين يكون الإعداد العام `True`؛ ولا تتأثر فئات `ModelAdmin` العادية):
+
+```python
+@admin.register(Book)
+class BookAdmin(BidiSafeAdminMixin, admin.ModelAdmin):
+    list_display = ("title", "isbn", "published_on", "price")
+    bidi_local_digits = True
+```
+
+عند التفعيل، يعيد المزيج كتابة خلايا قائمة السجلات لحقول النماذج من الأنواع
+`IntegerField` (بما فيها فئات الأعداد الصحيحة وحقول الترقيم التلقائي الفرعية)
+و`DecimalField` و`FloatField` و`DateField` و`DateTimeField` و`TimeField`
+و`DurationField`—بما في ذلك مسارات العلاقات في Django 5.1 أو أحدث—عبر استدعاء
+[`transliterate_digits(text, numbering_system())`](api.md#locale-aware-formatting)
+قبل تطبيق عزل Unicode. تتغير محارف الأرقام وحدها بينما **تبقى الفواصل كما يعرضها
+Django** (فعلى سبيل المثال تصبح `1234,50` في `ar-eg` على صورة `١٢٣٤,٥٠`، وتصبح
+`1234.50` في `fa` على صورة `۱۲۳۴.۵۰`). وتظل الإعدادات المحلية التي تستخدم نظام
+الترقيم `latn` (مثل `en` و`ar` و`he`) مطابقةً بايتًا ببايت دون أي تغيير، كما يفرض
+`RTL_ADMIN["NUMERALS"]` (`"latn"` أو `"arab"` أو `"arabext"`) نظام الترقيم.
+
+تُترك أعمدة `CharField` و`TextField` (مثل حقل ISBN أو العنوان)، وأعمدة `ForeignKey`،
+والحقول المزوّدة بـ`choices`، والأيقونات المنطقية، والأعمدة المبنية على دوال أو خصائص
+قابلة للاستدعاء دون مساس، وكذلك القيم `None` و`empty_value_display`، ولا تُعاد كتابة أي
+محارف داخل وسوم HTML أبدًا. وتبقى روابط الفرز و`admin_order_field` وروابط صفحة التعديل
+سليمةً، ويستمر توطين الأرقام في العمل حتى عند ضبط `ISOLATE_CHANGELIST = False` أو
+`bidi_isolate_changelist = False`. ولا تشمل هذه الميزة حقول الإدخال في `list_editable`،
+ولا المرشّحات الجانبية (`list_filter` و`date_hierarchy`)، ولا شريط ترقيم الصفحات
+(paginator)، ولا عدّاد الإجراءات (action counter)، إذ تبقى جميعها دون تغيير.
 
 ## مطابقة الصور المكافئة في البحث العربي { #arabic-search-folding }
 
@@ -325,9 +361,11 @@ HTML المخصصة باستخدام `format_html` في Django، لا بتعلي
 مباشرةً في `list_display`. قد تبقى محارف التحكم في Unicode عند النسخ واللصق؛ طبّقها
 عند العرض بدلًا من حفظها ضمن المعرّفات.
 
-لا يستخدم المزيج تلقائيًا منسّقات Babel أو الأرقام في هذه الحزمة.
-استدعِ `format_number` أو `format_currency` في طريقة عرض مسمّاة عند الحاجة،
-ثم دع المزيج يعزل نتيجتها. راجع [واجهة Python البرمجية](api.md) أو
+حتى عند تفعيل [توطين الأرقام في قائمة السجلات](#changelist-digit-localization)، يكتفي
+المزيج بتحويل محارف الأرقام في النص الذي ينسّقه Django للحقل، ولا يستدعي تلقائيًا منسّقات
+Babel أو أنماط الفواصل والعملات الخاصة بـCLDR في هذه الحزمة. استدعِ `format_number` أو
+`format_currency` في طريقة عرض مسمّاة عند الحاجة إلى فواصل الإعداد المحلي أو تنسيق
+العملات، ثم دع المزيج يعزل نتيجتها. راجع [واجهة Python البرمجية](api.md) أو
 [مرشحات القوالب](template-tags.md) للتنسيق الصريح.
 
 ## النطاق والتخصيص { #scope-and-customization }

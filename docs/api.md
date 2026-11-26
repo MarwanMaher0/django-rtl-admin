@@ -152,7 +152,11 @@ are left untouched.
 
 `NUMERALS` controls digit shapes, not every separator. `transliterate_digits()`
 converts digits among `latn`, `arab`, and `arabext` without changing punctuation.
-Formatting helpers return text; apply isolation separately when needed.
+The [admin mixin](admin-mixin.md#changelist-digit-localization) calls
+`transliterate_digits(text, numbering_system())` on eligible numeric and temporal
+changelist cells when `LOCALIZE_CHANGELIST_DIGITS` or `bidi_local_digits` is
+enabled, preserving Django's rendered separators. Formatting helpers return text;
+apply isolation separately when needed.
 
 `format_timedelta()` formats a `timedelta` or a number of seconds with CLDR unit
 patterns; without Babel it uses Django's translated `timesince` strings. Its

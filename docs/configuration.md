@@ -32,6 +32,7 @@ The supported keys are defined in `django_rtl_admin.conf.DEFAULTS`.
 | `ISOLATE_TABLE_CELLS` | `True` | Enable CSS isolation for changelist cells and related navigation and data, including dashboard Recent actions links and related-object labels beside `raw_id_fields`. Object history table cells and Select2 autocomplete values get `unicode-bidi: plaintext` with their alignment kept. |
 | `PLAINTEXT_FORM_FIELDS` | `True` | Add the body class enabling first-strong plaintext direction for text-like inputs and textareas. |
 | `NORMALIZE_INPUT_DIGITS` | `True` | Normalize Arabic-Indic and Persian digits when parsing numeric, date, and time fields on mixin-enabled admins and inlines. |
+| `LOCALIZE_CHANGELIST_DIGITS` | `False` | Rewrite digits in eligible numeric and temporal changelist cells on mixin-enabled admins for the active locale's numbering system, keeping Django's separators. |
 | `FOLD_ARABIC_SEARCH` | `True` | Fold equivalent Arabic letter forms, diacritics, tatweel, and digits when searching text fields and autocompletes on mixin-enabled admins. |
 | `NUMERALS` | `"auto"` | Follow the locale's numbering system, or force `"latn"`, `"arab"`, or `"arabext"` in the formatting helpers. |
 | `USE_BABEL` | `True` | Use Babel when installed; otherwise render numbers from built-in CLDR tables, with Django as a last resort. |
@@ -149,6 +150,23 @@ On a [mixin-enabled admin or inline](admin-mixin.md#numeric-and-date-input),
 it for that class. This affects parsing in every UI language, independently of
 `NUMERALS`, which controls output.
 
+## Changelist digits
+
+`RTL_ADMIN["LOCALIZE_CHANGELIST_DIGITS"]` defaults to `False`. Set it to `True`
+to rewrite digits in changelist cells of `IntegerField`, `DecimalField`,
+`FloatField`, `DateField`, `DateTimeField`, `TimeField`, and `DurationField`
+model fields (including related lookups on Django 5.1+) on
+[mixin-enabled admins](admin-mixin.md#changelist-digit-localization) using the
+active locale's numbering system. Use a boolean: `manage.py check` reports
+`rtl_admin.W005` for non-boolean values such as `"True"`, and reading an invalid
+value raises `ImproperlyConfigured`.
+
+On a mixin-enabled admin, `bidi_local_digits = None` inherits this setting;
+`True` or `False` overrides it for that admin class. Plain `ModelAdmin` classes
+are unaffected. Only digit characters change—separators stay as Django renders
+them—and `NUMERALS` (`"latn"`, `"arab"`, or `"arabext"`) overrides the locale's
+numbering system here too.
+
 ## Arabic search folding
 
 `RTL_ADMIN["FOLD_ARABIC_SEARCH"]` defaults to `True`. Set it to `False` to keep
@@ -189,7 +207,9 @@ whole percentage. Date/time without Babel always uses Django; details are in
 the [Python API](api.md).
 
 These settings affect explicit formatting helpers and [filters](template-tags.md),
-not every admin field. The mixin uses Django's normal field-display formatting.
+not every admin field. Even with `LOCALIZE_CHANGELIST_DIGITS` enabled, the mixin
+keeps Django's normal field-display separators and patterns and only rewrites
+digits according to `NUMERALS` / the active locale.
 
 ## Language switcher
 

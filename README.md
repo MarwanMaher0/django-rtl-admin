@@ -347,7 +347,7 @@ fewer than two languages are configured, or when `set_language` is not routed.
 
 ## Settings
 
-Everything lives in one dict. Every key is optional; every feature is opt-out.
+Everything lives in one dict. Every key is optional; every feature can be turned off.
 
 ```python
 RTL_ADMIN = {
@@ -367,6 +367,7 @@ RTL_ADMIN = {
 | `ISOLATE_TABLE_CELLS` | `True` | CSS-level `unicode-bidi: isolate` on changelist cells, linked object names in messages, the change-form subtitle and object links on the delete pages. |
 | `PLAINTEXT_FORM_FIELDS` | `True` | CSS-level `unicode-bidi: plaintext` on text inputs and textareas. |
 | `NORMALIZE_INPUT_DIGITS` | `True` | Normalize Arabic-Indic and Persian digits in numeric, date, and time input on mixin-enabled admins. Must be a boolean. |
+| `LOCALIZE_CHANGELIST_DIGITS` | `False` | Rewrite digits in eligible numeric and temporal changelist cells on mixin-enabled admins using the active locale's numbering system, keeping Django's separators. Must be a boolean. |
 | `FOLD_ARABIC_SEARCH` | `True` | Fold equivalent Arabic letter forms, diacritics, tatweel, and digits in changelist and autocomplete search on mixin-enabled admins. Must be a boolean. |
 | `NUMERALS` | `"auto"` | Numbering system for the formatting helpers: `"auto"` follows the locale, or force `"latn"`, `"arab"` or `"arabext"`. |
 | `USE_BABEL` | `True` | Use Babel when it is installed. `False` skips Babel and uses the built-in CLDR number tables plus Django date/time formatting. |
@@ -461,6 +462,7 @@ from django_rtl_admin import (
 | `bidi_isolate_changelist` | `None` | `True`/`False` overrides `RTL_ADMIN["ISOLATE_CHANGELIST"]` for this admin. |
 | `bidi_isolate_readonly` | `None` | `True`/`False` overrides `RTL_ADMIN["ISOLATE_READONLY_FIELDS"]` for this admin. |
 | `bidi_normalize_input` | `None` | Inherit `RTL_ADMIN["NORMALIZE_INPUT_DIGITS"]`, or use `True` or `False` to override it for this admin. |
+| `bidi_local_digits` | `None` | Inherit `RTL_ADMIN["LOCALIZE_CHANGELIST_DIGITS"]`, or use `True` or `False` to override changelist digit localization for this admin. |
 | `bidi_fold_search` | `None` | Inherit `RTL_ADMIN["FOLD_ARABIC_SEARCH"]`, or use `True` or `False` to override Arabic search folding for this admin. |
 | `bidi_isolate_fields` | `None` | Restrict changelist isolation to these `list_display` entries. |
 | `bidi_isolate_exclude` | `()` | Leave these `list_display` or `readonly_fields` entries alone. |

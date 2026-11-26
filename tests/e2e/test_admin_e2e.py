@@ -326,6 +326,38 @@ def test_arabic_changelist_search_folds_hamza_and_equivalent_forms(open_admin, s
     snapshot(page, "search-folded-ar")
 
 
+def test_ar_eg_changelist_localizes_price_digits_when_enabled(open_admin, settings, snapshot):
+    settings.RTL_ADMIN = {"LOCALIZE_CHANGELIST_DIGITS": True}
+    page = open_admin(CHANGELIST, lang="ar-eg")
+    assert page.locator("html").get_attribute("dir") == "rtl"
+    assert page.locator("html").get_attribute("lang") == "ar-eg"
+    body_class = page.locator("body").get_attribute("class") or ""
+    assert "rtl-admin--rtl" in body_class.split(), body_class
+    assert not page.js_errors, page.js_errors
+    assert_no_horizontal_overflow(page, "changelist local digits [ar-eg]")
+
+    prices = [
+        text.strip(ISOLATES + " \n")
+        for text in page.locator("#result_list tbody td.field-price").all_inner_texts()
+    ]
+    assert prices
+    assert "١٢٣,٥٠" in prices
+    assert all(re.fullmatch(r"[٠-٩]+,[٠-٩]{2}", price) for price in prices), prices
+
+    dates = [
+        text.strip(ISOLATES + " \n")
+        for text in page.locator("#result_list tbody td.field-published_on").all_inner_texts()
+    ]
+    assert dates and all(not re.search(r"[0-9]", d) and re.search(r"[٠-٩]", d) for d in dates)
+
+    isbns = [
+        text.strip(ISOLATES + " \n")
+        for text in page.locator("#result_list tbody td.field-isbn").all_inner_texts()
+    ]
+    assert isbns and all(isbn.startswith("978-") for isbn in isbns), isbns
+    snapshot(page, "changelist-local-digits-ar-eg")
+
+
 @parametrize_all
 def test_changelist_filters(open_admin, snapshot, lang, scheme):
     for page in visit(open_admin, CHANGELIST, lang, scheme):

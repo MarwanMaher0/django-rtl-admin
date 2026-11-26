@@ -12,8 +12,10 @@ it as plain text.
 Use it for mixed-direction names, identifiers, emails, paths, and other data
 that should not disturb surrounding text. Isolation affects presentation, not
 stored model values. The mixin also accepts Arabic-Indic and Persian digits in
-[numeric and date input](#numeric-and-date-input), and folds equivalent Arabic
-letter forms, diacritics, tatweel, and digits in
+[numeric and date input](#numeric-and-date-input), optionally rewrites numeric
+and temporal cells on the changelist via
+[changelist digit localization](#changelist-digit-localization), and folds
+equivalent Arabic letter forms, diacritics, tatweel, and digits in
 [admin search](#arabic-search-folding), in any UI language.
 
 ## Add it to a ModelAdmin
@@ -51,6 +53,7 @@ shell and CSS setup, follow [Installation](installation.md) and
 | Attribute | Default | Effect |
 | --- | --- | --- |
 | `bidi_normalize_input` | `None` | Inherit `RTL_ADMIN["NORMALIZE_INPUT_DIGITS"]`; `True` or `False` overrides input normalization for this admin. |
+| `bidi_local_digits` | `None` | Inherit `RTL_ADMIN["LOCALIZE_CHANGELIST_DIGITS"]`; `True` or `False` overrides [changelist digit localization](#changelist-digit-localization) for this admin. |
 | `bidi_fold_search` | `None` | Inherit `RTL_ADMIN["FOLD_ARABIC_SEARCH"]`; `True` or `False` overrides [Arabic search folding](#arabic-search-folding) for this admin. |
 | `bidi_isolate_changelist` | `None` | Follow `RTL_ADMIN["ISOLATE_CHANGELIST"]`; `True` or `False` overrides it for this admin. The same switch covers [object names](#object-names-in-messages-and-on-the-delete-page) on the delete page and in messages. |
 | `bidi_isolate_readonly` | `None` | Follow `RTL_ADMIN["ISOLATE_READONLY_FIELDS"]`; `True` or `False` overrides it for this admin. |
@@ -102,6 +105,42 @@ changes: bound form data retains the original input if validation fails.
 Dates must use the Gregorian calendar and a format the field accepts. For
 example, `۲۰۲۴-۰۳-۰۵` becomes `2024-03-05`. Django does **not** convert dates
 from the Jalali (Solar Hijri) or Islamic (lunar Hijri) calendar.
+
+## Changelist digit localization
+
+Enable `RTL_ADMIN["LOCALIZE_CHANGELIST_DIGITS"] = True` globally or
+`bidi_local_digits = True` on a single `ModelAdmin` to rewrite digits in
+changelist cells of eligible numeric and temporal model fields for the active
+language (`bidi_local_digits = False` disables it on one admin when the global
+setting is `True`; plain `ModelAdmin` classes are unaffected):
+
+```python
+@admin.register(Book)
+class BookAdmin(BidiSafeAdminMixin, admin.ModelAdmin):
+    list_display = ("title", "isbn", "published_on", "price")
+    bidi_local_digits = True
+```
+
+When enabled, the mixin rewrites changelist cells of `IntegerField` (including
+integer and auto-field subclasses), `DecimalField`, `FloatField`, `DateField`,
+`DateTimeField`, `TimeField`, and `DurationField` model fields—including across
+related lookups on Django 5.1+—with
+[`transliterate_digits(text, numbering_system())`](api.md#locale-aware-formatting)
+before applying Unicode isolation. Only digit characters change and **separators
+stay as Django renders them** (for example, `1234,50` in `ar-eg` becomes
+`١٢٣٤,٥٠` and `1234.50` in `fa` becomes `۱۲۳۴.۵۰`). Locales whose numbering
+system is `latn` (`en`, `ar`, `he`) remain byte-identical, and
+`RTL_ADMIN["NUMERALS"]` (`"latn"`, `"arab"`, or `"arabext"`) forces the
+numbering system.
+
+`CharField` and `TextField` columns (such as an ISBN or title), `ForeignKey`
+columns, fields with `choices`, boolean icons, and callable or property columns
+are left untouched, as are `None` and `empty_value_display`, and characters
+inside HTML tags are never rewritten. Sort links, `admin_order_field`, and
+change-form links stay intact, and digit localization continues to work when
+`ISOLATE_CHANGELIST = False` or `bidi_isolate_changelist = False`.
+`list_editable` inputs, filters (`list_filter` and `date_hierarchy`), the
+paginator, and the action counter are not covered and stay unchanged.
 
 ## Arabic search folding
 
@@ -337,9 +376,12 @@ have its inner isolates replaced unless you exclude that named column with
 Unicode controls can survive copy/paste; apply them when rendering rather than
 saving them into identifiers.
 
-The mixin does not automatically use this package's Babel or numeral formatters.
-Call `format_number` or `format_currency` in a named display method if required,
-then let the mixin isolate its result. See the [Python API](api.md) or
+Even with [changelist digit localization](#changelist-digit-localization)
+enabled, the mixin only transliterates digits on Django's rendered field text
+and does not automatically invoke this package's Babel or CLDR separator/currency
+formatters. Call `format_number` or `format_currency` in a named display method
+when locale-specific separators or currency patterns are required, then let the
+mixin isolate its result. See the [Python API](api.md) or
 [template filters](template-tags.md) for explicit formatting.
 
 ## Scope and customization

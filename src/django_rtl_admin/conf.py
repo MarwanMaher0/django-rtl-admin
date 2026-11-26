@@ -59,6 +59,8 @@ DEFAULTS: dict[str, Any] = {
     "NUMERALS": "auto",
     # Accept Arabic-Indic and Persian digits when cleaning admin form fields.
     "NORMALIZE_INPUT_DIGITS": True,
+    # Rewrite digits in numeric and temporal changelist cells for the locale.
+    "LOCALIZE_CHANGELIST_DIGITS": False,
     # Match equivalent Arabic letter forms, diacritics and digits in admin search.
     "FOLD_ARABIC_SEARCH": True,
     # Use Babel when it is installed.  Set to False to always use Django's
@@ -100,6 +102,7 @@ class RTLAdminSettings:
         PLAINTEXT_FORM_FIELDS: bool
         NUMERALS: str
         NORMALIZE_INPUT_DIGITS: bool
+        LOCALIZE_CHANGELIST_DIGITS: bool
         FOLD_ARABIC_SEARCH: bool
         USE_BABEL: bool
         CURRENCY: str
@@ -129,7 +132,11 @@ class RTLAdminSettings:
         return getattr(self, name)
 
     def _validate(self, name: str, value: Any) -> Any:
-        if name in {"NORMALIZE_INPUT_DIGITS", "FOLD_ARABIC_SEARCH"} and not isinstance(value, bool):
+        if name in {
+            "NORMALIZE_INPUT_DIGITS",
+            "LOCALIZE_CHANGELIST_DIGITS",
+            "FOLD_ARABIC_SEARCH",
+        } and not isinstance(value, bool):
             raise ImproperlyConfigured(f"{SETTINGS_KEY}[{name!r}] must be a bool, got {value!r}.")
         choices = CHOICES.get(name)
         if choices is not None and value not in choices:

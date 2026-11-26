@@ -28,6 +28,22 @@ def test_normalize_input_digits_requires_a_bool(value):
         rtl_settings.NORMALIZE_INPUT_DIGITS
 
 
+def test_localize_changelist_digits_defaults_to_false_and_can_be_enabled():
+    assert DEFAULTS["LOCALIZE_CHANGELIST_DIGITS"] is False
+    assert rtl_settings.LOCALIZE_CHANGELIST_DIGITS is False
+    with override_settings(RTL_ADMIN={"LOCALIZE_CHANGELIST_DIGITS": True}):
+        assert rtl_settings.LOCALIZE_CHANGELIST_DIGITS is True
+
+
+@pytest.mark.parametrize("value", [0, 1, None, "True", "False"])
+def test_localize_changelist_digits_requires_a_bool(value):
+    with (
+        override_settings(RTL_ADMIN={"LOCALIZE_CHANGELIST_DIGITS": value}),
+        pytest.raises(ImproperlyConfigured, match=r"LOCALIZE_CHANGELIST_DIGITS.*bool"),
+    ):
+        rtl_settings.LOCALIZE_CHANGELIST_DIGITS
+
+
 def test_fold_arabic_search_defaults_to_true_and_can_be_disabled():
     assert rtl_settings.FOLD_ARABIC_SEARCH is True
     with override_settings(RTL_ADMIN={"FOLD_ARABIC_SEARCH": False}):

@@ -2,7 +2,7 @@
 
 import json
 import re
-from datetime import date, datetime, time, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
@@ -10,13 +10,15 @@ from types import ModuleType, SimpleNamespace
 import django
 import pytest
 from django import forms
+from django.apps import apps
 from django.contrib import admin, messages
 from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
 from django.contrib.admin.models import LogEntry
 from django.contrib.admin.sites import AdminSite
+from django.contrib.admin.utils import display_for_field
 from django.contrib.messages.storage.cookie import CookieStorage
 from django.core.exceptions import ObjectDoesNotExist
-from django.db import models
+from django.db import connection, models
 from django.test import RequestFactory, override_settings
 from django.urls import include, path
 from django.utils import formats, translation
@@ -24,9 +26,9 @@ from django.utils.html import format_html
 from django.utils.safestring import SafeData, mark_safe
 from django.utils.translation import gettext
 
-from django_rtl_admin import BidiSafeAdminMixin
+from django_rtl_admin import BidiSafeAdminMixin, numbering_system, transliterate_digits
 from django_rtl_admin.bidi import FSI, ISOLATE_OPENERS, LRI, PDI, RLI, isolate
-from django_rtl_admin.mixins import _SUCCESS_MESSAGES
+from django_rtl_admin.mixins import _SUCCESS_MESSAGES, _localize_cell_digits
 
 from .testapp.admin import BidiThingAdmin, BookAdmin, InputBookAdmin, LocalizedInputBookAdmin
 from .testapp.models import Book, Category, Chapter, Review, Thing
@@ -2105,3 +2107,488 @@ def test_ascii_and_hebrew_queries_produce_identical_sql_to_stock_modeladmin(admi
     stock_qs, stock_dup = stock_admin.get_search_results(request, base_qs, query)
     assert bidi_dup == stock_dup
     assert bidi_qs.query.sql_with_params() == stock_qs.query.sql_with_params()
+
+
+# -- changelist digit localization -------------------------------------------
+
+
+class TemporalBookAdmin(BookAdmin):
+    list_display = (
+        "title",
+        "isbn",
+        "category",
+        "status",
+        "published_on",
+        "available_from",
+        "launch_time",
+        "price",
+        "code_badge",
+    )
+
+    @admin.display(description="Badge", ordering="title")
+    def code_badge(self, obj):
+        return f"B-{obj.pk}"
+
+
+def _strip_csrf(html: str) -> str:
+    return re.sub(
+        r'name="csrfmiddlewaretoken" value="[^"]+"',
+        'name="csrfmiddlewaretoken" value="TOKEN"',
+        html,
+    )
+
+
+def _extract_cell(html: str, field: str) -> str:
+    match = re.search(
+        rf'<(?:td|th) class="field-{re.escape(field)}(?:\s+[^"]*)?">(.*?)</(?:td|th)>',
+        html,
+        re.S,
+    )
+    assert match is not None, f"missing field-{field} cell"
+    return match.group(1)
+
+
+def _create_sample_book() -> Book:
+    category = Category.objects.create(name="Shelf 7")
+    return Book.objects.create(
+        title="Edition 2026",
+        isbn="978-0-262-03561-3",
+        category=category,
+        status="draft",
+        published_on=date(2026, 3, 5),
+        available_from=datetime(2026, 3, 5, 14, 30, tzinfo=timezone.utc),
+        launch_time=time(9, 15),
+        price=Decimal("1234.50"),
+    )
+
+
+@pytest.mark.parametrize(
+    ("language", "expected_system"),
+    [
+        ("ar-eg", "arab"),
+        ("fa", "arabext"),
+        ("ar", "latn"),
+        ("en", "latn"),
+        ("he", "latn"),
+    ],
+)
+def test_book_changelist_localizes_digits_only_in_non_latin_locales(
+    admin_client, settings, language, expected_system
+):
+    settings.LANGUAGES = [*settings.LANGUAGES, ("fa", "Persian")]
+    settings.ROOT_URLCONF = book_urlconf(TemporalBookAdmin)
+    book = _create_sample_book()
+
+    with (
+        override_settings(RTL_ADMIN={"LOCALIZE_CHANGELIST_DIGITS": False}),
+        translation.override(language),
+    ):
+        off_resp = admin_client.get(BOOK_CHANGELIST_URL, headers={"accept-language": language})
+    with (
+        override_settings(RTL_ADMIN={"LOCALIZE_CHANGELIST_DIGITS": True}),
+        translation.override(language),
+    ):
+        on_resp = admin_client.get(BOOK_CHANGELIST_URL, headers={"accept-language": language})
+
+    assert off_resp.status_code == on_resp.status_code == 200
+    assert on_resp.wsgi_request.LANGUAGE_CODE == language
+    off_html = off_resp.content.decode()
+    on_html = on_resp.content.decode()
+
+    if expected_system == "latn":
+        assert _strip_csrf(on_html) == _strip_csrf(off_html)
+        return
+
+    with translation.override(language):
+        assert numbering_system() == expected_system
+        for field_name in ("published_on", "available_from", "launch_time", "price"):
+            db_field = Book._meta.get_field(field_name)
+            django_rendered = display_for_field(getattr(book, field_name), db_field, "-")
+            expected = FSI + transliterate_digits(django_rendered, expected_system) + PDI
+            cell = _extract_cell(on_html, field_name)
+            assert cell == expected
+            assert not re.search(r"[0-9]", cell)
+
+    if language == "ar-eg":
+        assert "١٢٣٤,٥٠" in _extract_cell(on_html, "price")
+        assert "٢٠٢٦" in _extract_cell(on_html, "published_on")
+    elif language == "fa":
+        assert "۱۲۳۴.۵۰" in _extract_cell(on_html, "price")
+        assert "۲۰۲۶" in _extract_cell(on_html, "published_on")
+
+    # CharField, ForeignKey, choices, and callable columns stay untouched.
+    assert _extract_cell(on_html, "title") == _extract_cell(off_html, "title")
+    assert f"{FSI}Edition 2026{PDI}" in _extract_cell(on_html, "title")
+    assert _extract_cell(on_html, "isbn") == f"{FSI}978-0-262-03561-3{PDI}"
+    assert _extract_cell(on_html, "category") == f"{FSI}Shelf 7{PDI}"
+    assert _extract_cell(on_html, "status") == _extract_cell(off_html, "status")
+    assert _extract_cell(on_html, "code_badge") == f"{FSI}B-{book.pk}{PDI}"
+
+
+@pytest.mark.parametrize(
+    ("admin_factory", "global_enabled", "localizes"),
+    [
+        pytest.param(lambda: TemporalBookAdmin, False, False, id="default-off"),
+        pytest.param(lambda: TemporalBookAdmin, True, True, id="global-on"),
+        pytest.param(
+            lambda: variant(TemporalBookAdmin, bidi_local_digits=False),
+            True,
+            False,
+            id="admin-override-off",
+        ),
+        pytest.param(
+            lambda: variant(TemporalBookAdmin, bidi_local_digits=True),
+            False,
+            True,
+            id="admin-override-on",
+        ),
+        pytest.param(
+            lambda: variant(
+                stock_book_admin_cls(),
+                list_display=("title", "isbn", "published_on", "available_from", "price"),
+            ),
+            True,
+            False,
+            id="plain-modeladmin",
+        ),
+    ],
+)
+def test_changelist_digit_localization_switches_and_plain_modeladmin(
+    admin_client, settings, admin_factory, global_enabled, localizes
+):
+    settings.ROOT_URLCONF = book_urlconf(admin_factory())
+    _create_sample_book()
+
+    with (
+        override_settings(RTL_ADMIN={"LOCALIZE_CHANGELIST_DIGITS": global_enabled}),
+        translation.override("ar-eg"),
+    ):
+        resp = admin_client.get(BOOK_CHANGELIST_URL, headers=AR_EG)
+    assert resp.status_code == 200
+    price_cell = _extract_cell(resp.content.decode(), "price")
+    if localizes:
+        assert price_cell == f"{FSI}١٢٣٤,٥٠{PDI}"
+    else:
+        assert "1234,50" in price_cell
+        assert "١٢٣٤" not in price_cell
+
+
+@pytest.mark.parametrize(
+    ("language", "numerals", "expected_price"),
+    [
+        ("en", "arab", f"{FSI}١٢٣٤.٥٠{PDI}"),
+        ("ar", "arab", f"{FSI}١٢٣٤,٥٠{PDI}"),
+        ("en", "arabext", f"{FSI}۱۲۳۴.۵۰{PDI}"),
+        ("ar-eg", "latn", f"{FSI}1234,50{PDI}"),
+        ("fa", "latn", f"{FSI}1234.50{PDI}"),
+    ],
+)
+def test_changelist_digit_localization_honours_numerals_override(
+    admin_client, settings, language, numerals, expected_price
+):
+    settings.LANGUAGES = [*settings.LANGUAGES, ("fa", "Persian")]
+    settings.ROOT_URLCONF = book_urlconf(TemporalBookAdmin)
+    _create_sample_book()
+
+    with (
+        override_settings(RTL_ADMIN={"LOCALIZE_CHANGELIST_DIGITS": True, "NUMERALS": numerals}),
+        translation.override(language),
+    ):
+        resp = admin_client.get(BOOK_CHANGELIST_URL, headers={"accept-language": language})
+    assert resp.status_code == 200
+    assert _extract_cell(resp.content.decode(), "price") == expected_price
+
+
+@pytest.mark.parametrize("via_attribute", [False, True])
+def test_changelist_digit_localization_works_when_isolation_is_disabled_and_keeps_sorting(
+    admin_client, settings, via_attribute
+):
+    admin_cls = variant(
+        TemporalBookAdmin,
+        list_display=("price", "title", "isbn", "published_on"),
+        list_display_links=("price",),
+        sortable_by=("price", "published_on"),
+        **({"bidi_isolate_changelist": False, "bidi_local_digits": True} if via_attribute else {}),
+    )
+    settings.ROOT_URLCONF = book_urlconf(admin_cls)
+    cheap = Book.objects.create(
+        title="Book 1",
+        isbn="978-1",
+        published_on=date(2025, 1, 2),
+        price=Decimal("10.00"),
+    )
+    expensive = Book.objects.create(
+        title="Book 2",
+        isbn="978-2",
+        published_on=date(2026, 3, 5),
+        price=Decimal("99.50"),
+    )
+    rtl_cfg = (
+        {} if via_attribute else {"ISOLATE_CHANGELIST": False, "LOCALIZE_CHANGELIST_DIGITS": True}
+    )
+
+    with override_settings(RTL_ADMIN=rtl_cfg), translation.override("ar-eg"):
+        resp = admin_client.get(BOOK_CHANGELIST_URL, {"o": "-1"}, headers=AR_EG)
+    assert resp.status_code == 200
+    assert list(resp.context["cl"].result_list) == [expensive, cheap]
+    html = resp.content.decode()
+    assert not any(ch in html for ch in (*ISOLATE_OPENERS, PDI))
+    assert "sortable column-price" in html
+    assert (
+        f'<a href="/admin/testapp/book/{expensive.pk}/change/?_changelist_filters=o%3D-1">٩٩,٥٠</a>'
+    ) in html
+    assert _extract_cell(html, "isbn") in ("978-2", "978-1")
+    assert _extract_cell(html, "title") in ("Book 2", "Book 1")
+
+    # In Latin-digit locales, disabling isolation + enabling local digits stays stock-identical.
+    with (
+        override_settings(RTL_ADMIN={"ISOLATE_CHANGELIST": False}),
+        translation.override("en"),
+    ):
+        stock_en = admin_client.get(BOOK_CHANGELIST_URL).content.decode()
+    with (
+        override_settings(
+            RTL_ADMIN={"ISOLATE_CHANGELIST": False, "LOCALIZE_CHANGELIST_DIGITS": True}
+        ),
+        translation.override("en"),
+    ):
+        digits_en = admin_client.get(BOOK_CHANGELIST_URL).content.decode()
+    assert _strip_csrf(digits_en) == _strip_csrf(stock_en)
+
+
+def test_per_field_isolation_exclusions_still_localize_digits(admin_user):
+    book = _create_sample_book()
+    model_admin = make_book_admin(
+        list_display=("title", "isbn", "price"),
+        bidi_isolate_fields=("isbn",),
+        bidi_local_digits=True,
+    )
+    with translation.override("ar-eg"):
+        display = model_admin.get_list_display(request_for(admin_user))
+        assert display[2].admin_order_field == "price"
+        html = render_book_changelist(model_admin, admin_user).content.decode()
+    assert re.search(r'<th[^>]*class="sortable column-price"[^>]*>.*?href="\?o=[^"]+"', html, re.S)
+    assert _extract_cell(html, "isbn") == f"{FSI}{book.isbn}{PDI}"
+    assert _extract_cell(html, "price") == "١٢٣٤,٥٠"
+
+
+@pytest.mark.django_db(transaction=True)
+def test_integer_float_duration_choices_and_callables_on_changelist(admin_user, settings):
+    class MetricSample(models.Model):
+        label = models.CharField(max_length=50)
+        count = models.IntegerField()
+        ratio = models.FloatField()
+        elapsed = models.DurationField()
+        tier = models.IntegerField(choices=[(1, "Tier 1"), (2, "Tier 2")], default=1)
+        active = models.BooleanField(default=True)
+
+        class Meta:
+            app_label = "testapp"
+
+        def __str__(self):
+            return self.label
+
+    with connection.schema_editor() as editor:
+        editor.create_model(MetricSample)
+    try:
+        sample = MetricSample.objects.create(
+            label="Run 42",
+            count=-42,
+            ratio=12.5,
+            elapsed=timedelta(days=2, hours=3, minutes=4, seconds=5),
+            tier=1,
+            active=True,
+        )
+
+        def raw_callable(obj):
+            return f"C-{obj.count}"
+
+        site = AdminSite()
+        admin_cls = type(
+            "MetricSampleAdmin",
+            (BidiSafeAdminMixin, admin.ModelAdmin),
+            {
+                "list_display": (
+                    "id",
+                    "label",
+                    "count",
+                    "ratio",
+                    "elapsed",
+                    "tier",
+                    "active",
+                    raw_callable,
+                ),
+                "bidi_local_digits": True,
+            },
+        )
+        site.register(MetricSample, admin_cls)
+        urlconf = ModuleType("tests.urls_metrics")
+        urlconf.urlpatterns = [path("admin/", site.urls)]
+        settings.ROOT_URLCONF = urlconf
+
+        model_admin = site._registry[MetricSample]
+        request = RequestFactory().get("/admin/testapp/metricsample/")
+        request.user = admin_user
+        with translation.override("ar-eg"):
+            resp = model_admin.changelist_view(request)
+            resp.render()
+            html = resp.content.decode()
+
+        assert _extract_cell(html, "id") == (
+            f'<a href="/admin/testapp/metricsample/{sample.pk}/change/">'
+            f"{FSI}{transliterate_digits(str(sample.pk), 'arab')}{PDI}</a>"
+        )
+        assert _extract_cell(html, "label") == f"{FSI}Run 42{PDI}"
+        assert _extract_cell(html, "count") == f"{FSI}-٤٢{PDI}"
+        assert _extract_cell(html, "ratio") == f"{FSI}١٢,٥{PDI}"
+        assert _extract_cell(html, "elapsed") == f"{FSI}٢ days, ٣:٠٤:٠٥{PDI}"
+        assert _extract_cell(html, "tier") == f"{FSI}Tier 1{PDI}"
+        assert 'src="/static/admin/img/icon-yes.svg"' in _extract_cell(html, "active")
+        assert f"C-{sample.count}" in html
+    finally:
+        with connection.schema_editor() as editor:
+            editor.delete_model(MetricSample)
+        apps.all_models["testapp"].pop("metricsample", None)
+        apps.clear_cache()
+
+
+@related_lookups
+def test_related_lookup_cells_localize_digits_and_keep_sorting(admin_user):
+    category = Category.objects.create(name="Cat 9", is_featured=True)
+    book_a = Book.objects.create(
+        title="Alpha",
+        isbn="978-1",
+        category=category,
+        published_on=date(2025, 2, 3),
+        available_from=datetime(2025, 2, 3, 8, 5, tzinfo=timezone.utc),
+        launch_time=time(7, 30),
+        price=Decimal("20.00"),
+    )
+    book_b = Book.objects.create(
+        title="Beta",
+        isbn="978-2",
+        category=None,
+        published_on=date(2026, 4, 6),
+        available_from=datetime(2026, 4, 6, 16, 45, tzinfo=timezone.utc),
+        launch_time=time(19, 10),
+        price=Decimal("5.50"),
+    )
+    ch_a = Chapter.objects.create(book=book_a, number=1, title="Ch 1")
+    ch_b = Chapter.objects.create(book=book_b, number=2, title="Ch 2")
+
+    chapter_admin = type(
+        "BidiChapterAdmin",
+        (BidiSafeAdminMixin, admin.ModelAdmin),
+        {
+            "list_display": (
+                "title",
+                "number",
+                "book__price",
+                "book__published_on",
+                "book__available_from",
+                "book__launch_time",
+                "book__isbn",
+                "book__category__id",
+                "book__category__is_featured",
+            ),
+            "bidi_local_digits": True,
+        },
+    )(Chapter, admin.site)
+
+    request = RequestFactory().get("/admin/testapp/chapter/", {"o": "3"})
+    request.user = admin_user
+    with translation.override("fa"):
+        resp = chapter_admin.changelist_view(request)
+        resp.render()
+        html = resp.content.decode()
+
+    assert chapter_admin.get_list_display(request)[-1] == "book__category__is_featured"
+    assert list(resp.context_data["cl"].result_list) == [ch_b, ch_a]
+    assert "sortable column-book__price" in html
+    assert _extract_cell(html, "number") in (f"{FSI}۱{PDI}", f"{FSI}۲{PDI}")
+    assert f"{FSI}۵.۵۰{PDI}" in html
+    assert f"{FSI}۲۰.۰۰{PDI}" in html
+    assert "۲۰۲۶" in _extract_cell(html, "book__published_on")
+    assert "۲۰۲۶" in _extract_cell(html, "book__available_from")
+    assert f"{FSI}۱۹:۱۰{PDI}" in html
+    assert f"{FSI}978-1{PDI}" in html
+    assert '<td class="field-book__category__id">-</td>' in html
+    featured_cells = re.findall(
+        r'<td class="field-book__category__is_featured">(.*?)</td>',
+        html,
+        re.S,
+    )
+    assert len(featured_cells) == 2
+    assert featured_cells[0] in ("-", '<img src="/static/admin/img/icon-unknown.svg" alt="None">')
+    assert "True" in featured_cells[1]
+    assert not any(ch in cell for cell in featured_cells for ch in (*ISOLATE_OPENERS, PDI))
+
+
+def test_empty_values_html_tags_list_editable_and_chrome_stay_untouched(
+    admin_client, admin_user, settings
+):
+    # Null / empty_value_display containing digits is never rewritten.
+    Book.objects.create(
+        title="AA Null dates",
+        isbn="978-0",
+        published_on=None,
+        available_from=None,
+        launch_time=None,
+        price=Decimal("15.00"),
+    )
+    null_admin = make_book_admin(
+        list_display=("title", "published_on", "available_from", "launch_time", "price"),
+        empty_value_display="-0-",
+        bidi_local_digits=True,
+    )
+    with translation.override("ar-eg"):
+        null_html = render_book_changelist(null_admin, admin_user).content.decode()
+    for field_name in ("published_on", "available_from", "launch_time"):
+        assert _extract_cell(null_html, field_name) == "-0-"
+    assert _extract_cell(null_html, "price") == f"{FSI}١٥,٠٠{PDI}"
+
+    # SafeData HTML tags and numeric character references stay untouched inside markup.
+    with translation.override("ar-eg"):
+        tagged = mark_safe('<a href="/books/42/?p=2" data-v="9">Book 42&#45;7</a>')
+        assert _localize_cell_digits(tagged) == (
+            '<a href="/books/42/?p=2" data-v="9">Book ٤٢&#45;٧</a>'
+        )
+        assert isinstance(_localize_cell_digits(tagged), SafeData)
+        icon = mark_safe('<img src="/static/v2/icon-yes.svg" alt="True">')
+        assert _localize_cell_digits(icon) == icon
+
+    # list_editable inputs stay ASCII even when changelist digit localization is on.
+    settings.ROOT_URLCONF = book_urlconf(InputBookAdmin)
+    with (
+        override_settings(RTL_ADMIN={"LOCALIZE_CHANGELIST_DIGITS": True}),
+        translation.override("ar-eg"),
+    ):
+        editable_html = admin_client.get(BOOK_CHANGELIST_URL, headers=AR_EG).content.decode()
+    assert 'value="15.00"' in editable_html
+
+    # Filters, paginator, date hierarchy, and action counter stay byte-identical.
+    for index in range(6):
+        Book.objects.create(
+            title=f"Extra {index}",
+            isbn=f"978-{index + 10}",
+            published_on=date(2026, 3, index + 1),
+            price=Decimal("20.00") + index,
+        )
+    settings.ROOT_URLCONF = book_urlconf(variant(BookAdmin, empty_value_display="-0-"))
+    with (
+        override_settings(RTL_ADMIN={"LOCALIZE_CHANGELIST_DIGITS": False}),
+        translation.override("ar-eg"),
+    ):
+        chrome_off = admin_client.get(BOOK_CHANGELIST_URL, headers=AR_EG).content.decode()
+    with (
+        override_settings(RTL_ADMIN={"LOCALIZE_CHANGELIST_DIGITS": True}),
+        translation.override("ar-eg"),
+    ):
+        chrome_on = admin_client.get(BOOK_CHANGELIST_URL, headers=AR_EG).content.decode()
+
+    assert '<td class="field-published_on">-0-</td>' in chrome_on
+    assert f"{FSI}١٥,٠٠{PDI}" in chrome_on
+    assert 'data-actions-icnt="5"' in chrome_on
+    assert re.sub(r"<tbody>.*?</tbody>", "", _strip_csrf(chrome_on), flags=re.S) == re.sub(
+        r"<tbody>.*?</tbody>", "", _strip_csrf(chrome_off), flags=re.S
+    )

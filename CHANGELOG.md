@@ -8,6 +8,14 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- `BidiSafeAdminMixin` optionally localizes digits in changelist cells of
+  integer, decimal, float, date, datetime, time, and duration model fields
+  (including related lookups on Django 5.1+) for the active language via
+  `transliterate_digits(text, numbering_system())`, keeping Django's rendered
+  separators, `latn` locales, text/choice/foreign-key/callable columns, and
+  `list_editable` inputs, filters, paginator, and action counter untouched.
+  Enable globally with `RTL_ADMIN["LOCALIZE_CHANGELIST_DIGITS"] = True` or per
+  admin with `bidi_local_digits = True`.
 - `BidiSafeAdminMixin` folds equivalent Arabic letter forms, harakat, tatweel,
   and digits in changelist and autocomplete search across text `search_fields`
   while keeping ASCII and Hebrew queries untouched. Use `arabic_search_regex()`

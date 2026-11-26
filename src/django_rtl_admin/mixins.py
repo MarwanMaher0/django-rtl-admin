@@ -38,6 +38,8 @@ from .formatting import (
     _has_foldable_search_chars,
     arabic_search_regex,
     normalize_numeric_input,
+    numbering_system,
+    transliterate_digits,
 )
 
 if TYPE_CHECKING:
@@ -109,9 +111,45 @@ _WRAPPED_CONTAINERS = (
     helpers.Fieldline,
 )
 
+#: Model field types whose changelist cells have digits localized when
+#: ``LOCALIZE_CHANGELIST_DIGITS`` / ``bidi_local_digits`` is enabled.
+_LOCAL_DIGIT_FIELD_TYPES: tuple[type[models.Field[Any, Any]], ...] = (
+    models.IntegerField,
+    models.DecimalField,
+    models.FloatField,
+    models.DateField,
+    models.DateTimeField,
+    models.TimeField,
+    models.DurationField,
+)
+
+_HTML_TAG_OR_NUM_ENTITY_RE = re.compile(r"(<[^>]*>|&#[xX]?[0-9a-fA-F]+;)")
+
 
 def _is_related_lookup(name: str) -> bool:
     return _SUPPORTS_RELATED_LOOKUPS and LOOKUP_SEP in name
+
+
+def _is_local_digit_field(field: _ModelField | None) -> bool:
+    if not isinstance(field, _LOCAL_DIGIT_FIELD_TYPES):
+        return False
+    return not (getattr(field, "choices", None) or getattr(field, "flatchoices", None))
+
+
+def _localize_cell_digits(text: str) -> str:
+    system = numbering_system()
+    if system == "latn":
+        return text
+    if isinstance(text, SafeData):
+        if "<" not in text and "&#" not in text:
+            return mark_safe(transliterate_digits(text, system))
+        parts = _HTML_TAG_OR_NUM_ENTITY_RE.split(text)
+        rewritten = "".join(
+            part if index % 2 else transliterate_digits(part, system)
+            for index, part in enumerate(parts)
+        )
+        return mark_safe(rewritten)
+    return transliterate_digits(text, system)
 
 
 def _isolate_rendered_lines(rendered: SafeString, empty_value_display: Any) -> SafeString:
@@ -488,6 +526,10 @@ class BidiSafeAdminMixin(_Base):
     ``bidi_normalize_input``
         ``True``/``False`` to override ``RTL_ADMIN["NORMALIZE_INPUT_DIGITS"]``
         when cleaning numeric and Gregorian date/time form fields.
+    ``bidi_local_digits``
+        ``True``/``False`` to override
+        ``RTL_ADMIN["LOCALIZE_CHANGELIST_DIGITS"]`` when rendering numeric and
+        temporal model fields on the changelist.
     ``bidi_fold_search``
         ``True``/``False`` to override ``RTL_ADMIN["FOLD_ARABIC_SEARCH"]``
         when searching text fields on the changelist or in autocompletes.
@@ -505,6 +547,7 @@ class BidiSafeAdminMixin(_Base):
     """
 
     bidi_normalize_input: bool | None = None
+    bidi_local_digits: bool | None = None
     bidi_fold_search: bool | None = None
     bidi_isolate_changelist: bool | None = None
     bidi_isolate_readonly: bool | None = None
@@ -515,6 +558,7 @@ class BidiSafeAdminMixin(_Base):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._bidi_wrappers: dict[str, _DisplayWrapper] = {}
+        self._bidi_digit_wrappers: dict[str, _DisplayWrapper] = {}
 
     # -- configuration -----------------------------------------------------
 
@@ -527,6 +571,16 @@ class BidiSafeAdminMixin(_Base):
         if self.bidi_isolate_readonly is None:
             return bool(rtl_settings.ISOLATE_READONLY_FIELDS)
         return bool(self.bidi_isolate_readonly)
+
+    def _bidi_local_digits_enabled(self) -> bool:
+        if self.bidi_local_digits is None:
+            return rtl_settings.LOCALIZE_CHANGELIST_DIGITS
+        return bool(self.bidi_local_digits)
+
+    def _bidi_should_localize_digits(self, name: str) -> bool:
+        if name in (getattr(self, "list_editable", ()) or ()):
+            return False
+        return _is_local_digit_field(self._bidi_model_field(name))
 
     def _bidi_should_isolate(self, name: str) -> bool:
         if name in self.bidi_isolate_exclude:
@@ -633,24 +687,21 @@ class BidiSafeAdminMixin(_Base):
         return results | folded_results, may_have_duplicates
 
     def get_list_display(self, request: HttpRequest) -> _ListDisplay:
-        display = super().get_list_display(request)
-        if not self.bidi_isolation_enabled(request):
-            return display
-        return tuple(self._bidi_entry(entry) for entry in display)
+        return self._bidi_map_entries(request, super().get_list_display(request))
 
     def get_list_display_links(
         self, request: HttpRequest, list_display: _ListDisplay
     ) -> _ListDisplay:
         links = super().get_list_display_links(request, list_display)
-        if links is None or not self.bidi_isolation_enabled(request):
+        if links is None:
             return links
-        return tuple(self._bidi_entry(entry) for entry in links)
+        return self._bidi_map_entries(request, links)
 
     def get_sortable_by(self, request: HttpRequest) -> _ListDisplay:
         sortable = super().get_sortable_by(request)
-        if sortable is None or not self.bidi_isolation_enabled(request):
+        if sortable is None:
             return sortable
-        return tuple(self._bidi_entry(entry) for entry in sortable)
+        return self._bidi_map_entries(request, sortable)
 
     def render_change_form(
         self,
@@ -782,20 +833,43 @@ class BidiSafeAdminMixin(_Base):
         finally:
             request.__dict__.pop(_PLAIN_NAME_ATTR, None)
 
-    def _bidi_entry(self, entry: _Display) -> _Display:
-        """Map one ``list_display`` entry to its isolating wrapper."""
+    def _bidi_map_entries(self, request: HttpRequest, entries: _ListDisplay) -> _ListDisplay:
+        isolate_enabled = self.bidi_isolation_enabled(request)
+        digits_enabled = self._bidi_local_digits_enabled() and numbering_system() != "latn"
+        if not isolate_enabled and not digits_enabled:
+            return entries
+        return tuple(
+            self._bidi_entry(
+                entry,
+                isolate_enabled=isolate_enabled,
+                digits_enabled=digits_enabled,
+            )
+            for entry in entries
+        )
+
+    def _bidi_entry(
+        self,
+        entry: _Display,
+        *,
+        isolate_enabled: bool = True,
+        digits_enabled: bool = False,
+    ) -> _Display:
+        """Map one ``list_display`` entry to its changelist wrapper."""
         if not isinstance(entry, str):
             return entry
-        if not self._bidi_should_isolate(entry):
+        should_isolate = isolate_enabled and self._bidi_should_isolate(entry)
+        should_localize = digits_enabled and self._bidi_should_localize_digits(entry)
+        if not should_isolate and not should_localize:
             return entry
+        cache = self._bidi_wrappers if should_isolate else self._bidi_digit_wrappers
         try:
-            return self._bidi_wrappers[entry]
+            return cache[entry]
         except KeyError:
             pass
-        wrapper = self._make_bidi_wrapper(entry)
+        wrapper = self._make_bidi_wrapper(entry, isolate_cell=should_isolate)
         if wrapper is None:
             return entry
-        self._bidi_wrappers[entry] = wrapper
+        cache[entry] = wrapper
         return wrapper
 
     def _bidi_model_field(self, name: str) -> _ModelField | None:
@@ -811,7 +885,7 @@ class BidiSafeAdminMixin(_Base):
         except Exception:
             return None
 
-    def _make_bidi_wrapper(self, name: str) -> _DisplayWrapper | None:
+    def _make_bidi_wrapper(self, name: str, *, isolate_cell: bool = True) -> _DisplayWrapper | None:
         field = self._bidi_model_field(name)
         if field is not None and field.get_internal_type() in _SKIPPED_FIELD_TYPES:
             return None
@@ -822,6 +896,7 @@ class BidiSafeAdminMixin(_Base):
 
         model_admin = self
         direction = self.bidi_isolation_direction
+        localize_digits = _is_local_digit_field(field)
         # The stubs type this slot as a concrete ``Field``.  A related lookup
         # may also end on a reverse relation, which ``display_for_field`` only
         # ever inspects with ``isinstance``/``getattr``.
@@ -837,6 +912,10 @@ class BidiSafeAdminMixin(_Base):
             else:
                 text = display_for_field(value, resolved_field, empty)
             if text is None or text == "" or text == empty:
+                return text
+            if localize_digits and model_admin._bidi_local_digits_enabled():
+                text = _localize_cell_digits(text)
+            if not isolate_cell:
                 return text
             return mark_isolated(text, direction)
 
