@@ -5,7 +5,8 @@ from __future__ import annotations
 import html
 import re
 from contextlib import contextmanager
-from functools import lru_cache
+from functools import lru_cache, reduce
+from operator import and_, or_
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
 import django
@@ -19,17 +20,25 @@ from django.contrib.admin.utils import (
     get_fields_from_path,
     label_for_field,
     lookup_field,
+    lookup_spawns_duplicates,
 )
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist, ValidationError
+from django.db import models
 from django.db.models.constants import LOOKUP_SEP
 from django.utils.formats import get_format
 from django.utils.html import conditional_escape, format_html
 from django.utils.safestring import SafeData, mark_safe
+from django.utils.text import smart_split, unescape_string_literal
 from django.utils.translation import gettext
 
 from .bidi import PDI, current_direction, isolate, mark_isolated, mark_isolated_runs, text_direction
 from .conf import rtl_settings
-from .formatting import normalize_numeric_input
+from .formatting import (
+    _has_arabic_search_chars,
+    _has_foldable_search_chars,
+    arabic_search_regex,
+    normalize_numeric_input,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Sequence
@@ -37,6 +46,7 @@ if TYPE_CHECKING:
     from django.contrib.admin import ModelAdmin
     from django.db.models import Field, Model, QuerySet
     from django.db.models.fields.reverse_related import ForeignObjectRel
+    from django.db.models.options import Options
     from django.http import HttpRequest, HttpResponse
     from django.utils.functional import Promise
     from django.utils.safestring import SafeString
@@ -210,6 +220,93 @@ def _enable_input_normalization(field: forms.Field) -> None:
             widget.input_type = "text"
             fractional = isinstance(field, (forms.DecimalField, forms.FloatField))
             widget.attrs.setdefault("inputmode", "decimal" if fractional else "numeric")
+
+
+_EXPLICIT_TEXT_LOOKUPS: dict[str, str] = {
+    "icontains": "contains",
+    "contains": "contains",
+    "istartswith": "startswith",
+    "startswith": "startswith",
+    "iendswith": "endswith",
+    "endswith": "endswith",
+    "iexact": "exact",
+    "exact": "exact",
+}
+
+
+def _anchor_search_regex(pattern: str, mode: str) -> str:
+    if mode == "startswith":
+        return f"^{pattern}"
+    if mode == "endswith":
+        return f"{pattern}$"
+    if mode == "exact":
+        return f"^{pattern}$"
+    return pattern
+
+
+_STRICT_BOOL_VALUES: dict[str, bool | None] = {
+    "true": True,
+    "1": True,
+    "false": False,
+    "0": False,
+    "none": None,
+    "null": None,
+}
+
+
+def _coerce_exact_search_value(field: Field[Any, Any], bit: str) -> tuple[bool, Any]:
+    if isinstance(field, models.BooleanField):
+        lowered = bit.lower()
+        if lowered in _STRICT_BOOL_VALUES and (
+            field.null or _STRICT_BOOL_VALUES[lowered] is not None
+        ):
+            return True, _STRICT_BOOL_VALUES[lowered]
+        return False, None
+    try:
+        return True, field.to_python(bit)
+    except (ValidationError, ValueError, TypeError):
+        return False, None
+
+
+def _classify_search_field(
+    opts: Options[Any], field_name: str
+) -> tuple[tuple[str, Field[Any, Any] | None], tuple[str, str] | None]:
+    if field_name.startswith("@"):
+        return (f"{field_name[1:]}__search", None), None
+
+    prefix = field_name[0] if field_name.startswith(("^", "=")) else ""
+    path = field_name[1:] if prefix else field_name
+    cur_opts = opts
+    prev_field: _ModelField | None = None
+    parts = path.split(LOOKUP_SEP)
+    for index, part in enumerate(parts):
+        resolved = cur_opts.pk.name if part == "pk" and cur_opts.pk is not None else part
+        try:
+            db_field = cur_opts.get_field(resolved)
+        except FieldDoesNotExist:
+            if not prefix and isinstance(prev_field, models.Field) and prev_field.get_lookup(part):
+                is_text = isinstance(prev_field, (models.CharField, models.TextField))
+                validate = prev_field if part == "exact" and not is_text else None
+                regex_spec: tuple[str, str] | None = None
+                if index == len(parts) - 1 and is_text and part in _EXPLICIT_TEXT_LOOKUPS:
+                    base_path = LOOKUP_SEP.join(parts[:index])
+                    regex_spec = (f"{base_path}__iregex", _EXPLICIT_TEXT_LOOKUPS[part])
+                return (path, validate), regex_spec
+            prev_field = None
+            break
+        prev_field = db_field
+        if hasattr(db_field, "path_infos"):
+            cur_opts = db_field.path_infos[-1].to_opts
+
+    if prefix:
+        stock_lookup = f"{path}__istartswith" if prefix == "^" else f"{path}__iexact"
+        mode = "startswith" if prefix == "^" else "exact"
+    else:
+        stock_lookup = f"{path}__icontains"
+        mode = "contains"
+    if isinstance(prev_field, (models.CharField, models.TextField)):
+        return (stock_lookup, None), (f"{path}__iregex", mode)
+    return (stock_lookup, None), None
 
 
 class _ResolvedLookup:
@@ -391,6 +488,9 @@ class BidiSafeAdminMixin(_Base):
     ``bidi_normalize_input``
         ``True``/``False`` to override ``RTL_ADMIN["NORMALIZE_INPUT_DIGITS"]``
         when cleaning numeric and Gregorian date/time form fields.
+    ``bidi_fold_search``
+        ``True``/``False`` to override ``RTL_ADMIN["FOLD_ARABIC_SEARCH"]``
+        when searching text fields on the changelist or in autocompletes.
     ``bidi_isolate_changelist``
         ``True``/``False`` to override ``RTL_ADMIN["ISOLATE_CHANGELIST"]``.
     ``bidi_isolate_readonly``
@@ -405,6 +505,7 @@ class BidiSafeAdminMixin(_Base):
     """
 
     bidi_normalize_input: bool | None = None
+    bidi_fold_search: bool | None = None
     bidi_isolate_changelist: bool | None = None
     bidi_isolate_readonly: bool | None = None
     bidi_isolate_fields: tuple[str, ...] | None = None
@@ -457,6 +558,79 @@ class BidiSafeAdminMixin(_Base):
         if enabled and field is not None:
             _enable_input_normalization(field)
         return field
+
+    def get_search_results(
+        self, request: HttpRequest, queryset: QuerySet[Any], search_term: str
+    ) -> tuple[QuerySet[Any], bool]:
+        base_queryset = queryset
+        results, may_have_duplicates = super().get_search_results(request, queryset, search_term)
+        enabled = self.bidi_fold_search
+        if enabled is None:
+            enabled = rtl_settings.FOLD_ARABIC_SEARCH
+        if not enabled or not search_term:
+            return results, may_have_duplicates
+
+        if not _has_arabic_search_chars(search_term):
+            return results, may_have_duplicates
+
+        search_fields = self.get_search_fields(request)
+        if not search_fields:
+            return results, may_have_duplicates
+
+        opts = base_queryset.model._meta
+        stock_specs: list[tuple[str, Field[Any, Any] | None]] = []
+        regex_specs: list[tuple[str, str]] = []
+        for field in search_fields:
+            stock_spec, regex_spec = _classify_search_field(opts, str(field))
+            stock_specs.append(stock_spec)
+            if regex_spec is not None:
+                regex_specs.append(regex_spec)
+        if not regex_specs:
+            return results, may_have_duplicates
+
+        bits = [
+            unescape_string_literal(raw_bit)
+            if raw_bit.startswith(('"', "'")) and raw_bit[0] == raw_bit[-1]
+            else raw_bit
+            for raw_bit in smart_split(search_term)
+        ]
+
+        if len(bits) == 1:
+            single_pattern = arabic_search_regex(bits[0])
+            folded_query = reduce(
+                or_,
+                (
+                    models.Q(**{lookup: _anchor_search_regex(single_pattern, mode)})
+                    for lookup, mode in regex_specs
+                ),
+            )
+        else:
+            term_queries: list[models.Q] = []
+            for bit in bits:
+                clauses: list[models.Q] = []
+                for lookup, validate_field in stock_specs:
+                    if validate_field is not None:
+                        valid, value = _coerce_exact_search_value(validate_field, bit)
+                        if not valid:
+                            continue
+                    else:
+                        value = bit
+                    clauses.append(models.Q(**{lookup: value}))
+                if _has_foldable_search_chars(bit):
+                    term_pattern = arabic_search_regex(bit)
+                    clauses.extend(
+                        models.Q(**{lookup: _anchor_search_regex(term_pattern, mode)})
+                        for lookup, mode in regex_specs
+                    )
+                term_queries.append(reduce(or_, clauses))
+            folded_query = reduce(and_, term_queries)
+
+        folded_base = base_queryset.distinct() if results.query.distinct else base_queryset
+        folded_results = folded_base.filter(folded_query)
+        may_have_duplicates |= any(
+            lookup_spawns_duplicates(self.opts, lookup) for lookup, _ in regex_specs
+        )
+        return results | folded_results, may_have_duplicates
 
     def get_list_display(self, request: HttpRequest) -> _ListDisplay:
         display = super().get_list_display(request)

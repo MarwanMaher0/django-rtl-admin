@@ -1820,3 +1820,288 @@ def test_localized_three_decimal_places_are_not_mistaken_for_a_group(admin_user)
             db_field, request_for(admin_user), localize=True
         )
         assert field.clean("١٫٢٥٠") == Decimal("1.250")
+
+
+# -- Arabic search folding ---------------------------------------------------
+
+SEARCH_LANGUAGES = ("ar", "fa", "en")
+
+
+@pytest.fixture
+def get_changelist_results(admin_client, settings):
+    settings.LANGUAGES = [*settings.LANGUAGES, ("fa", "Persian")]
+
+    def fetch(url, q, language="ar"):
+        with translation.override(language):
+            response = admin_client.get(url, {"q": q}, headers={"accept-language": language})
+        assert response.status_code == 200
+        assert response.wsgi_request.LANGUAGE_CODE == language
+        return list(response.context["cl"].result_list)
+
+    return fetch
+
+
+@pytest.mark.parametrize("language", SEARCH_LANGUAGES)
+@pytest.mark.parametrize(
+    ("stored", "query"),
+    [
+        ("أحمد", "احمد"),
+        ("احمد", "أحمد"),
+        ("إبراهيم", "ابراهيم"),
+        ("آدم", "ادم"),
+        ("ٱبن خلدون", "ابن"),
+        ("مُحَمَّدٌ", "محمد"),
+        ("محمد", "مُحَمَّدٌ"),
+        ("مدرسة", "مدرسه"),
+        ("مدرسه", "مدرسة"),
+        ("على", "علي"),
+        ("علي", "على"),
+        ("علی", "علي"),
+        ("بئر", "بير"),
+        ("کتاب", "كتاب"),
+        ("مؤمن", "مومن"),
+        ("مـحـمـد", "محمد"),
+        ("محمد", "مـحـمـد"),
+    ],
+)
+def test_book_and_thing_changelists_fold_arabic_forms(
+    get_changelist_results, language, stored, query
+):
+    matched_book = Book.objects.create(title=stored, isbn="111")
+    Book.objects.create(title="عنوان مختلف", isbn="222")
+    matched_thing = Thing.objects.create(name=stored, reference="111")
+    Thing.objects.create(name="عنصر مختلف", reference="222")
+
+    assert get_changelist_results(BOOK_CHANGELIST_URL, query, language) == [matched_book]
+    assert get_changelist_results(CHANGELIST_URL, query, language) == [matched_thing]
+
+
+@pytest.mark.parametrize("language", SEARCH_LANGUAGES)
+@pytest.mark.parametrize("query", ["٢٦٢", "۲۶۲"])
+def test_book_and_thing_changelists_fold_localized_digits(
+    get_changelist_results, thing, language, query
+):
+    Thing.objects.create(name="Other", reference="999-0-000-00000-0")
+    matched_book = Book.objects.create(title="Deep Learning", isbn="978-0-262-03561-3")
+    Book.objects.create(title="Other", isbn="999-0-000-00000-0")
+
+    assert get_changelist_results(CHANGELIST_URL, query, language) == [thing]
+    assert get_changelist_results(BOOK_CHANGELIST_URL, query, language) == [matched_book]
+
+
+def test_search_honours_startswith_and_exact_prefixes(admin_user):
+    exact = Book.objects.create(title="أحمد", isbn="1")
+    prefix = Book.objects.create(title="أحمد شوقي", isbn="2")
+    Book.objects.create(title="ديوان أحمد شوقي", isbn="3")
+    request = request_for(admin_user)
+
+    starts_admin = make_book_admin(search_fields=("^title",))
+    starts_qs, _ = starts_admin.get_search_results(request, Book.objects.all(), "احمد")
+    assert set(starts_qs) == {exact, prefix}
+
+    exact_admin = make_book_admin(search_fields=("=title",))
+    exact_qs, _ = exact_admin.get_search_results(request, Book.objects.all(), "احمد")
+    assert list(exact_qs) == [exact]
+
+    ends_admin = make_book_admin(search_fields=("title__iendswith",))
+    ends_qs, _ = ends_admin.get_search_results(request, Book.objects.distinct(), "احمد")
+    assert list(ends_qs) == [exact]
+
+
+def test_search_skips_at_prefix_and_non_text_fields(admin_user):
+    class ExactTextSearch(models.lookups.Exact):
+        lookup_name = "search"
+
+        def get_rhs_op(self, connection, rhs):
+            return connection.operators["exact"] % rhs
+
+    matched = Book.objects.create(title="أحمد", summary="مُحَمَّدٌ", isbn="1", price="10.00")
+    summary_only = Book.objects.create(title="آخر", summary="مُحَمَّدٌ", isbn="2", price="20.00")
+    request = request_for(admin_user)
+
+    models.TextField.register_lookup(ExactTextSearch)
+    try:
+        at_admin = make_book_admin(search_fields=("title", "@summary"))
+        # "@summary" is kept in super() (matching exact "مُحَمَّدٌ") but skipped for iregex.
+        folded_title, _ = at_admin.get_search_results(request, Book.objects.all(), "احمد")
+        assert list(folded_title) == [matched]
+        unfolded_at, _ = at_admin.get_search_results(request, Book.objects.all(), "محمد")
+        assert list(unfolded_at) == []
+        exact_at, _ = at_admin.get_search_results(request, Book.objects.all(), "مُحَمَّدٌ")
+        assert set(exact_at) == {matched, summary_only}
+        both_at, _ = at_admin.get_search_results(request, Book.objects.all(), "احمد مُحَمَّدٌ")
+        assert list(both_at) == [matched]
+    finally:
+        models.TextField._unregister_lookup(ExactTextSearch)
+
+    t1 = Thing.objects.create(
+        name="أحمد", reference="ref-42", quantity=42, price="15.00", is_active=True
+    )
+    t2 = Thing.objects.create(
+        name="أحمد", reference="ref-7", quantity=7, price="99.00", is_active=False
+    )
+
+    empty_fields_admin = make_admin(search_fields=())
+    no_fields_qs, _ = empty_fields_admin.get_search_results(request, Thing.objects.all(), "احمد")
+    assert set(no_fields_qs) == {t1, t2}
+
+    non_text_only = make_admin(search_fields=("quantity", "price", "published_on", "is_active"))
+    only_non_text_qs, _ = non_text_only.get_search_results(request, Thing.objects.all(), "احمد")
+    assert list(only_non_text_qs) == []
+
+    id_only_admin = make_admin(search_fields=("reference", "id__exact"))
+    num_qs, _ = id_only_admin.get_search_results(request, Thing.objects.all(), f"٤٢ {t1.pk}")
+    assert list(num_qs) == [t1]
+
+    mixed_fields = ["name", "quantity", "price", "published_on", "is_active", "=quantity"]
+    if django.VERSION >= (5, 2):
+        mixed_fields.extend(["id__exact", "is_active__exact"])
+    mixed_admin = make_admin(search_fields=tuple(mixed_fields))
+    single_qs, _ = mixed_admin.get_search_results(request, Thing.objects.all(), "احمد")
+    assert set(single_qs) == {t1, t2}
+    if django.VERSION >= (5, 2):
+        two_term_qs, _ = mixed_admin.get_search_results(
+            request, Thing.objects.all(), f"احمد {t1.pk}"
+        )
+        assert list(two_term_qs) == [t1]
+        bool_true_qs, _ = mixed_admin.get_search_results(request, Thing.objects.all(), "احمد True")
+        assert list(bool_true_qs) == [t1]
+        bool_false_qs, _ = mixed_admin.get_search_results(
+            request, Thing.objects.all(), "احمد False"
+        )
+        assert list(bool_false_qs) == [t2]
+
+
+@pytest.mark.parametrize("language", SEARCH_LANGUAGES)
+@pytest.mark.parametrize("stored_digits", ["٩٧٨", "۹۷۸"])
+def test_arabic_word_plus_ascii_digits_matches_localized_digits_in_title(
+    get_changelist_results, language, stored_digits
+):
+    matched = Book.objects.create(title=f"كتاب {stored_digits}", isbn="000")
+    Book.objects.create(title="كتاب ١٢٣", isbn="111")
+    Book.objects.create(title=f"مرجع {stored_digits}", isbn="222")
+
+    assert get_changelist_results(BOOK_CHANGELIST_URL, "كتاب 978", language) == [matched]
+
+
+def test_multi_term_search_ands_terms_and_unescapes_quotes(get_changelist_results, settings):
+    target = Book.objects.create(title="أحمد بن خلدون", isbn="978-1", summary="Dune edition")
+    Book.objects.create(title="أحمد شوقي بن سينا", isbn="978-2", summary="Other")
+    Book.objects.create(title="عبد الرحمن بن خلدون", isbn="978-3", summary="Dune edition")
+
+    assert get_changelist_results(BOOK_CHANGELIST_URL, "احمد خلدون") == [target]
+    assert get_changelist_results(BOOK_CHANGELIST_URL, '"احمد بن" خلدون') == [target]
+
+    summary_admin_cls = type(
+        "SummaryBookAdmin", (BookAdmin,), {"search_fields": ("title", "summary")}
+    )
+    settings.ROOT_URLCONF = book_urlconf(summary_admin_cls)
+    assert get_changelist_results(BOOK_CHANGELIST_URL, "احمد Dune") == [target]
+
+
+def test_related_lookups_track_duplicates_and_deduplicate_changelist(
+    admin_user, get_changelist_results, settings
+):
+    history = Category.objects.create(name="الإسلام والتاريخ")
+    matched = Book.objects.create(title="كتاب", isbn="1", category=history)
+    other = Book.objects.create(title="آخر", isbn="2", category=None)
+    Chapter.objects.create(book=matched, number=1, title="الفصل الأول")
+    Chapter.objects.create(book=matched, number=2, title="المبحث الأول")
+    Chapter.objects.create(book=other, number=1, title="الفصل الثاني")
+    request = request_for(admin_user)
+
+    fk_admin = make_book_admin(search_fields=("^category__name",))
+    fk_qs, fk_dup = fk_admin.get_search_results(request, Book.objects.all(), "الاسلام")
+    assert not fk_dup
+    assert list(fk_qs) == [matched]
+
+    rev_cls = type("ChapterSearchBookAdmin", (BookAdmin,), {"search_fields": ("chapter__title",)})
+    rev_admin = rev_cls(Book, admin.site)
+    _, rev_dup = rev_admin.get_search_results(request, Book.objects.all(), "الاول")
+    assert rev_dup
+
+    settings.ROOT_URLCONF = book_urlconf(rev_cls)
+    assert get_changelist_results(BOOK_CHANGELIST_URL, "الاول") == [matched]
+
+
+def test_autocomplete_folds_on_mixin_admin_but_not_plain_admin(admin_client):
+    book = Book.objects.create(title="أحمد شوقي", isbn="111")
+    Book.objects.create(title="طٰه حسين", isbn="222")
+    Category.objects.create(name="تاريخ الإسلام")
+
+    mixin_resp = admin_client.get(
+        "/admin/autocomplete/",
+        {"app_label": "testapp", "model_name": "chapter", "field_name": "book", "term": "احمد"},
+    )
+    assert mixin_resp.status_code == 200
+    assert mixin_resp.json()["results"] == [{"id": str(book.pk), "text": "أحمد شوقي"}]
+
+    plain_resp = admin_client.get(
+        "/admin/autocomplete/",
+        {"app_label": "testapp", "model_name": "book", "field_name": "category", "term": "الاسلام"},
+    )
+    assert plain_resp.status_code == 200
+    assert plain_resp.json()["results"] == []
+
+
+@pytest.mark.parametrize(
+    ("admin_factory", "global_enabled", "folds"),
+    [
+        pytest.param(stock_book_admin_cls, True, False, id="plain-modeladmin"),
+        pytest.param(lambda: BookAdmin, False, False, id="global-off"),
+        pytest.param(
+            lambda: variant(BookAdmin, bidi_fold_search=False), True, False, id="admin-off"
+        ),
+        pytest.param(lambda: variant(BookAdmin, bidi_fold_search=True), False, True, id="admin-on"),
+    ],
+)
+def test_search_folding_opt_out_and_plain_admin_precedence(
+    get_changelist_results, settings, admin_factory, global_enabled, folds
+):
+    book = Book.objects.create(title="أحمد", isbn="111")
+    settings.ROOT_URLCONF = book_urlconf(admin_factory())
+    settings.RTL_ADMIN = {"FOLD_ARABIC_SEARCH": global_enabled}
+
+    results = get_changelist_results(BOOK_CHANGELIST_URL, "احمد")
+    assert results == ([book] if folds else [])
+    assert get_changelist_results(BOOK_CHANGELIST_URL, "أحمد") == [book]
+
+
+@pytest.mark.parametrize("empty_after_fold", ["\u0640", "\u064e\u0651", "\u200f", '""'])
+def test_terms_folding_to_empty_do_not_match_every_row(admin_user, empty_after_fold):
+    Book.objects.create(title="أحمد", isbn="111")
+    request = request_for(admin_user)
+    bidi_admin = BookAdmin(Book, admin.site)
+    stock_admin = stock_book_admin_cls()(Book, admin.site)
+
+    bidi_qs, _ = bidi_admin.get_search_results(request, Book.objects.all(), empty_after_fold)
+    stock_qs, _ = stock_admin.get_search_results(request, Book.objects.all(), empty_after_fold)
+    assert list(bidi_qs) == list(stock_qs)
+
+
+def test_regex_metacharacters_in_arabic_queries_match_literally(admin_user):
+    literal = Book.objects.create(title="أحمد (ج١) [نسخة] a+b*c?.^$|\\:10:30", isbn="1")
+    Book.objects.create(title="أحمد ج1 نسخة axbyczX:10:30", isbn="2")
+    request = request_for(admin_user)
+    bidi_admin = BookAdmin(Book, admin.site)
+
+    qs, _ = bidi_admin.get_search_results(
+        request, Book.objects.all(), "احمد (ج1) [نسخه] a+b*c?.^$|\\:10:30"
+    )
+    assert list(qs) == [literal]
+
+
+@pytest.mark.parametrize(
+    "query",
+    ["", "978", "Deep Learning", "978-0-262-03561-3", "a+b*c?", "שלום עולם"],
+)
+def test_ascii_and_hebrew_queries_produce_identical_sql_to_stock_modeladmin(admin_user, query):
+    request = request_for(admin_user)
+    base_qs = Book.objects.all()
+    bidi_admin = BookAdmin(Book, admin.site)
+    stock_admin = stock_book_admin_cls()(Book, admin.site)
+
+    bidi_qs, bidi_dup = bidi_admin.get_search_results(request, base_qs, query)
+    stock_qs, stock_dup = stock_admin.get_search_results(request, base_qs, query)
+    assert bidi_dup == stock_dup
+    assert bidi_qs.query.sql_with_params() == stock_qs.query.sql_with_params()

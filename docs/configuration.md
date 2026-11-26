@@ -32,6 +32,7 @@ The supported keys are defined in `django_rtl_admin.conf.DEFAULTS`.
 | `ISOLATE_TABLE_CELLS` | `True` | Enable CSS isolation for changelist cells and related navigation and data, including dashboard Recent actions links and related-object labels beside `raw_id_fields`. Object history table cells and Select2 autocomplete values get `unicode-bidi: plaintext` with their alignment kept. |
 | `PLAINTEXT_FORM_FIELDS` | `True` | Add the body class enabling first-strong plaintext direction for text-like inputs and textareas. |
 | `NORMALIZE_INPUT_DIGITS` | `True` | Normalize Arabic-Indic and Persian digits when parsing numeric, date, and time fields on mixin-enabled admins and inlines. |
+| `FOLD_ARABIC_SEARCH` | `True` | Fold equivalent Arabic letter forms, diacritics, tatweel, and digits when searching text fields and autocompletes on mixin-enabled admins. |
 | `NUMERALS` | `"auto"` | Follow the locale's numbering system, or force `"latn"`, `"arab"`, or `"arabext"` in the formatting helpers. |
 | `USE_BABEL` | `True` | Use Babel when installed; otherwise render numbers from built-in CLDR tables, with Django as a last resort. |
 | `CURRENCY` | `"USD"` | Default currency for `format_currency` and `l10n_currency` when no truthy currency argument is supplied. |
@@ -147,6 +148,19 @@ On a [mixin-enabled admin or inline](admin-mixin.md#numeric-and-date-input),
 `bidi_normalize_input = None` inherits this setting; `True` or `False` overrides
 it for that class. This affects parsing in every UI language, independently of
 `NUMERALS`, which controls output.
+
+## Arabic search folding
+
+`RTL_ADMIN["FOLD_ARABIC_SEARCH"]` defaults to `True`. Set it to `False` to keep
+Django's exact substring/prefix search without folding equivalent Arabic letter
+forms, diacritics, tatweel, or localized digits. Use a boolean: `manage.py check`
+reports `rtl_admin.W005` for non-boolean values such as `"False"`, and reading
+an invalid value raises `ImproperlyConfigured`.
+
+On a [mixin-enabled admin](admin-mixin.md#arabic-search-folding),
+`bidi_fold_search = None` inherits this setting; `True` or `False` overrides it
+for that admin class, including its target autocomplete endpoint. Plain
+`ModelAdmin` classes are unaffected.
 
 ## Numbers, currencies, and Babel
 

@@ -183,6 +183,18 @@ For the same conversion in your own form, import `normalize_numeric_input` from
 `django_rtl_admin`. See the [Python API](https://marwanmaher0.github.io/django-rtl-admin/api/#normalizing-numeric-input)
 for the exact characters it handles.
 
+### Match equivalent Arabic forms and digits in admin search
+
+On the same mixin-enabled admin, `search_fields` and autocomplete queries fold
+equivalent Arabic forms and digits: searching `احمد` matches `أحمد`, `محمد`
+matches `مُحَمَّدٌ` or `مـحمد`, `مدرسه` matches `مدرسة`, `علي` matches `على` or
+`علی`, `كتاب` matches `کتاب`, and `٢٦٢`, `۲۶۲`, or `كتاب 978` matches across
+ASCII, Arabic-Indic, and Persian digits. Prefixes `"^"` and `"="` are honoured,
+`"@"` and non-text fields are skipped, and pure ASCII, Latin, or Hebrew queries
+keep Django's exact stock SQL. Use `arabic_search_regex` from `django_rtl_admin`
+in custom queries; see the
+[Python API](https://marwanmaher0.github.io/django-rtl-admin/api/#arabic-search-folding).
+
 ### In your own templates
 
 ```django
@@ -355,6 +367,7 @@ RTL_ADMIN = {
 | `ISOLATE_TABLE_CELLS` | `True` | CSS-level `unicode-bidi: isolate` on changelist cells, linked object names in messages, the change-form subtitle and object links on the delete pages. |
 | `PLAINTEXT_FORM_FIELDS` | `True` | CSS-level `unicode-bidi: plaintext` on text inputs and textareas. |
 | `NORMALIZE_INPUT_DIGITS` | `True` | Normalize Arabic-Indic and Persian digits in numeric, date, and time input on mixin-enabled admins. Must be a boolean. |
+| `FOLD_ARABIC_SEARCH` | `True` | Fold equivalent Arabic letter forms, diacritics, tatweel, and digits in changelist and autocomplete search on mixin-enabled admins. Must be a boolean. |
 | `NUMERALS` | `"auto"` | Numbering system for the formatting helpers: `"auto"` follows the locale, or force `"latn"`, `"arab"` or `"arabext"`. |
 | `USE_BABEL` | `True` | Use Babel when it is installed. `False` skips Babel and uses the built-in CLDR number tables plus Django date/time formatting. |
 | `CURRENCY` | `"USD"` | Default currency for `format_currency` / `l10n_currency`. |
@@ -411,6 +424,7 @@ invalid choice at runtime also raises `ImproperlyConfigured`.
 ```python
 from django_rtl_admin import (
     BidiSafeAdminMixin,
+    arabic_search_regex,
     LRI,
     RLI,
     FSI,
@@ -447,6 +461,7 @@ from django_rtl_admin import (
 | `bidi_isolate_changelist` | `None` | `True`/`False` overrides `RTL_ADMIN["ISOLATE_CHANGELIST"]` for this admin. |
 | `bidi_isolate_readonly` | `None` | `True`/`False` overrides `RTL_ADMIN["ISOLATE_READONLY_FIELDS"]` for this admin. |
 | `bidi_normalize_input` | `None` | Inherit `RTL_ADMIN["NORMALIZE_INPUT_DIGITS"]`, or use `True` or `False` to override it for this admin. |
+| `bidi_fold_search` | `None` | Inherit `RTL_ADMIN["FOLD_ARABIC_SEARCH"]`, or use `True` or `False` to override Arabic search folding for this admin. |
 | `bidi_isolate_fields` | `None` | Restrict changelist isolation to these `list_display` entries. |
 | `bidi_isolate_exclude` | `()` | Leave these `list_display` or `readonly_fields` entries alone. |
 | `bidi_isolation_direction` | `None` | `"auto"`, `"ltr"` or `"rtl"` for changelist cells on this admin. |

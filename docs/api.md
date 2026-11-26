@@ -7,8 +7,9 @@ description: Use Python helpers for numeric input normalization, bidi isolation,
 
 Use the isolation and formatting helpers in display methods or custom templates.
 They can read Django's active language and the [configuration](configuration.md).
-For incoming form data, use `normalize_numeric_input` instead. None of these
-helpers changes stored model values.
+For incoming form data, use `normalize_numeric_input` instead, and use
+`arabic_search_regex` when building Arabic-tolerant `iregex` queries. None of
+these helpers changes stored model values.
 
 ## Normalizing numeric input
 
@@ -36,6 +37,37 @@ other punctuation alone. In particular, it does not guess whether an ASCII
 comma is a decimal or grouping separator. The [admin mixin](admin-mixin.md#numeric-and-date-input)
 uses it before Django parses a field, supplying Django's active decimal
 separator for localized numeric fields.
+
+## Arabic search folding
+
+`arabic_search_regex(term)` turns a plain search term into a portable regular
+expression that matches equivalent Arabic letter forms, diacritics, tatweel, and
+digits across SQLite, PostgreSQL, and MySQL 8:
+
+- Strips harakat (U+064B–U+065F, U+0670), tatweel (`ـ`, U+0640), and Unicode
+  `Bidi_Control` characters from `term`.
+- Folds alef variants (`آ`/`أ`/`إ`/`ا`/`ٱ`), teh marbuta and heh (`ة`/`ه`), alef
+  maksura, yeh, Persian yeh, and yeh with hamza (`ئ`/`ى`/`ي`/`ی`), Arabic and
+  Persian kaf (`ك`/`ک`), waw and waw with hamza (`ؤ`/`و`), and each digit across
+  ASCII (`0`–`9`), Arabic-Indic (`٠`–`٩`), and Persian (`۰`–`۹`) into bracket
+  character classes.
+- Follows every Arabic letter with `[\u0640\u064b-\u065f\u0670]*` so stored
+  harakat and tatweel never prevent a match.
+- Wraps punctuation and symbol characters in single-character bracket classes
+  and emits only literals, bracket classes, and `*`.
+
+```python
+import re
+
+from django_rtl_admin import arabic_search_regex
+
+pattern = arabic_search_regex("احمد ١٤٤٦")
+assert re.fullmatch(pattern, "أَحْمَدُ 1446")
+```
+
+The [admin mixin](admin-mixin.md#arabic-search-folding) uses this helper in
+`get_search_results()` for terms containing an Arabic letter or an Arabic-Indic
+or Persian digit.
 
 ## Choosing an isolation helper
 
@@ -133,6 +165,7 @@ translated unit names are used on both backends.
     options:
       heading_level: 2
       members:
+        - arabic_search_regex
         - numbering_system
         - normalize_numeric_input
         - transliterate_digits

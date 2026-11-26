@@ -19,6 +19,7 @@ import contextlib
 import datetime
 import decimal
 import re
+import unicodedata
 from collections.abc import Callable
 from typing import Any
 
@@ -159,6 +160,28 @@ _NUMERIC_INPUT_TABLE = str.maketrans(
     DIGITS["latn"] * 2 + "-",
     "\u066c" + "".join(BIDI_CONTROL_CHARS),
 )
+
+_ARABIC_DIACRITICS_AND_TATWEEL = (
+    "\u0640" + "".join(chr(cp) for cp in range(0x064B, 0x0660)) + "\u0670"
+)
+_ARABIC_DIACRITICS_RE = "[\u0640\u064b-\u065f\u0670]*"
+_ARABIC_SEARCH_DROPPED = frozenset(_ARABIC_DIACRITICS_AND_TATWEEL) | BIDI_CONTROL_CHARS
+_ARABIC_LETTER_GROUPS: tuple[str, ...] = (
+    "\u0622\u0623\u0625\u0627\u0671",  # آ أ إ ا ٱ
+    "\u0629\u0647",  # ة ه
+    "\u0626\u0649\u064a\u06cc",  # ئ ى ي ی
+    "\u0643\u06a9",  # ك ک
+    "\u0624\u0648",  # ؤ و
+)
+_ARABIC_LETTER_CLASS: dict[str, str] = {
+    char: f"[{group}]" for group in _ARABIC_LETTER_GROUPS for char in group
+}
+_DIGIT_SEARCH_CLASS: dict[str, str] = {
+    char: f"[{latn}{arab}{ext}]"
+    for latn, arab, ext in zip(DIGITS["latn"], DIGITS["arab"], DIGITS["arabext"], strict=True)
+    for char in (latn, arab, ext)
+}
+_ARABIC_DIGITS = frozenset(DIGITS["arab"] + DIGITS["arabext"])
 
 _DJANGO_DATE_FORMATS = {
     "short": "SHORT_DATE_FORMAT",
@@ -332,6 +355,57 @@ def normalize_numeric_input(value: Any, *, decimal_separator: str = ".") -> Any:
     text = value.translate(_NUMERIC_INPUT_TABLE).strip()
     text = re.sub(r"(?<=\d)[\u00a0\u202f\u2009](?=\d)", "", text)
     return text.replace("\u066b", decimal_separator)
+
+
+def _is_arabic_letter(char: str) -> bool:
+    code = ord(char)
+    if not (
+        0x0600 <= code <= 0x06FF
+        or 0x0750 <= code <= 0x077F
+        or 0x0870 <= code <= 0x08FF
+        or 0xFB50 <= code <= 0xFDFF
+        or 0xFE70 <= code <= 0xFEFF
+        or 0x10EC0 <= code <= 0x10EFF
+        or 0x1EE00 <= code <= 0x1EEFF
+    ):
+        return False
+    return char != "\u0640" and unicodedata.category(char).startswith("L")
+
+
+def _has_arabic_search_chars(term: str) -> bool:
+    return any(char in _ARABIC_DIGITS or _is_arabic_letter(char) for char in term)
+
+
+def _has_foldable_search_chars(term: str) -> bool:
+    return any(char in _DIGIT_SEARCH_CLASS or _is_arabic_letter(char) for char in term)
+
+
+def arabic_search_regex(term: str) -> str:
+    """Build a portable regex matching equivalent Arabic forms and digits.
+
+    Strip harakat (U+064B--U+065F, U+0670), tatweel (U+0640) and Unicode
+    ``Bidi_Control`` characters from ``term``.  Fold equivalent Arabic letters
+    and digits (ASCII, Arabic-Indic and Persian) into bracket character
+    classes, allow optional harakat or tatweel after every Arabic letter, and
+    place punctuation and symbols in single-character classes so the pattern
+    runs unchanged on SQLite, PostgreSQL and MySQL 8.
+    """
+    parts: list[str] = []
+    for char in term:
+        if char in _ARABIC_SEARCH_DROPPED:
+            continue
+        letter_class = _ARABIC_LETTER_CLASS.get(char)
+        if letter_class is not None:
+            parts.append(letter_class + _ARABIC_DIACRITICS_RE)
+        elif _is_arabic_letter(char):
+            parts.append(char + _ARABIC_DIACRITICS_RE)
+        elif char in _DIGIT_SEARCH_CLASS:
+            parts.append(_DIGIT_SEARCH_CLASS[char])
+        elif unicodedata.category(char)[0] in ("P", "S"):
+            parts.append(f"[\\{char}]" if char in r"[\^:]" else f"[{char}]")
+        else:
+            parts.append(char)
+    return "".join(parts)
 
 
 def _localize_digits(text: str, language: str | None) -> str:

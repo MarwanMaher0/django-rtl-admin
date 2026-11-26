@@ -12,7 +12,9 @@ it as plain text.
 Use it for mixed-direction names, identifiers, emails, paths, and other data
 that should not disturb surrounding text. Isolation affects presentation, not
 stored model values. The mixin also accepts Arabic-Indic and Persian digits in
-[numeric and date input](#numeric-and-date-input), in any UI language.
+[numeric and date input](#numeric-and-date-input), and folds equivalent Arabic
+letter forms, diacritics, tatweel, and digits in
+[admin search](#arabic-search-folding), in any UI language.
 
 ## Add it to a ModelAdmin
 
@@ -49,6 +51,7 @@ shell and CSS setup, follow [Installation](installation.md) and
 | Attribute | Default | Effect |
 | --- | --- | --- |
 | `bidi_normalize_input` | `None` | Inherit `RTL_ADMIN["NORMALIZE_INPUT_DIGITS"]`; `True` or `False` overrides input normalization for this admin. |
+| `bidi_fold_search` | `None` | Inherit `RTL_ADMIN["FOLD_ARABIC_SEARCH"]`; `True` or `False` overrides [Arabic search folding](#arabic-search-folding) for this admin. |
 | `bidi_isolate_changelist` | `None` | Follow `RTL_ADMIN["ISOLATE_CHANGELIST"]`; `True` or `False` overrides it for this admin. The same switch covers [object names](#object-names-in-messages-and-on-the-delete-page) on the delete page and in messages. |
 | `bidi_isolate_readonly` | `None` | Follow `RTL_ADMIN["ISOLATE_READONLY_FIELDS"]`; `True` or `False` overrides it for this admin. |
 | `bidi_isolate_fields` | `None` | Consider all eligible string `list_display` entries; otherwise isolate only names in this iterable on the changelist. An empty tuple isolates none. |
@@ -99,6 +102,33 @@ changes: bound form data retains the original input if validation fails.
 Dates must use the Gregorian calendar and a format the field accepts. For
 example, `۲۰۲۴-۰۳-۰۵` becomes `2024-03-05`. Django does **not** convert dates
 from the Jalali (Solar Hijri) or Islamic (lunar Hijri) calendar.
+
+## Arabic search folding
+
+Stock admin search compares raw Unicode code points, so `احمد` misses `أحمد`,
+`محمد` misses `مُحَمَّدٌ` or `مـحمد`, `مدرسه` misses `مدرسة`, `علي` misses `على`
+or `علی`, `كتاب` misses `کتاب`, and `٢٦٢` or `۲۶۲` misses `262`. On a
+mixin-enabled admin, `get_search_results()` keeps `super().get_search_results()`
+and, for each `smart_split()` term containing an Arabic letter or an
+Arabic-Indic or Persian digit, ORs in `field__iregex` built with
+[`arabic_search_regex`](api.md#arabic-search-folding) across eligible text
+`search_fields`.
+
+Folding covers `CharField` and `TextField` columns (including subclasses such as
+`EmailField`, `SlugField`, and `URLField`, as well as forward and reverse
+related paths), honours `"^"` (anchored at start) and `"="` (anchored at both
+ends), skips `"@"` full-text lookups and non-text fields, ANDs multiple search
+terms together, and updates `may_have_duplicates` when a regex lookup traverses
+a multi-valued relation. Django's `AutocompleteJsonView` delegates to the target
+admin's `get_search_results()`, so `autocomplete_fields` pointing to a
+mixin-enabled admin automatically gain the same folding.
+
+Queries containing only ASCII or Hebrew characters, or terms that strip down to
+empty (such as lone harakat, tatweel, or bidi controls), leave stock search
+results and SQL untouched. Disable folding globally with
+`RTL_ADMIN["FOLD_ARABIC_SEARCH"] = False` or on a single admin with
+`bidi_fold_search = False`; set `bidi_fold_search = True` to keep folding on one
+admin when the global setting is `False`.
 
 ## Named fields and display methods
 
@@ -314,7 +344,8 @@ then let the mixin isolate its result. See the [Python API](api.md) or
 
 ## Scope and customization
 
-The mixin hooks into changelist display methods, `render_change_form` for
+The mixin hooks into changelist display methods, `get_search_results` for
+changelist and autocomplete search, `render_change_form` for
 read-only fields, and `get_deleted_objects`, `render_delete_form`,
 `response_delete`, `response_add`, `response_change` and `message_user` for
 object names. With input normalization enabled, number inputs use `type="text"`
@@ -354,6 +385,7 @@ gives Django's own hooks.
         - bidi_isolation_enabled
         - bidi_readonly_isolation_enabled
         - formfield_for_dbfield
+        - get_search_results
         - get_list_display
         - get_list_display_links
         - get_sortable_by

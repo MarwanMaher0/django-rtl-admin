@@ -2,6 +2,7 @@
 
 import datetime
 import decimal
+import re
 import sys
 from types import ModuleType
 
@@ -11,7 +12,8 @@ from django.conf import global_settings
 from django.test import override_settings
 from django.utils import formats, timezone, translation
 
-from django_rtl_admin import formatting, normalize_numeric_input
+import django_rtl_admin
+from django_rtl_admin import arabic_search_regex, formatting, normalize_numeric_input
 from django_rtl_admin.formatting import (
     DIGITS,
     format_currency,
@@ -937,3 +939,116 @@ def test_django_filesizeformat_is_unchanged_by_the_package_catalogs(language, ex
 
 def test_a_language_the_package_does_not_ship_uses_django_units():
     assert format_filesize(2_000, language="de") == "2,0\xa0KB"
+
+
+# -- Arabic search regex folding ---------------------------------------------
+
+DIACRITICS_CLASS = "[\u0640\u064b-\u065f\u0670]*"
+
+
+def test_arabic_search_regex_is_exported():
+    assert "arabic_search_regex" in django_rtl_admin.__all__
+    assert arabic_search_regex is formatting.arabic_search_regex
+
+
+@pytest.mark.parametrize(
+    "stripped",
+    [
+        "",
+        "\u0640",
+        "".join(chr(cp) for cp in range(0x064B, 0x0660)),
+        "\u0670",
+        "\u061c\u200e\u200f\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069",
+    ],
+)
+def test_arabic_search_regex_strips_harakat_tatweel_and_bidi_controls(stripped):
+    assert arabic_search_regex(stripped) == ""
+    assert arabic_search_regex(f"م{stripped}ح{stripped}مد") == arabic_search_regex("محمد")
+
+
+@pytest.mark.parametrize(
+    ("group", "expected_class"),
+    [
+        ("\u0622\u0623\u0625\u0627\u0671", "[\u0622\u0623\u0625\u0627\u0671]"),
+        ("\u0629\u0647", "[\u0629\u0647]"),
+        ("\u0626\u0649\u064a\u06cc", "[\u0626\u0649\u064a\u06cc]"),
+        ("\u0643\u06a9", "[\u0643\u06a9]"),
+        ("\u0624\u0648", "[\u0624\u0648]"),
+    ],
+)
+def test_arabic_search_regex_folds_letter_groups(group, expected_class):
+    for char in group:
+        assert arabic_search_regex(char) == expected_class + DIACRITICS_CLASS
+
+
+@pytest.mark.parametrize("letter", ["ب", "م", "ن", "پ", "چ", "ژ", "گ"])
+def test_arabic_search_regex_follows_other_arabic_letters_with_optional_diacritics(letter):
+    assert arabic_search_regex(letter) == letter + DIACRITICS_CLASS
+
+
+@pytest.mark.parametrize("value", range(10))
+def test_arabic_search_regex_folds_ascii_arabic_indic_and_persian_digits(value):
+    latn = DIGITS["latn"][value]
+    arab = DIGITS["arab"][value]
+    ext = DIGITS["arabext"][value]
+    expected = f"[{latn}{arab}{ext}]"
+    assert arabic_search_regex(latn) == expected
+    assert arabic_search_regex(arab) == expected
+    assert arabic_search_regex(ext) == expected
+
+
+@pytest.mark.parametrize("plain", ["Deep Learning", "שלום עולם", "   "])
+def test_arabic_search_regex_leaves_latin_hebrew_and_spaces_unchanged(plain):
+    assert arabic_search_regex(plain) == plain
+
+
+def _strip_bracket_classes(pattern: str) -> str:
+    """Remove bracket character classes so outer operators can be inspected."""
+    out: list[str] = []
+    index = 0
+    while index < len(pattern):
+        if pattern[index] == "[":
+            index += 1
+            while index < len(pattern) and pattern[index] != "]":
+                index += 2 if pattern[index] == "\\" else 1
+            assert index < len(pattern) and pattern[index] == "]"
+            index += 1
+        else:
+            out.append(pattern[index])
+            index += 1
+    return "".join(out)
+
+
+@pytest.mark.parametrize("char", list(r".^$*+?{}[]\|()-:،؛؟«»/!@#%&="))
+def test_arabic_search_regex_wraps_punctuation_and_symbols_safely(char):
+    pattern = arabic_search_regex(char)
+    assert re.fullmatch(pattern, char)
+    assert not re.fullmatch(pattern, "x")
+    if char != "\\":
+        assert not re.fullmatch(pattern, "\\")
+    assert re.fullmatch(pattern + pattern, char + char)
+    outside = _strip_bracket_classes(pattern)
+    assert outside == ""
+
+
+@pytest.mark.parametrize(
+    ("query", "matching", "non_matching"),
+    [
+        ("احمد", ["أحمد", "إحمد", "آحمد", "ٱحمد", "احمد", "أَحْمَدُ"], ["حامد", "أمجد"]),
+        ("محمد", ["محمد", "مُحَمَّدٌ", "مـحـمـد", "مٰحمد"], ["محمود", "احمد"]),
+        ("مدرسه", ["مدرسة", "مدرسه", "مَدْرَسَةٌ"], ["مدرس", "مدارس"]),
+        ("علي", ["علي", "على", "علی", "علئ"], ["عالم", "علو"]),
+        ("كتاب", ["كتاب", "کتاب", "كِتَابٌ"], ["كاتب"]),
+        ("مؤمن", ["مؤمن", "مومن", "مُؤْمِنٌ"], ["أمين"]),
+        ("١٤٤٦-٠٩-١٠", ["1446-09-10", "١٤٤٦-٠٩-١٠", "۱۴۴۶-۰۹-۱۰"], ["1446x09x10", "1447-09-10"]),
+        ("أحمد (ج١) [٢]: ٣", ["احمد (ج1) [۲]: 3"], ["احمد ج1 2: 3"]),
+    ],
+)
+def test_arabic_search_regex_fullmatch_samples(query, matching, non_matching):
+    pattern = arabic_search_regex(query)
+    outside = _strip_bracket_classes(pattern)
+    assert not set(outside) & set("()+?|{}^$.\\")
+    for candidate in matching:
+        assert re.fullmatch(pattern, candidate, re.IGNORECASE), (query, candidate, pattern)
+    for candidate in non_matching:
+        assert not re.fullmatch(pattern, candidate, re.IGNORECASE), (query, candidate, pattern)

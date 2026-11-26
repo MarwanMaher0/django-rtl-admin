@@ -311,6 +311,21 @@ def test_changelist(open_admin, snapshot, lang, scheme):
         snapshot(page, "search")
 
 
+def test_arabic_changelist_search_folds_hamza_and_equivalent_forms(open_admin, snapshot):
+    page = open_admin(CHANGELIST, lang="ar")
+    searchbar = page.locator("#searchbar")
+    searchbar.click()
+    searchbar.type("الف ليله")
+    with page.expect_navigation():
+        searchbar.press("Enter")
+    check_page(page, "ar", "light", "Arabic folded search")
+    rows = page.locator("#result_list tbody tr")
+    assert rows.count() == 1
+    assert "ألف ليلة وليلة" in rows.first.inner_text()
+    assert searchbar.input_value() == "الف ليله"
+    snapshot(page, "search-folded-ar")
+
+
 @parametrize_all
 def test_changelist_filters(open_admin, snapshot, lang, scheme):
     for page in visit(open_admin, CHANGELIST, lang, scheme):

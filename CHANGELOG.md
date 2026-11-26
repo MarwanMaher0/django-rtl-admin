@@ -8,6 +8,12 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- `BidiSafeAdminMixin` folds equivalent Arabic letter forms, harakat, tatweel,
+  and digits in changelist and autocomplete search across text `search_fields`
+  while keeping ASCII and Hebrew queries untouched. Use `arabic_search_regex()`
+  in custom `iregex` queries, or disable the mixin behavior with
+  `RTL_ADMIN["FOLD_ARABIC_SEARCH"] = False` globally or
+  `bidi_fold_search = False` on one admin.
 - `BidiSafeAdminMixin` accepts Arabic-Indic and Persian digits in numeric, date,
   and time fields in any UI language, including `list_editable` and mixin-enabled
   inlines. Use `normalize_numeric_input()` in custom parsers, or disable the
