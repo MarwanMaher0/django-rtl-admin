@@ -316,6 +316,63 @@ translated unit names are used on both backends.
         - format_time
         - format_hijri_date
 
+## Arabic numbers and amounts in words { #arabic-words }
+
+Use `amount_to_arabic_words()` to print invoice or receipt totals in Arabic,
+regardless of the active language. It accepts a `Decimal`, integer, or numeric
+string in Western, Arabic-Indic, or Persian digits. Use `.` or `٫` as the
+decimal separator; `٬` may group thousands, but ASCII commas are not accepted.
+The amount is rounded half-up to the currency's precision before spelling it
+out. A zero major or minor part is omitted, except when both parts are zero:
+for SAR, a zero amount is `صفر ريال فقط`. The output ends in `فقط` unless you
+pass `only=False`. Negative amounts begin with `سالب` unless they round to zero.
+
+The built-in codes are `SAR` (the default), `AED`, `KWD`, `QAR`, `BHD`, `OMR`,
+`EGP`, `JOD`, and `USD`, matched case-insensitively. KWD, BHD, OMR, and JOD
+use three minor digits; the others use two. Currency nouns follow the final
+number component: `ثلاثة دنانير`, `أحد عشر دينارًا`, `مائة دينار`.
+
+`number_to_arabic_words()` takes an integer. The `gender` argument is the
+**counted noun's** gender; three books are `ثلاثة كتب`, but three invoices are
+`ثلاث فواتير`. Use `ordinal=True` for a rank such as `الحادية والعشرون`.
+In ordinal mode, zero is `الصفر` for either gender. Large ordinals use a
+definite cardinal for the hundreds and higher places.
+Both helpers support magnitudes below `10**15` (after rounding for amounts)
+and raise `ValueError` on invalid input.
+
+```python
+from decimal import Decimal
+
+from django_rtl_admin import amount_to_arabic_words, number_to_arabic_words
+
+assert number_to_arabic_words(3, gender="feminine") == "ثلاث"
+assert number_to_arabic_words(21, gender="feminine", ordinal=True) == "الحادية والعشرون"
+assert number_to_arabic_words(0, ordinal=True) == "الصفر"
+assert number_to_arabic_words(0, gender="feminine", ordinal=True) == "الصفر"
+assert amount_to_arabic_words("٠٫٥٠", "SAR") == "خمسون هللةً فقط"
+assert amount_to_arabic_words(102_000, "SAR") == "مائة ألف وألفا ريال فقط"
+assert amount_to_arabic_words("٢٫٠٥", "SAR") == "ريالان اثنان وخمس هللات فقط"
+assert amount_to_arabic_words(Decimal("11.02"), "EGP") == "أحد عشر جنيهًا وقرشان اثنان فقط"
+```
+
+For a custom currency, pass a dictionary instead of a code. Set `minor_digits`
+(0–15) and supply both `major` and `minor` noun forms. Give the indefinite
+singular and nominative dual. The singular accusative is normally derived
+from the singular; provide `accusative` explicitly for an irregular form or
+multiword unit name.
+
+```python
+syp = {
+    "minor_digits": 2,
+    "major": {"singular": "ليرة", "dual": "ليرتان", "plural": "ليرات", "gender": "feminine"},
+    "minor": {"singular": "قرش", "dual": "قرشان", "plural": "قروش", "gender": "masculine"},
+}
+assert amount_to_arabic_words("1.03", syp, only=False) == "ليرة واحدة وثلاثة قروش"
+```
+
+See [Arabic wording filters](template-tags.md#arabic-wording-filters) for
+use in templates.
+
 ## Hijri dates { #hijri-dates }
 
 Saudi and Gulf admins usually need the Umm al-Qura calendar, which Babel does

@@ -42,6 +42,18 @@ assert arabic_slugify("پژوهش ۱۴۰۳") == "pzhwhsh-1403"
 المرشّح إلى مزيج. راجع [التصفية بحسب الحرف الأول](https://marwanmaher0.github.io/django-rtl-admin/ar/admin-mixin/#filter-by-arabic-initial)
 لمعرفة خيارات الشريط الجانبي، و[مرجع `ArabicInitialListFilter`](https://marwanmaher0.github.io/django-rtl-admin/ar/api/#arabic-initial-list-filter)
 لتعريف فئة فرعية وضبط خياراتها.
+## كتابة إجمالي الفواتير والإيصالات بالحروف العربية
+
+```django
+{% load rtl_admin %}
+<p lang="ar" dir="rtl">{{ invoice.total|amount_in_words:"SAR" }}</p>
+```
+
+إذا كان الإجمالي `2.05` فالناتج «ريالان اثنان وخمس هللات فقط».
+استخدم `EGP` للجنيه المصري، أو اختر عملة أخرى من العملات المدعومة. في Python
+استخدم `amount_to_arabic_words()` للمبالغ و`number_to_arabic_words()` للأعداد
+الصحيحة والترتيبية. يشرح [مرجع الكتابة بالحروف](https://marwanmaher0.github.io/django-rtl-admin/ar/api/#arabic-words)
+قواعد التقريب وتخصيص العملات وإدخال الأرقام العربية الهندية والفارسية.
 
 ## التواريخ الهجرية بتقويم أم القرى
 

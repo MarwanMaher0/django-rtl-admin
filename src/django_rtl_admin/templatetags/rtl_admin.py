@@ -20,7 +20,7 @@ from django.utils.translation import get_language, get_language_info
 from django.utils.translation import gettext as _
 
 from .. import bidi as bidi_module
-from .. import formatting, ordinals, phones
+from .. import formatting, ordinals, phones, words
 from ..conf import rtl_settings
 
 if TYPE_CHECKING:
@@ -336,6 +336,36 @@ def ordinal_short(value: Any) -> Any:
         return ordinals.ordinal_short(value)
     except ValueError:
         return value
+
+
+# ---------------------------------------------------------------------------
+# Arabic number and amount wording
+# ---------------------------------------------------------------------------
+
+
+@register.filter(name="arabic_words")
+def arabic_words(value: Any, gender: words.Gender = "masculine") -> str:
+    """Spell an integer; optionally pass the gender of the counted noun."""
+    try:
+        if isinstance(value, str):
+            parsed = words._decimal(value)
+            if not parsed.is_finite() or parsed.copy_abs() >= words._LIMIT:
+                return ""
+            if parsed != parsed.to_integral_value():
+                return ""
+            value = int(parsed)
+        return words.number_to_arabic_words(value, gender=gender)
+    except ValueError:
+        return ""
+
+
+@register.filter(name="amount_in_words")
+def amount_in_words(value: Any, currency: str = "SAR") -> str:
+    """Spell a monetary amount in Arabic, defaulting to Saudi riyals."""
+    try:
+        return words.amount_to_arabic_words(value, currency)
+    except ValueError:
+        return ""
 
 
 # ---------------------------------------------------------------------------

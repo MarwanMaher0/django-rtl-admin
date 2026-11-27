@@ -11,7 +11,7 @@ Load the library in each Django template that uses it:
 {% load rtl_admin %}
 ```
 
-The library contains 21 filters and 9 tags. Examples below assume it is loaded
+The library contains 23 filters and 9 tags. Examples below assume it is loaded
 and that variables come from the template context. Number examples use numeric
 values or numeric strings; date/time examples use Python date, datetime, or time
 objects. See [Configuration](configuration.md) for shared defaults and the
@@ -322,6 +322,37 @@ Custom patterns use Django format strings on the fallback path and CLDR syntax
 with Babel. On both paths, digit shapes still follow `NUMERALS`. These filters
 have no language, timezone, or numbering-system argument; use settings, language
 activation, or the [Python formatting API](api.md) where appropriate.
+
+## Arabic wording filters { #arabic-wording-filters }
+
+### `arabic_words`
+
+Spell an integer or an integer-valued numeric string in Arabic. The optional
+argument is the counted noun's gender and defaults to `"masculine"`.
+
+```django
+{{ 3|arabic_words }}
+{{ 3|arabic_words:"feminine" }}
+```
+
+These render `ثلاثة` and `ثلاث`, respectively. Invalid values or genders
+render empty. To spell an ordinal, use the [Python API](api.md#arabic-words).
+
+### `amount_in_words`
+
+Spell a monetary total in Arabic with `فقط` at the end. If you omit the
+currency argument, it defaults to `"SAR"`, irrespective of `CURRENCY`
+or the active language. For example:
+
+```django
+{{ "٢٫٠٥"|amount_in_words:"SAR" }}
+{{ "١١٫٠٢"|amount_in_words:"EGP" }}
+```
+
+These render `ريالان اثنان وخمس هللات فقط` and `أحد عشر جنيهًا وقرشان اثنان فقط`.
+Invalid amounts or unknown currencies render empty. See the
+[Python API](api.md#arabic-words) for supported currencies, rounding, and
+how to customize the wording.
 
 ## Direction and asset tags
 

@@ -302,6 +302,19 @@ format_number(1234567.891, language="ar-eg")  # '١٬٢٣٤٬٥٦٧٫٨٩١'
 format_currency("349.90", "EGP", language="ar-eg")
 ```
 
+### Invoice and receipt totals in Arabic words
+
+```django
+{% load rtl_admin %}
+<p lang="ar" dir="rtl">{{ invoice.total|amount_in_words:"SAR" }}</p>
+```
+
+For a total of `2.05`, this prints `ريالان اثنان وخمس هللات فقط`.
+Use `EGP` for Egyptian pounds or choose another supported currency. In Python,
+use `amount_to_arabic_words()` for totals and `number_to_arabic_words()` for
+integers and ordinals. See the [wording API](https://marwanmaher0.github.io/django-rtl-admin/api/#arabic-words)
+for rounding, custom currency forms, and Arabic-Indic and Persian digit input.
+
 ### Hijri dates (Umm al-Qura)
 
 Saudi and Gulf admin sites need the Umm al-Qura calendar, which Babel does not
@@ -594,6 +607,8 @@ invalid choice at runtime also raises `ImproperlyConfigured`.
 | `phone_display` | `{{ customer.phone\|phone_display }}` | Group an E.164 phone number by country and wrap it in Unicode LTR isolation. |
 | `ordinal_ar` | `{{ n\|ordinal_ar }}`, `{{ n\|ordinal_ar:"f,indef" }}` | Arabic ordinal words (`الثالث`, `ثالثة`); the argument sets the gender (`m`, `f`) and definiteness (`def`, `indef`). |
 | `ordinal_short` | `{{ n\|ordinal_short }}` | Short ordinal of the active language: `3rd`, `الـ3`. |
+| `arabic_words` | `{{ count\|arabic_words:"feminine" }}` | Spell an integer in Arabic; the gender argument is optional. |
+| `amount_in_words` | `{{ total\|amount_in_words:"SAR" }}` | Spell a monetary total in Arabic, ending in `فقط`. |
 | `rtl_admin_accessible_viewport` | `{{ block.super\|rtl_admin_accessible_viewport }}` | Remove the stock viewport's pinch-zoom restrictions while preserving the rest of the responsive block. |
 | `rtl_admin_result_object` | `{{ cl.result_list\|rtl_admin_result_object:forloop.counter0 }}` | Return the changelist object at the supplied zero-based index. |
 | `rtl_admin_action_label` | `{{ item\|rtl_admin_action_label:object }}` | Add an escaped, translated accessible name to a stock changelist action checkbox. |
@@ -648,6 +663,8 @@ from django_rtl_admin import (
     format_datetime,
     format_time,
     format_hijri_date,
+    number_to_arabic_words,
+    amount_to_arabic_words,
     from_hijri,
     to_hijri,
     HijriDate,

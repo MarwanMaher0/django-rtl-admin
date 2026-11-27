@@ -36,6 +36,8 @@ EXPECTED_FILTERS = {
     "phone_display",
     "ordinal_ar",
     "ordinal_short",
+    "arabic_words",
+    "amount_in_words",
     "rtl_admin_accessible_viewport",
     "rtl_admin_result_object",
     "rtl_admin_action_label",
@@ -429,6 +431,35 @@ def test_action_label_filter_names_stock_checkboxes_and_escapes_object_text():
     assert 'aria-label="Select this object for an action - &lt;script&gt;"' in output
     assert tags.rtl_admin_action_label(output, "unused") == output
     assert tags.rtl_admin_action_label("<td>Title</td>", "unused") == "<td>Title</td>"
+
+
+# -- Arabic wording filters ------------------------------------------------
+
+
+@pytest.mark.parametrize("language", ["en", "ar-eg"])
+def test_words_filters_render_invoices_regardless_of_active_language(language):
+    with override_language(language):
+        assert (
+            render(
+                '{{ count|arabic_words:"feminine" }} | {{ total|amount_in_words:"SAR" }}',
+                count="۳",
+                total="٢٫٠٥",
+            )
+            == "ثلاث | ريالان اثنان وخمس هللات فقط"
+        )
+        assert render("{{ 3|arabic_words }} | {{ total|amount_in_words }}", total=1) == (
+            "ثلاثة | ريال واحد فقط"
+        )
+
+
+@pytest.mark.parametrize("value", [None, True, "<b>1</b>", "1.2.3", "1e100000"])
+def test_words_filters_render_invalid_input_as_empty(value):
+    assert render('{{ v|arabic_words }}{{ v|amount_in_words:"SAR" }}', v=value) == ""
+
+
+def test_words_filters_render_invalid_arguments_as_empty():
+    assert render('{{ 1|arabic_words:"invalid" }}{{ 1|amount_in_words:"EUR" }}') == ""
+    assert render('{{ "1.5"|arabic_words }}') == ""
 
 
 # -- tags ------------------------------------------------------------------

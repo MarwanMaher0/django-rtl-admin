@@ -22,6 +22,8 @@ Public API::
         format_date,
         format_datetime,
         format_hijri_date,
+        number_to_arabic_words,
+        amount_to_arabic_words,
         from_hijri,
         to_hijri,
         HijriDate,
@@ -86,6 +88,7 @@ from .phones import (
     normalize_phone,
     validate_phone,
 )
+from .words import amount_to_arabic_words, number_to_arabic_words
 
 if TYPE_CHECKING:
     # Resolved lazily at runtime (see ``__getattr__``); imported here so type
@@ -131,6 +134,7 @@ __all__ = [
     "HijriDate",
     "PhoneNumberField",
     "__version__",
+    "amount_to_arabic_words",
     "arabic_initial_filter",
     "arabic_search_regex",
     "arabic_slugify",
@@ -159,6 +163,7 @@ __all__ = [
     "mark_isolated_runs",
     "normalize_numeric_input",
     "normalize_phone",
+    "number_to_arabic_words",
     "numbering_system",
     "ordinal_display",
     "ordinal_short",

@@ -52,6 +52,12 @@ All notable changes to this project are documented here. The format follows
   and renders inputs with `dir="ltr"`, `inputmode="tel"`, and
   `autocomplete="tel"`. `|phone_display` groups E.164 numbers by country and
   wraps them in Unicode LTR isolation for Arabic prose.
+- Spell out Arabic invoice and receipt totals with `amount_to_arabic_words()`
+  and integers with `number_to_arabic_words()`. Nine built-in currencies and
+  custom noun forms are supported, with half-up rounding and Arabic-Indic and
+  Persian digit input for amounts. `{% load rtl_admin %}` provides `arabic_words`
+  and `amount_in_words`; `{{ "٢٫٠٥"|amount_in_words:"SAR" }}` renders
+  `ريالان اثنان وخمس هللات فقط`.
 - Umm al-Qura Hijri calendar support without a new runtime dependency.
   `to_hijri()` converts a Gregorian `date` or `datetime` to a frozen
   `HijriDate` (`year`, `month`, `day`, `month_length`) and `from_hijri()` goes
