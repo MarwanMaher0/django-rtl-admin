@@ -33,7 +33,7 @@ The supported keys are defined in `django_rtl_admin.conf.DEFAULTS`.
 | `ISOLATE_TABLE_CELLS` | `True` | Enable CSS isolation for changelist cells and related navigation and data, including dashboard Recent actions links and related-object labels beside `raw_id_fields`. Object history table cells and Select2 autocomplete values get `unicode-bidi: plaintext` with their alignment kept. |
 | `PLAINTEXT_FORM_FIELDS` | `True` | Add the body class enabling first-strong plaintext direction for text-like inputs and textareas. |
 | `NORMALIZE_INPUT_DIGITS` | `True` | Normalize Arabic-Indic and Persian digits when parsing numeric, date, and time fields on mixin-enabled admins and inlines. |
-| `LOCALIZE_CHANGELIST_DIGITS` | `False` | Rewrite digits in eligible numeric and temporal changelist cells on mixin-enabled admins for the active locale's numbering system, keeping Django's separators. |
+| `LOCALIZE_CHANGELIST_DIGITS` | `False` | Rewrite digits in eligible numeric and temporal changelist cells on mixin-enabled admins for the active locale's numbering system, keeping Django's separators. [`ordinal_short()`](api.md#arabic-ordinals) and the `ordinal_short` filter localize their digits under the same switch. |
 | `FOLD_ARABIC_SEARCH` | `True` | Fold equivalent Arabic letter forms, diacritics, tatweel, and digits when searching text fields and autocompletes on mixin-enabled admins. |
 | `TRANSLITERATE_SLUGS` | `True` | Prepopulate blank slugs from Arabic-script text on mixin-enabled add forms and new inline rows. |
 | `ARABIC_ORDERING` | `True` | Allow folded ordering for text fields explicitly listed in a mixin-enabled admin's `bidi_arabic_ordering`; an empty list changes nothing. |

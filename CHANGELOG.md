@@ -8,6 +8,29 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Arabic ordinal words and short ordinals.** New `django_rtl_admin.ordinals`
+  module exporting `ordinal_words()`, `ordinal_short()`, and `ordinal_display()`
+  from the package root, plus the `{{ value|ordinal_ar }}` and
+  `{{ value|ordinal_short }}` template filters in `{% load rtl_admin %}`.
+  `ordinal_words(value, *, gender="masculine", definite=True)` spells Fusha
+  ordinals for 1 to 100 in both genders, with and without the article: the
+  special forms for 1 and 2 (`الأول`, `الأولى`, `ثانٍ`), the 11 to 19 compounds
+  (`الحادية عشرة`), the tens, and compounds such as `الحادي والعشرون` and
+  `التاسعة والتسعون`. Above 100 it writes the cardinal of the hundreds and
+  above followed by `و` and the ordinal of the last two digits
+  (`المئة والخامس والعشرون`), in the nominative case, up to 999,999,999,999.
+  `ordinal_short(value, *, language=None)` returns `1st`/`2nd`/`3rd` for
+  English and the digits after the `الـ` marker for Arabic (`الـ25`); other
+  languages get the digits alone. Its digits honour the existing
+  `LOCALIZE_CHANGELIST_DIGITS` setting, which is imported and not changed:
+  Latin while it is off, and `numbering_system()` with `NUMERALS` when it is
+  on (`الـ٢٥` in `ar-eg`). Zero, negative numbers, `bool`, `float`, and
+  non-integer strings raise `ValueError`. `|ordinal_ar` takes the gender and definiteness
+  as an argument such as `"f"` or `"f,indef"`; both filters return invalid
+  input unchanged and stay escaped under autoescape.
+  `ordinal_display(field_name, gender=...)` returns a `ModelAdmin.list_display`
+  callable that shows an integer field as ordinal words and keeps the column
+  sortable through `admin_order_field`.
 - Filter the changelist by the initial of a text field with `arabic_initial_filter()`
   or by subclassing `ArabicInitialListFilter`. The sidebar groups equivalent
   Arabic initials, offers Latin letters and digits by default, and lists only

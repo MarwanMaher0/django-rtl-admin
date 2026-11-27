@@ -11,7 +11,7 @@ Load the library in each Django template that uses it:
 {% load rtl_admin %}
 ```
 
-The library contains 19 filters and 9 tags. Examples below assume it is loaded
+The library contains 21 filters and 9 tags. Examples below assume it is loaded
 and that variables come from the template context. Number examples use numeric
 values or numeric strings; date/time examples use Python date, datetime, or time
 objects. See [Configuration](configuration.md) for shared defaults and the
@@ -264,6 +264,47 @@ normalize a local number before grouping. `None` and empty input render empty;
 unrecognized text is escaped under autoescape and returned wrapped in LTR
 isolation. See [Phone numbers](api.md#phone-numbers) for `normalize_phone()`,
 `validate_phone()`, `format_phone_display()`, and `PhoneNumberField`.
+
+### `ordinal_ar`
+
+Spell a positive integer as an Arabic ordinal. The optional argument sets the
+gender and the definiteness of the noun the ordinal follows:
+
+```django
+{{ floor.number|ordinal_ar }}
+{{ invoice.sequence|ordinal_ar:"f" }}
+{{ step.position|ordinal_ar:"f,indef" }}
+```
+
+For `3`, these render `الثالث`, `الثالثة`, and `ثالثة`. The argument is a
+comma-separated list, in either order, of a gender (`"m"` or `"f"`, also
+`"masculine"` and `"feminine"`) and a definiteness (`"def"` or `"indef"`, also
+`"definite"` and `"indefinite"`); the default is the definite masculine. Unlike
+the other filters in this section, the words are Arabic whatever the active
+language. They are in the nominative case and cover 1 to 999,999,999,999; a
+value above 100 is the cardinal of its hundreds and above followed by the
+ordinal of its last two digits (`المئة والخامس والعشرون` for 125). `None` and
+empty input render empty. A value that is not a positive integer, and any value
+given an unknown argument, is returned unchanged and escaped under autoescape.
+See [Arabic ordinals](api.md#arabic-ordinals) for the forms and for
+`ordinal_words()`.
+
+### `ordinal_short`
+
+Write a positive integer as the short ordinal of the active language:
+
+```django
+{{ ranking.position|ordinal_short }}
+```
+
+For `3`, this renders `3rd` in English and `الـ3` in Arabic. English appends
+`st`, `nd`, `rd`, or `th`; Arabic prefixes the digits with the article and a
+tatweel, `الـ`; other languages get the digits alone. Digits are Latin unless
+`LOCALIZE_CHANGELIST_DIGITS` is on; they then follow the active locale and
+`NUMERALS`, giving `الـ٣` in `ar-eg`. The filter takes no argument. `None` and
+empty input render empty; a value that is not a positive integer is returned
+unchanged and escaped under autoescape. See
+[`ordinal_short()`](api.md#arabic-ordinals) for the Python helper.
 
 ### Backend differences
 

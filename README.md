@@ -364,6 +364,48 @@ class CustomerForm(forms.Form):
 them in Unicode LTR isolation so they read cleanly inside Arabic prose. See
 [Phone numbers](https://marwanmaher0.github.io/django-rtl-admin/api/#phone-numbers).
 
+### Spell Arabic ordinals
+
+Python and Django have no Arabic ordinal words, so invoices, rankings, steps,
+and floor numbers end up as bare digits or `1st`. `ordinal_words()` spells
+Fusha ordinals that agree with their noun in gender and definiteness, and
+`ordinal_short()` writes the short form a language uses next to digits:
+
+```python
+from django.contrib import admin
+
+from django_rtl_admin import ordinal_display, ordinal_short, ordinal_words
+
+assert ordinal_words(3) == "الثالث"
+assert ordinal_words(3, gender="feminine") == "الثالثة"
+assert ordinal_words(2, definite=False) == "ثانٍ"
+assert ordinal_words(11, gender="f") == "الحادية عشرة"
+assert ordinal_words(21) == "الحادي والعشرون"
+assert ordinal_words(125) == "المئة والخامس والعشرون"
+
+assert ordinal_short(3, language="en") == "3rd"
+assert ordinal_short(25, language="ar") == "الـ25"
+
+
+class FloorAdmin(admin.ModelAdmin):
+    list_display = ("building", ordinal_display("number", gender="masculine"))
+```
+
+1 to 99 are the ordinals proper, including the special forms for 1 and 2, the
+11 to 19 compounds, and the tens. A hundred and a thousand have no ordinal form
+in Arabic, so a value above 100 is the cardinal of its hundreds and above
+followed by `و` and the ordinal of its last two digits, up to 999,999,999,999.
+The words are in the nominative case. The Arabic short marker is the article
+and a tatweel, `الـ`, before the digits. The digits honour the existing
+`LOCALIZE_CHANGELIST_DIGITS` setting: Latin while it is off, the locale's
+digits and `NUMERALS` when it is on (`الـ٢٥` in `ar-eg`). Zero, negative
+numbers, `bool`, `float`, and non-integer strings raise `ValueError`.
+`ordinal_display()` returns a `list_display` callable that keeps the column
+sortable through `admin_order_field`. In templates, use
+`{{ floor.number|ordinal_ar }}`, `{{ invoice.sequence|ordinal_ar:"f,indef" }}`,
+and `{{ ranking.position|ordinal_short }}`. See
+[Arabic ordinals](https://marwanmaher0.github.io/django-rtl-admin/api/#arabic-ordinals).
+
 ---
 
 ## What you get
@@ -510,7 +552,7 @@ RTL_ADMIN = {
 | `ISOLATE_TABLE_CELLS` | `True` | CSS-level `unicode-bidi: isolate` on changelist cells, linked object names in messages, the change-form subtitle and object links on the delete pages. |
 | `PLAINTEXT_FORM_FIELDS` | `True` | CSS-level `unicode-bidi: plaintext` on text inputs and textareas. |
 | `NORMALIZE_INPUT_DIGITS` | `True` | Normalize Arabic-Indic and Persian digits in numeric, date, and time input on mixin-enabled admins. Must be a boolean. |
-| `LOCALIZE_CHANGELIST_DIGITS` | `False` | Rewrite digits in eligible numeric and temporal changelist cells on mixin-enabled admins using the active locale's numbering system, keeping Django's separators. Must be a boolean. |
+| `LOCALIZE_CHANGELIST_DIGITS` | `False` | Rewrite digits in eligible numeric and temporal changelist cells on mixin-enabled admins using the active locale's numbering system, keeping Django's separators. `ordinal_short()` and the `ordinal_short` filter localize their digits under the same switch. Must be a boolean. |
 | `FOLD_ARABIC_SEARCH` | `True` | Fold equivalent Arabic letter forms, diacritics, tatweel, and digits in changelist and autocomplete search on mixin-enabled admins. Must be a boolean. |
 | `TRANSLITERATE_SLUGS` | `True` | Prepopulate blank slugs from Arabic-script text on mixin-enabled add forms and new inline rows. Must be a boolean. |
 | `ARABIC_ORDERING` | `True` | Allow folded sorting on explicitly listed `bidi_arabic_ordering` fields. Set to `False` for stock ordering on all admins. Must be a boolean. |
@@ -550,6 +592,8 @@ invalid choice at runtime also raises `ImproperlyConfigured`.
 | `l10n_time` | `{{ t\|l10n_time }}` | |
 | `local_digits` | `{{ "REF-2024"\|local_digits }}` | Rewrite digits in a ready-made string. |
 | `phone_display` | `{{ customer.phone\|phone_display }}` | Group an E.164 phone number by country and wrap it in Unicode LTR isolation. |
+| `ordinal_ar` | `{{ n\|ordinal_ar }}`, `{{ n\|ordinal_ar:"f,indef" }}` | Arabic ordinal words (`الثالث`, `ثالثة`); the argument sets the gender (`m`, `f`) and definiteness (`def`, `indef`). |
+| `ordinal_short` | `{{ n\|ordinal_short }}` | Short ordinal of the active language: `3rd`, `الـ3`. |
 | `rtl_admin_accessible_viewport` | `{{ block.super\|rtl_admin_accessible_viewport }}` | Remove the stock viewport's pinch-zoom restrictions while preserving the rest of the responsive block. |
 | `rtl_admin_result_object` | `{{ cl.result_list\|rtl_admin_result_object:forloop.counter0 }}` | Return the changelist object at the supplied zero-based index. |
 | `rtl_admin_action_label` | `{{ item\|rtl_admin_action_label:object }}` | Add an escaped, translated accessible name to a stock changelist action checkbox. |
@@ -611,6 +655,9 @@ from django_rtl_admin import (
     validate_phone,
     format_phone_display,
     PhoneNumberField,
+    ordinal_words,
+    ordinal_short,
+    ordinal_display,
     export_as_csv,
     make_csv_export_action,
     rtl_settings,

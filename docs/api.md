@@ -469,3 +469,130 @@ render E.164 numbers grouped by country and wrapped in LTR isolation:
         - validate_phone
         - format_phone_display
         - PhoneNumberField
+
+
+## Arabic ordinals { #arabic-ordinals }
+
+Python and Django have no Arabic ordinal words, so invoice, ranking, step, and
+floor numbers end up as bare digits or an English `1st` on an Arabic page.
+`ordinal_words(value, *, gender="masculine", definite=True)` spells a positive
+integer as a Modern Standard Arabic (Fusha) ordinal that agrees with the noun
+it follows: `الطابق الثالث`, `الفاتورة الثالثة`, `طابق ثالث`. `gender` is
+`"masculine"` or `"feminine"` (`"m"` and `"f"` are accepted), and
+`definite=False` drops the article.
+
+| Value | Masculine | Feminine | Indefinite masculine | Indefinite feminine |
+| --- | --- | --- | --- | --- |
+| 1 | الأول | الأولى | أول | أولى |
+| 2 | الثاني | الثانية | ثانٍ | ثانية |
+| 3 | الثالث | الثالثة | ثالث | ثالثة |
+| 11 | الحادي عشر | الحادية عشرة | حادي عشر | حادية عشرة |
+| 12 | الثاني عشر | الثانية عشرة | ثاني عشر | ثانية عشرة |
+| 20 | العشرون | العشرون | عشرون | عشرون |
+| 21 | الحادي والعشرون | الحادية والعشرون | حادٍ وعشرون | حادية وعشرون |
+| 99 | التاسع والتسعون | التاسعة والتسعون | تاسع وتسعون | تاسعة وتسعون |
+| 100 | المئة | المئة | مئة | مئة |
+| 125 | المئة والخامس والعشرون | المئة والخامسة والعشرون | مئة وخامس وعشرون | مئة وخامسة وعشرون |
+
+From 1 to 99 the result is the ordinal proper: the irregular forms for 1 and 2;
+the compounds for 11 to 19, in which both halves agree in gender and only the
+first takes the article; the tens, which have one form for both genders; and
+the units joined to the tens by `و`, with the article on both. The indefinite
+masculine of the defective forms keeps its tanwin (`ثانٍ`, `حادٍ وعشرون`),
+except in 11 to 19, which are invariable.
+
+Arabic has no ordinal form for a hundred, a thousand, or anything larger; those
+keep their cardinal word, with the article when definite (`المئة`, `المئتان`,
+`الألف`). A value above 100 is therefore written as the cardinal number of its
+hundreds and above, followed by `و` and the ordinal of its last two digits,
+which is the only part that takes the gender: `المئة والخامسة والعشرون` for
+125, `الألف والمئتان والرابع والثلاثون` for 1234. Thousands, millions, and
+billions follow the classical rules for the counted noun (`ثلاثة آلاف`,
+`أحد عشر ألفًا`, `مئة ألف`), and a definite number places the article where
+each construction takes it (`ثلاثة الآلاف`, `الأحد عشر ألفًا`). The largest
+value spelled out is 999,999,999,999.
+
+The words are unvocalized apart from the tanwin of `ثانٍ`, `حادٍ`, and an
+accusative counted noun such as `ألفًا`. They use the spelling `مئة` and are in
+the nominative case, the form used for a heading, a label, or a table cell.
+Integer strings in Latin, Arabic-Indic, or Persian digits are accepted.
+
+`ordinal_short(value, *, language=None)` writes the short ordinal of a language,
+the active one by default. English appends `st`, `nd`, `rd`, or `th`. Arabic has
+no ordinal suffix: the marker is the definite article followed by a tatweel,
+`الـ`, written before the digits (`الذكرى الـ25`), and it reads as the definite
+ordinal whatever the gender of the noun. Other languages get the digits alone.
+
+The digits honour the existing digit localization switch,
+[`LOCALIZE_CHANGELIST_DIGITS`](admin-mixin.md#changelist-digit-localization),
+which is read from `RTL_ADMIN` on every call. It is off by default, and the
+digits are Latin (`الـ25`), as in the numeric cells of a changelist. When it is
+on, they are written in the numbering system of the language, which `NUMERALS`
+can override: `ordinal_short(25, language="ar-eg")` is then `الـ٢٥`, while plain
+`ar` and `ar-ma` keep `الـ25`. The per-admin `bidi_local_digits` attribute does
+not apply, because the helper is not tied to a `ModelAdmin`.
+
+```python
+from django_rtl_admin import ordinal_short, ordinal_words
+
+assert ordinal_words(1) == "الأول"
+assert ordinal_words(3, gender="feminine") == "الثالثة"
+assert ordinal_words(2, definite=False) == "ثانٍ"
+assert ordinal_words(11, gender="f") == "الحادية عشرة"
+assert ordinal_words(21) == "الحادي والعشرون"
+assert ordinal_words(99, gender="f", definite=False) == "تاسعة وتسعون"
+assert ordinal_words(100) == "المئة"
+assert ordinal_words(125, gender="f") == "المئة والخامسة والعشرون"
+assert ordinal_words(1234) == "الألف والمئتان والرابع والثلاثون"
+
+assert ordinal_short(3, language="en") == "3rd"
+assert ordinal_short(22, language="en") == "22nd"
+assert ordinal_short(25, language="ar") == "الـ25"
+```
+
+Both functions raise `ValueError` with a message naming the value for zero, a
+negative number, a `bool`, a `float`, a string that is not an integer, and any
+other non-integer value. `ordinal_words()` also raises it for an unknown
+`gender` and for a value above its range.
+
+`ordinal_display(field_name, gender="masculine", *, definite=True,
+description=None)` returns a callable for `ModelAdmin.list_display` that shows
+an integer field as ordinal words. `field_name` may follow relations with `__`.
+The callable keeps the field's sorting through `admin_order_field` and the
+field's `column-<name>` and `field-<name>` CSS classes; `description` sets the
+column header. An empty field renders as the admin's empty value, and a stored
+value that is not a positive integer is shown as it is. The words are Arabic in
+every interface language, and `BidiSafeAdminMixin` is not required.
+
+```python
+from django.contrib import admin
+
+from django_rtl_admin import ordinal_display
+
+
+class FloorAdmin(admin.ModelAdmin):
+    list_display = (
+        "building",
+        ordinal_display("number", gender="masculine", description="الطابق"),
+    )
+```
+
+In templates, use the `ordinal_ar` and `ordinal_short` filters from
+`{% load rtl_admin %}`. The argument of `ordinal_ar` sets the gender and the
+definiteness:
+
+```django
+{% load rtl_admin %}
+{{ floor.number|ordinal_ar }}
+{{ invoice.sequence|ordinal_ar:"f" }}
+{{ step.position|ordinal_ar:"f,indef" }}
+{{ ranking.position|ordinal_short }}
+```
+
+::: django_rtl_admin.ordinals
+    options:
+      heading_level: 3
+      members:
+        - ordinal_words
+        - ordinal_short
+        - ordinal_display

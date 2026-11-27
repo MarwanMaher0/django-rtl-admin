@@ -20,7 +20,7 @@ from django.utils.translation import get_language, get_language_info
 from django.utils.translation import gettext as _
 
 from .. import bidi as bidi_module
-from .. import formatting, phones
+from .. import formatting, ordinals, phones
 from ..conf import rtl_settings
 
 if TYPE_CHECKING:
@@ -273,6 +273,69 @@ def phone_display(
     if not formatted:
         return mark_safe("")
     return bidi_module.mark_isolated(formatted, direction="ltr", autoescape=autoescape)
+
+
+_ORDINAL_DEFINITENESS = {"def": True, "definite": True, "indef": False, "indefinite": False}
+
+
+def _ordinal_options(options: Any) -> tuple[Any, bool]:
+    """Split an ``ordinal_ar`` argument such as ``"f,indef"`` into its two choices.
+
+    A token that is not a definiteness keyword is taken as the gender and
+    left for ``ordinal_words`` to validate.
+    """
+    gender: Any = "masculine"
+    definite = True
+    if options is None:
+        return gender, definite
+    for token in str(options).split(","):
+        token = token.strip().lower()
+        if token in _ORDINAL_DEFINITENESS:
+            definite = _ORDINAL_DEFINITENESS[token]
+        elif token:
+            gender = token
+    return gender, definite
+
+
+@register.filter(name="ordinal_ar", is_safe=True)
+def ordinal_ar(value: Any, options: Any = None) -> Any:
+    """Arabic ordinal words: ``{{ floor.number|ordinal_ar }}`` is ``الثالث``.
+
+    The optional argument picks the gender and definiteness, separated by a
+    comma and in either order: ``"m"`` or ``"f"`` (also ``"masculine"`` and
+    ``"feminine"``) and ``"def"`` or ``"indef"`` (also ``"definite"`` and
+    ``"indefinite"``).  ``{{ invoice.number|ordinal_ar:"f" }}`` is ``الثالثة``
+    and ``{{ step|ordinal_ar:"f,indef" }}`` is ``ثالثة``.  The default is the
+    definite masculine.
+
+    ``None`` and the empty string render empty.  Anything that is not a
+    positive integer, and any value given an unknown argument, is returned
+    unchanged.
+    """
+    if value is None or value == "":
+        return ""
+    gender, definite = _ordinal_options(options)
+    try:
+        return ordinals.ordinal_words(value, gender=gender, definite=definite)
+    except ValueError:
+        return value
+
+
+@register.filter(name="ordinal_short", is_safe=True)
+def ordinal_short(value: Any) -> Any:
+    """Short ordinal in the active language: ``1st`` in English, ``الـ1`` in Arabic.
+
+    The digits are Latin unless ``LOCALIZE_CHANGELIST_DIGITS`` is on, in which
+    case they follow the active locale's numbering system and ``NUMERALS``.
+    ``None`` and the empty string render empty; anything that is not a
+    positive integer is returned unchanged.
+    """
+    if value is None or value == "":
+        return ""
+    try:
+        return ordinals.ordinal_short(value)
+    except ValueError:
+        return value
 
 
 # ---------------------------------------------------------------------------

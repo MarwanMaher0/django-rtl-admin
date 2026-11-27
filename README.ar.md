@@ -142,3 +142,46 @@ class CustomerForm(forms.Form):
 القوالب، يجمّع المرشح `{{ customer.phone|phone_display }}` أرقام E.164 بحسب
 الدولة ويحيطها بعزل LTR لتظهر صحيحةً داخل النص العربي. راجع
 [أرقام الهاتف](https://marwanmaher0.github.io/django-rtl-admin/ar/api/#phone-numbers).
+
+## الأعداد الترتيبية العربية
+
+لا توفّر Python ولا Django ألفاظًا للأعداد الترتيبية العربية، فتظهر أرقام
+الفواتير والمراتب والخطوات والطوابق أرقامًا مجرّدة أو بالصيغة `1st`. تكتب
+`ordinal_words()` العدد الترتيبي بالعربية الفصحى مطابقًا للاسم الذي يصفه في
+التذكير والتأنيث والتعريف والتنكير، وتكتب `ordinal_short()` الصيغة المختصرة
+التي ترافق الأرقام في كل لغة:
+
+```python
+from django.contrib import admin
+
+from django_rtl_admin import ordinal_display, ordinal_short, ordinal_words
+
+assert ordinal_words(3) == "الثالث"
+assert ordinal_words(3, gender="feminine") == "الثالثة"
+assert ordinal_words(2, definite=False) == "ثانٍ"
+assert ordinal_words(11, gender="f") == "الحادية عشرة"
+assert ordinal_words(21) == "الحادي والعشرون"
+assert ordinal_words(125) == "المئة والخامس والعشرون"
+
+assert ordinal_short(3, language="en") == "3rd"
+assert ordinal_short(25, language="ar") == "الـ25"
+
+
+class FloorAdmin(admin.ModelAdmin):
+    list_display = ("building", ordinal_display("number", gender="masculine"))
+```
+
+الأعداد من 1 إلى 99 هي الأعداد الترتيبية نفسها، ومنها الصيغتان الخاصتان
+بالعددين 1 و2 والأعداد المركبة من 11 إلى 19 وألفاظ العقود. وليس للمئة والألف
+صيغة ترتيبية في العربية، فيُكتب ما زاد على 100 بالعدد الأصلي لمئاته وما فوقها
+ثم الواو والعدد الترتيبي لخانتيه الأخيرتين، حتى 999,999,999,999. تُكتب الألفاظ
+في حالة الرفع. والعلامة المختصرة في العربية هي أداة التعريف متبوعةً بتطويل،
+أي `الـ`، قبل الأرقام. وتلتزم الأرقام بالإعداد الموجود
+`LOCALIZE_CHANGELIST_DIGITS`: تبقى لاتينية ما دام معطّلًا، وتتبع أرقام اللغة
+والإعداد `NUMERALS` عند تفعيله (`الـ٢٥` في `ar-eg`). ويرفع الصفر والأعداد
+السالبة والقيم من نوع `bool` أو `float` والسلاسل النصية التي لا تمثل عددًا
+صحيحًا `ValueError`. تعيد `ordinal_display()` دالة تصلح لـ`list_display` وتُبقي
+العمود قابلًا للفرز عبر `admin_order_field`. وفي القوالب، استخدم
+`{{ floor.number|ordinal_ar }}` و`{{ invoice.sequence|ordinal_ar:"f,indef" }}`
+و`{{ ranking.position|ordinal_short }}`. راجع
+[الأعداد الترتيبية العربية](https://marwanmaher0.github.io/django-rtl-admin/ar/api/#arabic-ordinals).

@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib import admin, messages
 
-from django_rtl_admin import BidiSafeAdminMixin, PhoneNumberField, export_as_csv
+from django_rtl_admin import BidiSafeAdminMixin, PhoneNumberField, export_as_csv, ordinal_display
 
 from .models import Article, ArticleSection, Book, Category, Chapter, Contact, Review, Thing
 
@@ -35,6 +35,8 @@ class CategoryAdmin(admin.ModelAdmin):
 @admin.register(Chapter)
 class ChapterAdmin(admin.ModelAdmin):
     raw_id_fields = ("book",)
+    # "الفصل" is masculine: الفصل الأول, الفصل الثاني...
+    list_display = ("title", ordinal_display("number", gender="masculine"))
 
 
 class ChapterInline(admin.TabularInline):

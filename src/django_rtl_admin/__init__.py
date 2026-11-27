@@ -29,6 +29,9 @@ Public API::
         validate_phone,
         format_phone_display,
         PhoneNumberField,
+        ordinal_words,
+        ordinal_short,
+        ordinal_display,
         export_as_csv,
         make_csv_export_action,
     )
@@ -76,6 +79,7 @@ from .formatting import (
     transliterate_digits,
 )
 from .hijri import HijriDate, from_hijri, to_hijri
+from .ordinals import ordinal_display, ordinal_short, ordinal_words
 from .phones import (
     PhoneNumberField,
     format_phone_display,
@@ -156,6 +160,9 @@ __all__ = [
     "normalize_numeric_input",
     "normalize_phone",
     "numbering_system",
+    "ordinal_display",
+    "ordinal_short",
+    "ordinal_words",
     "rtl_settings",
     "strip_isolates",
     "text_direction",
