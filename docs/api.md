@@ -164,6 +164,42 @@ identical ordering across backends or a full locale-specific dictionary sort.
 Neither helper needs the [admin mixin](admin-mixin.md#arabic-changelist-ordering)
 or changes the stored text.
 
+## Arabic initial list filter
+
+`arabic_initial_filter(field_name, *, title=None, parameter_name=None, include_latin=True, include_digits=True)`
+returns an `ArabicInitialListFilter` subclass for `ModelAdmin.list_filter`.
+Pass a text field name or a related path such as `publisher__name_ar`. By
+default `title` is the terminal field's `verbose_name` (the label of `name_ar`
+in this example). The default `parameter_name` is
+`field_name.replace("__", "_") + "__initial"`: `title` gives `title__initial`,
+while `publisher__name_ar` gives `publisher_name_ar__initial`. Replacing the
+path separators keeps Django from treating the URL parameter as a related-field
+lookup. Override `title` to change the sidebar heading or `parameter_name` to
+choose a different URL query parameter.
+
+You can also subclass `ArabicInitialListFilter` directly. Set `field_name` on
+the class and pass the class itself to `list_filter`:
+
+```python
+from django.contrib import admin
+
+from django_rtl_admin import ArabicInitialListFilter
+
+
+class PublisherInitialFilter(ArabicInitialListFilter):
+    field_name = "publisher__name_ar"
+    include_digits = False
+
+
+class BookAdmin(admin.ModelAdmin):
+    list_filter = (PublisherInitialFilter,)
+```
+
+With `include_digits=False`, names starting with a digit appear under **Other**.
+`include_latin=False` does the same for Latin initials. See the
+[changelist example](admin-mixin.md#filter-by-arabic-initial) for the factory
+form, the source of the choices, and their order.
+
 ## Choosing an isolation helper
 
 - `isolate()` strips any existing Unicode `Bidi_Control` characters and wraps an

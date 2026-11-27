@@ -157,6 +157,41 @@ descending = Book.objects.order_by(by_title.desc(), "pk")
 المختلفة ولا فرزًا قاموسيًا كاملًا. ولا تحتاج أيٌّ من الدالتين
 [مزيج الإدارة](admin-mixin.md#arabic-changelist-ordering) ولا تغيّر النص المخزّن.
 
+## مرشّح قائمة السجلات بحسب الحرف الأول { #arabic-initial-list-filter }
+
+تعيد `arabic_initial_filter(field_name, *, title=None, parameter_name=None, include_latin=True, include_digits=True)`
+فئةً ترث `ArabicInitialListFilter` لاستخدامها في `ModelAdmin.list_filter`.
+مرّر اسم حقل نصي أو مسارًا عبر علاقة مثل `publisher__name_ar`. يأخذ `title`
+افتراضيًا قيمة `verbose_name` للحقل الأخير (أي تسمية `name_ar` في هذا المثال)،
+أما القيمة الافتراضية لـ`parameter_name` فهي `field_name.replace("__", "_") + "__initial"`.
+مثلًا، يصبح اسم المعامل `title__initial` للحقل `title`، و`publisher_name_ar__initial`
+للمسار `publisher__name_ar`. يمنع استبدال فواصل المسار Django من تفسير المعامل
+في الرابط على أنه استعلام عبر علاقة. حدّد `title` لتغيير عنوان المرشّح في الشريط
+الجانبي، أو `parameter_name` لتغيير اسم معامل الاستعلام في الرابط.
+
+يمكنك أيضًا تعريف فئة ترث `ArabicInitialListFilter` مباشرةً. اضبط `field_name`
+في تعريف الفئة ومرّر الفئة نفسها إلى `list_filter`:
+
+```python
+from django.contrib import admin
+
+from django_rtl_admin import ArabicInitialListFilter
+
+
+class PublisherInitialFilter(ArabicInitialListFilter):
+    field_name = "publisher__name_ar"
+    include_digits = False
+
+
+class BookAdmin(admin.ModelAdmin):
+    list_filter = (PublisherInitialFilter,)
+```
+
+عند ضبط `include_digits=False`، تندرج الأسماء التي تبدأ برقم ضمن فئة **أخرى**.
+وينطبق الأمر نفسه على الأسماء التي تبدأ بحرف لاتيني عند ضبط `include_latin=False`.
+راجع [مثال قائمة السجلات](admin-mixin.md#filter-by-arabic-initial) لاستخدام الدالة
+بدلًا من تعريف فئة، ولمعرفة مصدر الخيارات وترتيبها.
+
 ## اختيار دالة العزل { #choosing-an-isolation-helper }
 
 - تزيل `isolate()` أي محارف Unicode موجودة من نوع `Bidi_Control` وتحيط القيمة

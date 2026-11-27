@@ -266,6 +266,15 @@ header="verbose", bom=True, delimiter=",")` for custom columns, filenames
 different delimiter. The view permission is required. See
 [CSV export](https://marwanmaher0.github.io/django-rtl-admin/admin-mixin/#csv-export).
 
+### Filter book titles by initial
+
+Import `arabic_initial_filter` from `django_rtl_admin` and set
+`list_filter = (arabic_initial_filter("title_ar"),)` on your `ModelAdmin`.
+Selecting `ا` shows titles beginning with `أ`, `إ`, or `آ` together; no mixin
+is required. See [Filter by Arabic initial](https://marwanmaher0.github.io/django-rtl-admin/admin-mixin/#filter-by-arabic-initial)
+for sidebar choices and the [`ArabicInitialListFilter` API](https://marwanmaher0.github.io/django-rtl-admin/api/#arabic-initial-list-filter)
+for subclassing and options.
+
 ### In your own templates
 
 ```django
@@ -527,7 +536,9 @@ invalid choice at runtime also raises `ImproperlyConfigured`.
 
 ```python
 from django_rtl_admin import (
+    ArabicInitialListFilter,
     BidiSafeAdminMixin,
+    arabic_initial_filter,
     arabic_search_regex,
     arabic_slugify,
     arabic_sort_key,

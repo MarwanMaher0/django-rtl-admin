@@ -245,6 +245,39 @@ sorts with the other forms of alef rather than in a separate group. The
 database collation still decides the order of the folded strings. For explicit
 ordering outside the admin, see [Arabic sort keys](api.md#arabic-sort-keys).
 
+## Filter by Arabic initial
+
+To browse books by the first letter of their title, add `arabic_initial_filter`
+to `list_filter`. It works on a plain `ModelAdmin`; neither `BidiSafeAdminMixin`
+nor Arabic changelist ordering is required:
+
+```python
+from django.contrib import admin
+
+from django_rtl_admin import arabic_initial_filter
+
+
+class BookAdmin(admin.ModelAdmin):
+    list_filter = (arabic_initial_filter("title"),)
+```
+
+Selecting `ا` includes titles such as `أبواب المدينة` and `إدارة الوقت` without
+changing their spelling. The filter uses the [Arabic sort key](api.md#arabic-sort-keys):
+`أ`, `إ`, `آ` and `ٱ` share `ا`, and `ة` shares `ه`. Leading vowel marks,
+tatweel and bidi controls do not affect the initial. The letters `پ`, `چ`, `ژ`,
+`گ`, `ک` and `ی` each keep their own entry.
+
+The sidebar lists only groups found in
+`model_admin.get_queryset(request)`, so a title outside that queryset cannot
+introduce a choice. Arabic and Persian initials come first, followed by Latin
+letters (A–Z), digits (0–9), and **Other**. Other collects unrecognized initials
+and blank or null values. Setting `include_latin=False` or `include_digits=False`
+moves the corresponding values into Other rather than hiding those books.
+
+Here the query parameter is `title__initial` and the sidebar heading is the
+field's `verbose_name`. See the [filter API](api.md#arabic-initial-list-filter)
+for overrides and the `ArabicInitialListFilter` subclass form.
+
 ## Named fields and display methods
 
 Only string entries in `list_display` are candidates. Direct model field names,

@@ -34,6 +34,15 @@ assert arabic_slugify("پژوهش ۱۴۰۳") == "pzhwhsh-1403"
 انظر [مرجع المزيج](https://marwanmaher0.github.io/django-rtl-admin/ar/admin-mixin/#arabic-slug-prepopulation)
 و[جدول النقحرة وقواعد تحديد الطول](https://marwanmaher0.github.io/django-rtl-admin/ar/api/#arabic-slugify).
 
+## تصفية عناوين الكتب بحسب الحرف الأول
+
+استورد `arabic_initial_filter` من `django_rtl_admin` واضبط
+`list_filter = (arabic_initial_filter("title_ar"),)` في فئة `ModelAdmin`.
+عند اختيار `ا` تظهر معًا العناوين التي تبدأ بـ`أ` أو `إ` أو `آ`، ولا يحتاج
+المرشّح إلى مزيج. راجع [التصفية بحسب الحرف الأول](https://marwanmaher0.github.io/django-rtl-admin/ar/admin-mixin/#filter-by-arabic-initial)
+لمعرفة خيارات الشريط الجانبي، و[مرجع `ArabicInitialListFilter`](https://marwanmaher0.github.io/django-rtl-admin/ar/api/#arabic-initial-list-filter)
+لتعريف فئة فرعية وضبط خياراتها.
+
 ## التواريخ الهجرية بتقويم أم القرى
 
 تحتاج مواقع الإدارة في السعودية والخليج إلى تقويم أم القرى، وهو تقويم لا توفّره

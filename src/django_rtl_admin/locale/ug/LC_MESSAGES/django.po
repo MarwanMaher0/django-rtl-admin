@@ -30,6 +30,10 @@ msgstr "تىل"
 msgid "Go"
 msgstr "يۆتكەل"
 
+# Catch-all choice in the Arabic initial list filter.
+msgid "Other"
+msgstr "باشقا"
+
 #: templates/django_rtl_admin/base_site.html
 msgid "Django site admin"
 msgstr "جانگو تور بېكەت باشقۇرغۇچى"

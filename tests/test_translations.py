@@ -26,6 +26,7 @@ SHIPPED_LOCALES = ("ar", "ckb", "fa", "he", "ug", "ur")
 EXPECTED_MSGIDS = {
     "Language",
     "Go",
+    "Other",
     "Django site admin",
     "Django administration",
     "Remove from sorting",

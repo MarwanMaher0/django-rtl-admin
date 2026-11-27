@@ -8,6 +8,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Filter the changelist by the initial of a text field with `arabic_initial_filter()`
+  or by subclassing `ArabicInitialListFilter`. The sidebar groups equivalent
+  Arabic initials, offers Latin letters and digits by default, and lists only
+  groups present in the admin's queryset for the current request. No mixin is
+  required.
 - Umm al-Qura Hijri calendar support without a new runtime dependency.
   `to_hijri()` converts a Gregorian `date` or `datetime` to a frozen
   `HijriDate` (`year`, `month`, `day`, `month_length`) and `from_hijri()` goes

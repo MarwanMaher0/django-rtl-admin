@@ -326,6 +326,27 @@ def test_arabic_changelist_search_folds_hamza_and_equivalent_forms(open_admin, s
     snapshot(page, "search-folded-ar")
 
 
+def test_arabic_changelist_filters_by_title_initial(open_admin, monkeypatch):
+    from django_rtl_admin import arabic_initial_filter
+    from tests.testapp.admin import BookAdmin
+
+    monkeypatch.setattr(BookAdmin, "list_filter", (arabic_initial_filter("title"),))
+    page = open_admin(CHANGELIST, lang="ar")
+    assert page.locator("html").get_attribute("lang") == "ar"
+    # Ignore the surrounding bidi isolates but match only the single-letter label.
+    alef = page.locator(
+        "#changelist-filter a[href*='title__initial=']",
+        has_text=re.compile(rf"^[{ISOLATES}\s]*ا[{ISOLATES}\s]*$"),
+    )
+    with page.expect_navigation():
+        alef.click()
+
+    titles = page.locator("#result_list tbody tr th a").all_inner_texts()
+    assert sorted(title.strip(ISOLATES + " \n") for title in titles) == sorted(
+        ["الأيام", "ألف ليلة وليلة"]
+    )
+
+
 def test_ar_eg_changelist_localizes_price_digits_when_enabled(open_admin, settings, snapshot):
     settings.RTL_ADMIN = {"LOCALIZE_CHANGELIST_DIGITS": True}
     page = open_admin(CHANGELIST, lang="ar-eg")

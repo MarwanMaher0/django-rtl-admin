@@ -25,6 +25,10 @@ msgstr "اللغة"
 msgid "Go"
 msgstr "نفّذ"
 
+# Catch-all choice in the Arabic initial list filter.
+msgid "Other"
+msgstr "أخرى"
+
 #: templates/django_rtl_admin/base_site.html
 msgid "Django site admin"
 msgstr "إدارة موقع جانغو"
