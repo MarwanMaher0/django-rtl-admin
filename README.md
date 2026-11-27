@@ -330,6 +330,40 @@ locale's numbering system, and the Hijri era suffix is included unless
 `suffix=False`. In templates, use `{{ book.published_on|hijri_date }}` or
 `{{ book.published_on|hijri_date:"short" }}`.
 
+### Normalize and validate regional phone numbers
+
+Admin users in Gulf countries, Egypt, and Jordan regularly type phone numbers
+with Arabic-Indic or Persian digits, spaces, dashes, dots, parentheses, `00` or
+`+` prefixes, local trunk zeros, and copy-pasted bidi controls. Built-in rules
+cover `SA`, `AE`, `KW`, `QA`, `BH`, `OM`, `EG`, and `JO` with no extra runtime
+dependency; if the optional `phonenumbers` package is installed, it is used
+instead:
+
+```python
+from django import forms
+
+from django_rtl_admin import (
+    PhoneNumberField,
+    format_phone_display,
+    normalize_phone,
+    validate_phone,
+)
+
+assert normalize_phone("٠٥٠ ١٢٣-٤٥٦٧") == "+966501234567"
+assert normalize_phone("00971 50 123 4567") == "+971501234567"
+validate_phone("+20 10 1234 5678", regions=("EG", "SA"), mobile_only=True)
+
+
+class CustomerForm(forms.Form):
+    phone = PhoneNumberField(default_region="SA")
+```
+
+`PhoneNumberField` cleans valid input to E.164 and renders an input with
+`dir="ltr"`, `inputmode="tel"`, and `autocomplete="tel"`. In templates,
+`{{ customer.phone|phone_display }}` groups E.164 numbers by country and wraps
+them in Unicode LTR isolation so they read cleanly inside Arabic prose. See
+[Phone numbers](https://marwanmaher0.github.io/django-rtl-admin/api/#phone-numbers).
+
 ---
 
 ## What you get
@@ -515,6 +549,7 @@ invalid choice at runtime also raises `ImproperlyConfigured`.
 | `l10n_datetime` | `{{ dt\|l10n_datetime }}` | |
 | `l10n_time` | `{{ t\|l10n_time }}` | |
 | `local_digits` | `{{ "REF-2024"\|local_digits }}` | Rewrite digits in a ready-made string. |
+| `phone_display` | `{{ customer.phone\|phone_display }}` | Group an E.164 phone number by country and wrap it in Unicode LTR isolation. |
 | `rtl_admin_accessible_viewport` | `{{ block.super\|rtl_admin_accessible_viewport }}` | Remove the stock viewport's pinch-zoom restrictions while preserving the rest of the responsive block. |
 | `rtl_admin_result_object` | `{{ cl.result_list\|rtl_admin_result_object:forloop.counter0 }}` | Return the changelist object at the supplied zero-based index. |
 | `rtl_admin_action_label` | `{{ item\|rtl_admin_action_label:object }}` | Add an escaped, translated accessible name to a stock changelist action checkbox. |
@@ -572,6 +607,10 @@ from django_rtl_admin import (
     from_hijri,
     to_hijri,
     HijriDate,
+    normalize_phone,
+    validate_phone,
+    format_phone_display,
+    PhoneNumberField,
     export_as_csv,
     make_csv_export_action,
     rtl_settings,

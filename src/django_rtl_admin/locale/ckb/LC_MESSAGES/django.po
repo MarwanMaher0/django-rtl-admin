@@ -138,3 +138,21 @@ msgstr "%s تب"
 msgctxt "file size"
 msgid "%s PB"
 msgstr "%s پب"
+
+#: phones.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgid "Enter a valid phone number."
+msgstr "ژمارەیەکی تەلەفۆنی دروست بنووسە."
+
+#: phones.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgid "Enter a valid mobile phone number."
+msgstr "ژمارەیەکی مۆبایلی دروست بنووسە."
+
+#: phones.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgid "Phone numbers from this region are not allowed."
+msgstr "ژمارە تەلەفۆنەکانی ئەم ناوچەیە ڕێگەپێدراو نین."

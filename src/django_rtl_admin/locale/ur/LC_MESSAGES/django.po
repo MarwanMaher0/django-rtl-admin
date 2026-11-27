@@ -146,3 +146,21 @@ msgstr "%s ٹ ۔ ب"
 msgctxt "file size"
 msgid "%s PB"
 msgstr "%s پ ۔ ب"
+
+#: phones.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgid "Enter a valid phone number."
+msgstr "درست فون نمبر درج کریں۔"
+
+#: phones.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgid "Enter a valid mobile phone number."
+msgstr "درست موبائل فون نمبر درج کریں۔"
+
+#: phones.py
+# TRANSLATORS: translated without a native reviewer; please verify and
+# improve this wording in a follow-up contribution.
+msgid "Phone numbers from this region are not allowed."
+msgstr "اس خطے کے فون نمبرز کی اجازت نہیں ہے۔"

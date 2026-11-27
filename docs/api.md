@@ -399,3 +399,73 @@ filename with a UTF-8 BOM by default. Each factory action gets a distinct
       members:
         - export_as_csv
         - make_csv_export_action
+
+
+## Phone numbers { #phone-numbers }
+
+`normalize_phone(value, *, default_region="SA")` normalizes regional phone input
+to E.164 (for example `"+966501234567"`), and `validate_phone(value, *,
+regions=None, mobile_only=False)` raises `django.core.exceptions.ValidationError`
+with a translated error message when the number is invalid, from a disallowed
+region, or a landline when `mobile_only=True`.
+
+Both helpers convert Arabic-Indic (`٠١٢٣٤٥٦٧٨٩`) and Persian (`۰۱۲۳۴۵۶۷۸۹`)
+digits with `transliterate_digits()`, strip Unicode `Bidi_Control` characters,
+whitespace, dashes, dots, and parentheses, accept `+` and `00` international
+prefixes as well as the local trunk `0`, and reject letters.
+
+Without any extra runtime dependency, built-in numbering rules cover Saudi
+Arabia (`SA`, `+966`), the United Arab Emirates (`AE`, `+971`), Kuwait (`KW`,
+`+965`), Qatar (`QA`, `+974`), Bahrain (`BH`, `+973`), Oman (`OM`, `+968`),
+Egypt (`EG`, `+20`), and Jordan (`JO`, `+962`). If the optional `phonenumbers`
+package (`pip install phonenumbers`) is installed, `normalize_phone()`,
+`validate_phone()`, and `format_phone_display()` delegate parsing, validation,
+and international grouping to it instead after the same digit transliteration,
+bidi stripping, and letter rejection.
+
+```python
+from django_rtl_admin import (
+    PhoneNumberField,
+    format_phone_display,
+    normalize_phone,
+    validate_phone,
+)
+
+assert normalize_phone("٠٥٠ ١٢٣-٤٥٦٧") == "+966501234567"
+assert normalize_phone("۰۰۹۷۱ ۵۰ ۱۲۳ ۴۵۶۷") == "+971501234567"
+assert normalize_phone("010 1234 5678", default_region="EG") == "+201012345678"
+validate_phone("+962 79 123 4567", regions=("JO", "SA"), mobile_only=True)
+display = format_phone_display("+966501234567")
+```
+
+For Django forms and `ModelAdmin` change forms, `PhoneNumberField` (a
+`forms.CharField` subclass) cleans valid numbers to E.164, accepts
+`default_region`, `regions`, and `mobile_only`, and renders its text input with
+`dir="ltr"`, `inputmode="tel"`, and `autocomplete="tel"`:
+
+```python
+from django import forms
+
+from django_rtl_admin import PhoneNumberField
+
+
+class CustomerForm(forms.Form):
+    phone = PhoneNumberField(default_region="SA", mobile_only=True)
+```
+
+In templates, use the `phone_display` filter from `{% load rtl_admin %}` to
+render E.164 numbers grouped by country and wrapped in LTR isolation:
+
+```django
+{% load rtl_admin %}
+{{ customer.phone|phone_display }}
+```
+
+::: django_rtl_admin.phones
+    options:
+      heading_level: 3
+      members:
+        - normalize_phone
+        - validate_phone
+        - format_phone_display
+        - PhoneNumberField

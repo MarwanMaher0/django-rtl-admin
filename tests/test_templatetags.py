@@ -33,6 +33,7 @@ EXPECTED_FILTERS = {
     "l10n_datetime",
     "l10n_time",
     "local_digits",
+    "phone_display",
     "rtl_admin_accessible_viewport",
     "rtl_admin_result_object",
     "rtl_admin_action_label",

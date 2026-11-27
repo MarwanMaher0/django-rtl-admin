@@ -11,7 +11,7 @@ Load the library in each Django template that uses it:
 {% load rtl_admin %}
 ```
 
-The library contains 17 filters and 9 tags. Examples below assume it is loaded
+The library contains 19 filters and 9 tags. Examples below assume it is loaded
 and that variables come from the template context. Number examples use numeric
 values or numeric strings; date/time examples use Python date, datetime, or time
 objects. See [Configuration](configuration.md) for shared defaults and the
@@ -244,6 +244,26 @@ With automatic numerals in `ar-eg`, this renders `REF-٢٠٢٤`. Conversion reco
 Latin, Arabic-Indic, and extended Arabic-Indic input digits. `None` renders empty;
 nonnumeric text passes through unchanged, as does the original value if conversion
 fails.
+
+### `phone_display`
+
+Format an E.164 phone number grouped by country and wrapped in Unicode LTR
+isolation (`U+2066` ... `U+2069`) so the leading `+` and digit groups stay in
+left-to-right order inside Arabic text:
+
+```django
+{{ customer.phone|phone_display }}
+{{ local_phone|phone_display:"SA" }}
+```
+
+For `"+966501234567"`, this renders `⁦+966 50 123 4567⁩`. Built-in grouping
+covers Saudi Arabia (`SA`), the UAE (`AE`), Kuwait (`KW`), Qatar (`QA`), Bahrain
+(`BH`), Oman (`OM`), Egypt (`EG`), and Jordan (`JO`), and delegates to the
+optional `phonenumbers` package when installed. Pass an optional region code to
+normalize a local number before grouping. `None` and empty input render empty;
+unrecognized text is escaped under autoescape and returned wrapped in LTR
+isolation. See [Phone numbers](api.md#phone-numbers) for `normalize_phone()`,
+`validate_phone()`, `format_phone_display()`, and `PhoneNumberField`.
 
 ### Backend differences
 

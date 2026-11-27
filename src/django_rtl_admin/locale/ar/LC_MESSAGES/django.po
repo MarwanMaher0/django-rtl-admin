@@ -395,3 +395,15 @@ msgstr[2] "خلال ثانيتين"
 msgstr[3] "خلال %(num)s ثوانٍ"
 msgstr[4] "خلال %(num)s ثانية"
 msgstr[5] "خلال %(num)s ثانية"
+
+#: phones.py
+msgid "Enter a valid phone number."
+msgstr "أدخل رقم هاتف صحيحًا."
+
+#: phones.py
+msgid "Enter a valid mobile phone number."
+msgstr "أدخل رقم هاتف جوال صحيحًا."
+
+#: phones.py
+msgid "Phone numbers from this region are not allowed."
+msgstr "أرقام الهاتف من هذه المنطقة غير مسموح بها."

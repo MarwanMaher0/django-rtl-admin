@@ -20,7 +20,7 @@ from django.utils.translation import get_language, get_language_info
 from django.utils.translation import gettext as _
 
 from .. import bidi as bidi_module
-from .. import formatting
+from .. import formatting, phones
 from ..conf import rtl_settings
 
 if TYPE_CHECKING:
@@ -253,6 +253,26 @@ def local_digits(value: Any) -> Any:
         return formatting.transliterate_digits(str(value), formatting.numbering_system())
     except (TypeError, ValueError):
         return value
+
+
+@register.filter(name="phone_display", is_safe=True, needs_autoescape=True)
+def phone_display(
+    value: Any, default_region: str | None = None, autoescape: bool = True
+) -> SafeString:
+    """Format an E.164 phone number grouped by country and wrapped in LTR isolation.
+
+    ``{{ contact.phone|phone_display }}`` formats ``"+966501234567"`` as
+    ``"\\u2066+966 50 123 4567\\u2069"`` so the leading ``+`` and digit groups
+    read left-to-right inside Arabic text.  An optional region code lets the
+    filter normalize local numbers before grouping.
+    """
+    if value is None or value == "":
+        return mark_safe("")
+    region = default_region if isinstance(default_region, str) and default_region.strip() else None
+    formatted = phones._format_phone_text(value, default_region=region)
+    if not formatted:
+        return mark_safe("")
+    return bidi_module.mark_isolated(formatted, direction="ltr", autoescape=autoescape)
 
 
 # ---------------------------------------------------------------------------

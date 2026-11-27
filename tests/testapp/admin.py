@@ -1,9 +1,9 @@
 from django import forms
 from django.contrib import admin, messages
 
-from django_rtl_admin import BidiSafeAdminMixin, export_as_csv
+from django_rtl_admin import BidiSafeAdminMixin, PhoneNumberField, export_as_csv
 
-from .models import Article, ArticleSection, Book, Category, Chapter, Review, Thing
+from .models import Article, ArticleSection, Book, Category, Chapter, Contact, Review, Thing
 
 
 class BidiThingAdmin(BidiSafeAdminMixin, admin.ModelAdmin):
@@ -118,3 +118,17 @@ class ArticleAdmin(BidiSafeAdminMixin, admin.ModelAdmin):
         "stock_slug": ("title",),
     }
     inlines = (ArticleSectionInline,)
+
+
+class ContactAdminForm(forms.ModelForm):
+    phone = PhoneNumberField()
+
+    class Meta:
+        model = Contact
+        fields = ("name", "phone")
+
+
+@admin.register(Contact)
+class ContactAdmin(BidiSafeAdminMixin, admin.ModelAdmin):
+    form = ContactAdminForm
+    list_display = ("name", "phone")

@@ -25,6 +25,10 @@ Public API::
         from_hijri,
         to_hijri,
         HijriDate,
+        normalize_phone,
+        validate_phone,
+        format_phone_display,
+        PhoneNumberField,
         export_as_csv,
         make_csv_export_action,
     )
@@ -72,6 +76,12 @@ from .formatting import (
     transliterate_digits,
 )
 from .hijri import HijriDate, from_hijri, to_hijri
+from .phones import (
+    PhoneNumberField,
+    format_phone_display,
+    normalize_phone,
+    validate_phone,
+)
 
 if TYPE_CHECKING:
     # Resolved lazily at runtime (see ``__getattr__``); imported here so type
@@ -115,6 +125,7 @@ __all__ = [
     "ArabicInitialListFilter",
     "BidiSafeAdminMixin",
     "HijriDate",
+    "PhoneNumberField",
     "__version__",
     "arabic_initial_filter",
     "arabic_search_regex",
@@ -130,6 +141,7 @@ __all__ = [
     "format_hijri_date",
     "format_number",
     "format_percent",
+    "format_phone_display",
     "format_time",
     "format_timedelta",
     "from_hijri",
@@ -142,10 +154,12 @@ __all__ = [
     "mark_isolated",
     "mark_isolated_runs",
     "normalize_numeric_input",
+    "normalize_phone",
     "numbering_system",
     "rtl_settings",
     "strip_isolates",
     "text_direction",
     "to_hijri",
     "transliterate_digits",
+    "validate_phone",
 ]

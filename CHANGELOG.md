@@ -13,6 +13,22 @@ All notable changes to this project are documented here. The format follows
   Arabic initials, offers Latin letters and digits by default, and lists only
   groups present in the admin's queryset for the current request. No mixin is
   required.
+- **Regional phone number helpers, form field, and display filter.** New
+  `django_rtl_admin.phones` module exporting `normalize_phone()`,
+  `validate_phone()`, `format_phone_display()`, and `PhoneNumberField` from the
+  package root, plus the `{{ value|phone_display }}` template filter in
+  `{% load rtl_admin %}`. Converts Arabic-Indic and Persian digits via
+  `transliterate_digits()`, strips Unicode bidi control characters, whitespace,
+  dashes, dots, and parentheses, accepts `+` and `00` international prefixes
+  and local trunk zeros, and rejects letters. Built-in numbering rules cover
+  `SA`, `AE`, `KW`, `QA`, `BH`, `OM`, `EG`, and `JO` with no new runtime
+  dependency, while delegating to the optional `phonenumbers` package when
+  installed. `validate_phone()` raises `ValidationError` with translated error
+  messages across all shipped locales (`ar`, `ckb`, `fa`, `he`, `ug`, `ur`) and
+  English. `PhoneNumberField` subclasses `forms.CharField`, cleans to E.164,
+  and renders inputs with `dir="ltr"`, `inputmode="tel"`, and
+  `autocomplete="tel"`. `|phone_display` groups E.164 numbers by country and
+  wraps them in Unicode LTR isolation for Arabic prose.
 - Umm al-Qura Hijri calendar support without a new runtime dependency.
   `to_hijri()` converts a Gregorian `date` or `datetime` to a frozen
   `HijriDate` (`year`, `month`, `day`, `month_length`) and `from_hijri()` goes

@@ -48,6 +48,9 @@ EXPECTED_MSGIDS = {
     "file size\x04%s GB",
     "file size\x04%s TB",
     "file size\x04%s PB",
+    "Enter a valid phone number.",
+    "Enter a valid mobile phone number.",
+    "Phone numbers from this region are not allowed.",
 }
 
 # Duration wording only the Arabic catalog needs: Django's own unit strings

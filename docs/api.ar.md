@@ -387,3 +387,73 @@ ISO 8601 بأرقام ASCII)، ويكتبان التواريخ والتواري�
       members:
         - export_as_csv
         - make_csv_export_action
+
+
+## أرقام الهاتف { #phone-numbers }
+
+تُطبّع الدالة `normalize_phone(value, *, default_region="SA")` أرقام الهاتف
+الإقليمية إلى صيغة E.164 (مثل `"+966501234567"`)، وترفع الدالة
+`validate_phone(value, *, regions=None, mobile_only=False)` الاستثناء
+`django.core.exceptions.ValidationError` برسالة خطأ مترجمة عندما يكون الرقم
+غير صالح، أو من منطقة غير مسموح بها، أو خطًا أرضيًا عند ضبط `mobile_only=True`.
+
+تحوّل الدالتان الأرقام العربية الهندية (`٠١٢٣٤٥٦٧٨٩`) والفارسية (`۰۱۲۳۴۵۶۷۸۹`)
+باستخدام `transliterate_digits()`، وتزيلان محارف `Bidi_Control` في Unicode
+والمسافات والشرطات والنقاط والأقواس، وتقبلان البادئتين الدوليتين `+` و`00`
+والصفر المحلي البادئ `0`، وترفضان الحروف.
+
+ودون أي اعتماد إضافي وقت التشغيل، تغطي القواعد المضمّنة المملكة العربية
+السعودية (`SA`، `+966`)، والإمارات العربية المتحدة (`AE`، `+971`)، والكويت
+(`KW`، `+965`)، وقطر (`QA`، `+974`)، والبحرين (`BH`، `+973`)، وسلطنة عُمان
+(`OM`، `+968`)، ومصر (`EG`، `+20`)، والأردن (`JO`، `+962`). وإذا كانت حزمة
+`phonenumbers` الاختيارية مثبّتة (`pip install phonenumbers`)، تفوّض إليها
+الدوال `normalize_phone()` و`validate_phone()` و`format_phone_display()`
+التحليل والتحقق وتنسيق العرض الدولي بعد تطبيق تحويل الأرقام وإزالة محارف
+التحكم في الاتجاه ورفض الحروف بالطريقة نفسها.
+
+```python
+from django_rtl_admin import (
+    PhoneNumberField,
+    format_phone_display,
+    normalize_phone,
+    validate_phone,
+)
+
+assert normalize_phone("٠٥٠ ١٢٣-٤٥٦٧") == "+966501234567"
+assert normalize_phone("۰۰۹۷۱ ۵۰ ۱۲۳ ۴۵۶۷") == "+971501234567"
+assert normalize_phone("010 1234 5678", default_region="EG") == "+201012345678"
+validate_phone("+962 79 123 4567", regions=("JO", "SA"), mobile_only=True)
+display = format_phone_display("+966501234567")
+```
+
+ولنماذج Django ونماذج التعديل في `ModelAdmin`، يُنظّف الحقل `PhoneNumberField`
+(المشتق من `forms.CharField`) الأرقام الصالحة إلى صيغة E.164، ويقبل المعاملات
+`default_region` و`regions` و`mobile_only`، ويعرض حقل الإدخال النصي بالسمات
+`dir="ltr"` و`inputmode="tel"` و`autocomplete="tel"`:
+
+```python
+from django import forms
+
+from django_rtl_admin import PhoneNumberField
+
+
+class CustomerForm(forms.Form):
+    phone = PhoneNumberField(default_region="SA", mobile_only=True)
+```
+
+وفي القوالب، استخدم المرشح `phone_display` بعد `{% load rtl_admin %}` لعرض
+أرقام E.164 مجمّعةً بحسب الدولة ومحاطةً بعزل من اليسار إلى اليمين (LTR):
+
+```django
+{% load rtl_admin %}
+{{ customer.phone|phone_display }}
+```
+
+::: django_rtl_admin.phones
+    options:
+      heading_level: 3
+      members:
+        - normalize_phone
+        - validate_phone
+        - format_phone_display
+        - PhoneNumberField

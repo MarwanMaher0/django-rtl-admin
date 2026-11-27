@@ -108,3 +108,37 @@ header="verbose", bom=True, delimiter=",")` لتخصيص الأعمدة أو ا�
 (تُرمَّز الأسماء العربية وفق RFC 6266) أو الأرقام المحلية أو رؤوس الأعمدة
 أو الفاصل. صلاحية العرض مطلوبة. انظر
 [تصدير CSV](https://marwanmaher0.github.io/django-rtl-admin/ar/admin-mixin/#csv-export).
+
+## تطبيع أرقام الهاتف والتحقق منها
+
+يدخل مستخدمو لوحة الإدارة في دول الخليج ومصر والأردن أرقام الهاتف بأرقام
+عربية هندية أو فارسية مع مسافات وشرطات ونقاط وأقواس وبادئات `00` أو `+`
+وأصفار محلية ومحارف تحكم ثنائية الاتجاه. تتضمن الحزمة قواعد مضمّنة للسعودية
+(`SA`) والإمارات (`AE`) والكويت (`KW`) وقطر (`QA`) والبحرين (`BH`) وعُمان
+(`OM`) ومصر (`EG`) والأردن (`JO`) دون أي اعتماد إضافي وقت التشغيل، وتستخدم
+حزمة `phonenumbers` الاختيارية تلقائيًا عند تثبيتها:
+
+```python
+from django import forms
+
+from django_rtl_admin import (
+    PhoneNumberField,
+    format_phone_display,
+    normalize_phone,
+    validate_phone,
+)
+
+assert normalize_phone("٠٥٠ ١٢٣-٤٥٦٧") == "+966501234567"
+assert normalize_phone("00971 50 123 4567") == "+971501234567"
+validate_phone("+20 10 1234 5678", regions=("EG", "SA"), mobile_only=True)
+
+
+class CustomerForm(forms.Form):
+    phone = PhoneNumberField(default_region="SA")
+```
+
+ينظّف الحقل `PhoneNumberField` المدخلات الصالحة إلى صيغة E.164، ويعرض حقل
+الإدخال بالسمات `dir="ltr"` و`inputmode="tel"` و`autocomplete="tel"`. وفي
+القوالب، يجمّع المرشح `{{ customer.phone|phone_display }}` أرقام E.164 بحسب
+الدولة ويحيطها بعزل LTR لتظهر صحيحةً داخل النص العربي. راجع
+[أرقام الهاتف](https://marwanmaher0.github.io/django-rtl-admin/ar/api/#phone-numbers).
